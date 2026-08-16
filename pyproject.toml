@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "macrofactor-workout-bridge"
+version = "0.1.0"
+description = "Safely copy MacroFactor workout results into a coach Excel workbook."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Joshua Wyadao" }]
+dependencies = []
+
+[project.scripts]
+macrofactor-bridge = "macrofactor_bridge.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
