@@ -1,6 +1,6 @@
 # MacroFactor Workout Bridge
 
-MacroFactor Workout Bridge is a conservative local Python application that copies completed workout results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook.
+MacroFactor Workout Bridge is a conservative local macOS application that copies completed workout results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook. It includes a double-clickable graphical app and an optional command-line interface.
 
 The MVP supports only this direction:
 
@@ -24,14 +24,50 @@ It does not create or import MacroFactor programs.
 
 The application never changes the MacroFactor export.
 
-## Requirements
+## Use the macOS app
 
-- Python 3.11 or newer
-- No runtime Python dependencies
+The local build is at:
+
+```text
+dist/MacroFactor Workout Bridge.app
+```
+
+Open Finder, navigate to `dist`, and double-click **MacroFactor Workout Bridge**. The app is self-contained; using it does not require Python or Terminal.
+
+The app walks through one screen:
+
+1. Choose the MacroFactor `.csv` or `.xlsx` exercise-log export.
+2. Choose the coach `.xlsx` workbook.
+3. Use the bundled exercise mapping, or save an editable JSON copy and select it.
+4. Click **Discover**, then select the worksheet and coach week.
+5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that any absent workout was skipped.
+6. Click **Preview workbook changes** and inspect both the proposed-change table and **Review needed** panel.
+7. Click **Create safe workbook copy…** and choose a new `.xlsx` filename.
+8. Optionally save the full review and validation report as JSON.
+
+The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file in Documents, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
+
+### macOS security note
+
+The local app is ad-hoc signed and verified by the build script. Because it is built directly on this Mac, it should open normally. A copied or downloaded build is not Apple-notarized; if macOS blocks it, Control-click the app, choose **Open**, then confirm **Open**. Developer ID signing and notarization are outside this MVP.
+
+## App requirements
+
+- macOS 13 or newer on Apple silicon
 - A MacroFactor exercise-log export in `.csv` or `.xlsx` format
 - A coach workbook in `.xlsx` format
 
-## Installation
+## Rebuild the macOS app
+
+Building requires Python 3.11 or newer and internet access the first time so the isolated build environment can install PySide6 and PyInstaller:
+
+```bash
+./scripts/build_macos_app.sh
+```
+
+The script creates `dist/MacroFactor Workout Bridge.app`, embeds Python and Qt, generates the app icon, applies an ad-hoc signature, and verifies the bundle. Build environments and app artifacts are excluded from Git.
+
+## Optional command-line installation
 
 From the repository root:
 
@@ -40,13 +76,13 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
-You can then run `macrofactor-bridge`. Without installation, use:
+The command-line engine has no runtime dependencies. You can then run `macrofactor-bridge`. Without installation, use:
 
 ```bash
 PYTHONPATH=src python3 -m macrofactor_bridge --help
 ```
 
-## Configure exercise mappings
+## Configure exercise mappings from Terminal
 
 Copy the example and edit it locally:
 
@@ -146,9 +182,13 @@ Apply refuses to create an output when there are no proposed writes.
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
+QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v
+QT_QPA_PLATFORM=offscreen \
+  "dist/MacroFactor Workout Bridge.app/Contents/MacOS/MacroFactor Workout Bridge" \
+  --smoke-test
 ```
 
-The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts.
+The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. The GUI test is skipped when the optional PySide6 dependency is not installed; the build-environment run executes it.
 
 ## Known limitations
 
@@ -158,4 +198,5 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - Superset exercises must share one configured target and superset group.
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
+- The `.app` build currently targets Apple silicon and is locally signed but not Apple-notarized.
 - Fuzzy exercise matching and reverse coach-program import are intentionally outside the MVP.
