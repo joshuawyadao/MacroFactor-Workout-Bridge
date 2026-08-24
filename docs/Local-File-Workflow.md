@@ -55,14 +55,14 @@ The archive command copies files; it never moves, changes, or deletes inbox file
 
 ## Version and validation history
 
-The archive command derives names from validated content rather than the uploaded filename. Coach workbooks use their intake date; MacroFactor exports use the first and last workout dates present in the export. Both end with the first twelve characters of the SHA-256 content hash:
+The archive command derives names from validated content rather than the uploaded filename. Every name begins with the UTC upload/intake date so versions are easy to search by when they were added. MacroFactor exports also include the first and last workout dates present in the export. Both file types end with the first twelve characters of the SHA-256 content hash:
 
 ```text
 2026-08-24--Coach-Program--59f565015e32.xlsx
-2026-08-18_to_2026-08-24--MacroFactor-Exercise-Log--a57f84bd0ed1.xlsx
+2026-08-25--2026-08-18_to_2026-08-24--MacroFactor-Exercise-Log--a57f84bd0ed1.xlsx
 ```
 
-Different file contents therefore create distinct versions even when Downloads adds names such as ` (2)` or the same downloaded filename is reused. Dropping identical content again reuses the existing canonical archive copy but still creates a new manifest recording that validation run. The exact original upload name is retained in that manifest for traceability.
+Searching an archive folder for `2026-08-25` finds everything uploaded on that date. Different file contents create distinct versions even when Downloads adds names such as ` (2)` or the same downloaded filename is reused. Dropping identical content again reuses its first upload-dated canonical archive copy but still creates a new manifest recording the later validation run. The exact original upload name and every intake timestamp are retained in manifests for traceability.
 
 The `current/` entries are relative symbolic links, so they do not duplicate the workbook data. The tool updates only links it manages and refuses to overwrite a regular file at one of those names. For MacroFactor, the current link chooses the export with the latest workout date; when two exports end on the same date, it prefers the one with the later starting date. The current coach link chooses the most recently modified validated workbook.
 

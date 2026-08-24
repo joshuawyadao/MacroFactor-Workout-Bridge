@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -115,29 +116,39 @@ def _archive_copy(
             f"Canonical archive name already contains different data: {destination}"
         )
 
-    existing = sorted(archive_directory.glob(f"*--{hash_label}{suffix}"))
+    existing = [
+        candidate
+        for candidate in sorted(archive_directory.glob(f"*--{hash_label}{suffix}"))
+        if file_sha256(candidate) == digest
+    ]
     for candidate in existing:
-        if file_sha256(candidate) == digest:
-            if (
-                "--Coach-Program--" in candidate.name
-                or "--MacroFactor-Exercise-Log--" in candidate.name
-            ):
-                return candidate, True
-            try:
-                destination.hardlink_to(candidate)
-            except OSError:
-                shutil.copy2(candidate, destination)
-            if file_sha256(destination) != digest:
-                raise LocalWorkspaceError(
-                    f"Canonical archive link failed hash validation: {destination}"
-                )
-            return destination, True
+        if _has_upload_date_name(candidate.name):
+            return candidate, True
+    if existing:
+        try:
+            destination.hardlink_to(existing[0])
+        except OSError:
+            shutil.copy2(existing[0], destination)
+        if file_sha256(destination) != digest:
+            raise LocalWorkspaceError(
+                f"Canonical archive link failed hash validation: {destination}"
+            )
+        return destination, True
 
     with source.open("rb") as input_handle, destination.open("xb") as output_handle:
         shutil.copyfileobj(input_handle, output_handle)
     if file_sha256(destination) != digest:
         raise LocalWorkspaceError(f"Archived copy failed hash validation: {destination}")
     return destination, False
+
+
+def _has_upload_date_name(name: str) -> bool:
+    coach = r"^\d{4}-\d{2}-\d{2}--Coach-Program--"
+    macrofactor = (
+        r"^\d{4}-\d{2}-\d{2}--\d{4}-\d{2}-\d{2}_to_"
+        r"\d{4}-\d{2}-\d{2}--MacroFactor-Exercise-Log--"
+    )
+    return bool(re.match(coach, name) or re.match(macrofactor, name))
 
 
 def _canonical_archive_name(
@@ -154,7 +165,7 @@ def _canonical_archive_name(
     else:
         first = validation["first_workout"]
         last = validation["last_workout"]
-        label = f"{first}_to_{last}--MacroFactor-Exercise-Log"
+        label = f"{date_label}--{first}_to_{last}--MacroFactor-Exercise-Log"
     return f"{label}--{hash_label}{suffix}"
 
 

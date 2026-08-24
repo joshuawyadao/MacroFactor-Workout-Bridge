@@ -40,7 +40,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace archive \
 PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace status
 ```
 
-Validated coach copies receive intake-date names, while MacroFactor copies receive names based on their workout-date range; both include a content hash. Stable files under `local-data/current/` always point to the versions to select in the app. Every run creates a JSON manifest, identical content is deduplicated, and inbox files are never moved, deleted, renamed, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, weekly routine, privacy rules, and recovery limitations.
+Every validated copy starts with its UTC upload/intake date for easy searching. MacroFactor names also include their workout-date range, and all archive names include a content hash. Stable files under `local-data/current/` always point to the versions to select in the app. Every run creates a JSON manifest, identical content is deduplicated, and inbox files are never moved, deleted, renamed, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, naming examples, weekly routine, privacy rules, and recovery limitations.
 
 ## Use the macOS app
 

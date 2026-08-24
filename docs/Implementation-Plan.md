@@ -1,31 +1,27 @@
 # Plan
 
-Make uploaded filenames irrelevant to the recurring workflow. Derive readable archive names from validated file content, retain each original filename in its manifest, and maintain stable “Current” shortcuts so the desktop app always has an obvious coach workbook and MacroFactor export to open.
+Add the archive intake date to every automatically generated filename so coach and MacroFactor versions can be found by when they were uploaded. Preserve the MacroFactor workout-date range, content hash, stable current shortcuts, and non-destructive handling of original files.
 
 ## Scope
-
-- In: content-derived archive names, stable current-file shortcuts, collision-safe updates, manifest metadata, status output, automated tests, documentation, and migration of the existing local baseline through the updated intake command.
-- Out: renaming or deleting uploaded inbox files, modifying personal workbook contents, cloud synchronization, and choosing an exercise mapping automatically.
+- In: upload-date-prefixed MacroFactor archive names, canonical-name migration behavior, naming tests, workflow documentation, private baseline refresh, and branch save.
+- Out: renaming inbox files, changing stable `current/` shortcut names, modifying workbook contents, and changing how current versions are selected.
 
 ## Action items
-
-- [x] Generate canonical coach and MacroFactor archive names without relying on the uploaded filename.
-- [x] Add stable `current/` shortcuts that safely follow the newest validated coach workbook and workout export.
-- [x] Preserve original upload names and modification timestamps in each manifest and expose the selected current files in status output.
-- [x] Add tests for arbitrary input names, date-derived naming, shortcut updates, deduplication, and overwrite protection.
-- [x] Update the README and local-file workflow guide so no manual renaming is required.
-- [x] Run the updated intake over the private baseline, verify source immutability and Git exclusion, then run the full test and workbook-validation suite.
-- [x] Commit and push the completed changes on the existing feature branch.
+- [x] Prefix MacroFactor canonical archive filenames with the UTC intake/upload date.
+- [x] Keep deduplication stable and migrate legacy canonical archive entries safely without deleting older names.
+- [x] Update naming tests for coach and MacroFactor files, including repeated-content behavior.
+- [x] Update the README and local-file workflow guide with searchable upload-date examples.
+- [x] Refresh the private baseline and verify current links, source hashes, and Git exclusions.
+- [x] Run the complete standard and desktop test suites plus compile and diff checks.
+- [x] Commit and push the completed change on the existing feature branch.
 
 ## Open questions
-
-- None. Coach archives will use the intake date, MacroFactor archives will use their validated workout-date range, and stable current shortcuts will be managed only when they are symbolic links created by this tool.
+- None. “Upload date” will mean the UTC date when the archive command processes the file, formatted as `YYYY-MM-DD` at the start of every archive filename.
 
 ## Verification
-
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 26 tests passed with the optional Qt GUI test skipped as expected.
-- `QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v` — all 26 tests passed, including the GUI and seven local-workspace tests.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 27 tests passed with the optional Qt GUI test skipped as expected.
+- `QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v` — all 27 tests passed, including the GUI and eight local-workspace tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- Private baseline intake — two coach workbooks and two MacroFactor exports validated with no intake errors; canonical archive entries and both stable current links were created.
-- Source immutability — all four inbox SHA-256 hashes matched their pre-intake values; the current links resolve to the selected archive copies with matching hashes.
+- Private baseline refresh — both MacroFactor archive versions gained `2026-08-24` upload-date prefixes; the current link now resolves to the new searchable filename.
+- Source immutability — all four inbox SHA-256 hashes matched before and after the baseline refresh.
 - Privacy — `local-data/` and `config/exercises.local.json` remain Git-ignored and untracked.

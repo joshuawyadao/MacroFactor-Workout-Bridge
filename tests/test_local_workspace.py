@@ -64,7 +64,7 @@ class LocalWorkspaceTests(unittest.TestCase):
             )
             self.assertRegex(
                 export_archive.name,
-                rf"^{export_validation['first_workout']}_to_"
+                rf"^2026-08-24--{export_validation['first_workout']}_to_"
                 rf"{export_validation['last_workout']}--MacroFactor-Exercise-Log--"
                 r"[0-9a-f]{12}\.xlsx$",
             )
@@ -136,6 +136,28 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertFalse(
                 (root / "current" / "MacroFactor Exercise Log - Current.xlsx").exists()
             )
+
+    def test_legacy_macrofactor_archive_gets_upload_date_name_safely(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            source = root / "inbox" / "macrofactor" / "download.xlsx"
+            source.write_bytes((FIXTURES / "macrofactor-log.xlsx").read_bytes())
+            digest = file_sha256(source)
+            legacy = root / "archive" / "macrofactor" / (
+                "2026-08-03_to_2026-08-09--MacroFactor-Exercise-Log--"
+                f"{digest[:12]}.xlsx"
+            )
+            legacy.write_bytes(source.read_bytes())
+
+            result = archive_inbox(root, CONFIG, now=NOW)
+
+            entry = result["entries"][0]
+            migrated = Path(entry["archive"])
+            self.assertTrue(entry["deduplicated"])
+            self.assertTrue(migrated.name.startswith("2026-08-24--2026-08-03_to_"))
+            self.assertEqual(file_sha256(migrated), digest)
+            self.assertTrue(legacy.exists())
 
     def test_current_regular_file_is_never_overwritten(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
