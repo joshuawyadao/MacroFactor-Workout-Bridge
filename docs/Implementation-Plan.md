@@ -1,32 +1,31 @@
 # Plan
 
-Add a private local workspace where recurring MacroFactor exports and coach workbooks can be dropped, validated, and copied into a dated, hash-addressed history. Personal inputs, manifests, and generated workbooks will stay outside Git, while a reusable setup/archive command and documentation make the workflow repeatable.
+Make uploaded filenames irrelevant to the recurring workflow. Derive readable archive names from validated file content, retain each original filename in its manifest, and maintain stable “Current” shortcuts so the desktop app always has an obvious coach workbook and MacroFactor export to open.
 
 ## Scope
 
-- In: ignored intake/archive/output directories, non-destructive input validation, content-hash version names, JSON manifests, latest-version status, automated tests, and user documentation.
-- Out: committing personal files, deleting or moving inbox files, cloud backup, live MacroFactor synchronization, automatically modifying coach workbooks, and changing the completed MVP branch.
+- In: content-derived archive names, stable current-file shortcuts, collision-safe updates, manifest metadata, status output, automated tests, documentation, and migration of the existing local baseline through the updated intake command.
+- Out: renaming or deleting uploaded inbox files, modifying personal workbook contents, cloud synchronization, and choosing an exercise mapping automatically.
 
 ## Action items
 
-- [x] Add a local-workspace module and command that creates the standard private directory structure.
-- [x] Validate coach `.xlsx` files and MacroFactor `.csv`/`.xlsx` exports before archiving them.
-- [x] Copy valid inputs into immutable-style dated/hash-named archive paths without overwriting or removing inbox files.
-- [x] Write a manifest for each intake run with hashes, source metadata, validation summaries, and archive locations.
-- [x] Add status output that identifies the newest archived coach workbook and MacroFactor export for the desktop workflow.
-- [x] Exclude the entire local workspace from Git and initialize the requested folders locally.
-- [x] Add automated tests for setup, validation, archival, deduplication, manifests, and source immutability.
-- [x] Document the recurring drop, archive, preview, and generated-output workflow in the README and a focused guide.
-- [x] Run the complete test suite, update this plan with verification results, and commit and push the new feature branch.
+- [x] Generate canonical coach and MacroFactor archive names without relying on the uploaded filename.
+- [x] Add stable `current/` shortcuts that safely follow the newest validated coach workbook and workout export.
+- [x] Preserve original upload names and modification timestamps in each manifest and expose the selected current files in status output.
+- [x] Add tests for arbitrary input names, date-derived naming, shortcut updates, deduplication, and overwrite protection.
+- [x] Update the README and local-file workflow guide so no manual renaming is required.
+- [x] Run the updated intake over the private baseline, verify source immutability and Git exclusion, then run the full test and workbook-validation suite.
+- [x] Commit and push the completed changes on the existing feature branch.
 
 ## Open questions
 
-- None. The workflow will default to `local-data/`, copy rather than move inputs, and use local manifests as validation history rather than placing personal files in Git.
+- None. Coach archives will use the intake date, MacroFactor archives will use their validated workout-date range, and stable current shortcuts will be managed only when they are symbolic links created by this tool.
 
 ## Verification
 
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 23 tests passed; the optional Qt GUI test skipped as intended without desktop dependencies.
-- `QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v` — all 24 tests passed, including the GUI workflow and five new local-workspace tests.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 26 tests passed with the optional Qt GUI test skipped as expected.
+- `QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v` — all 26 tests passed, including the GUI and seven local-workspace tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- Local baseline intake — the existing coach workbook plus XLSX and all-time CSV exercise logs were copied from Downloads, validated, archived with SHA-256 names, and recorded in a zero-error manifest.
-- Privacy verification — `local-data/` and `config/exercises.local.json` are ignored by Git; no personal input, archive, manifest, report, or generated workbook is staged.
+- Private baseline intake — two coach workbooks and two MacroFactor exports validated with no intake errors; canonical archive entries and both stable current links were created.
+- Source immutability — all four inbox SHA-256 hashes matched their pre-intake values; the current links resolve to the selected archive copies with matching hashes.
+- Privacy — `local-data/` and `config/exercises.local.json` remain Git-ignored and untracked.

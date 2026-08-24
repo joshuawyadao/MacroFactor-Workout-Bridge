@@ -26,17 +26,18 @@ class LocalWorkspaceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
             created = setup_workspace(root)
-            self.assertEqual(len(created), 7)
+            self.assertEqual(len(created), 8)
             self.assertTrue((root / "inbox" / "coach").is_dir())
             self.assertTrue((root / "archive" / "macrofactor").is_dir())
+            self.assertTrue((root / "current").is_dir())
             self.assertTrue((root / "generated" / "reports").is_dir())
 
     def test_archive_validates_copies_manifests_and_preserves_sources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
             setup_workspace(root)
-            coach = root / "inbox" / "coach" / "coach.xlsx"
-            export = root / "inbox" / "macrofactor" / "log.xlsx"
+            coach = root / "inbox" / "coach" / "download (17).xlsx"
+            export = root / "inbox" / "macrofactor" / "export-final-FINAL.xlsx"
             coach.write_bytes((FIXTURES / "coach-template.xlsx").read_bytes())
             export.write_bytes((FIXTURES / "macrofactor-log.xlsx").read_bytes())
             source_hashes = (file_sha256(coach), file_sha256(export))
@@ -50,13 +51,40 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertTrue(export.exists())
             archived = [Path(entry["archive"]) for entry in result["entries"]]
             self.assertTrue(all(path.exists() for path in archived))
-            self.assertTrue(all("2026-08-24--" in path.name for path in archived))
+            coach_archive = next(path for path in archived if path.parent.name == "coach")
+            export_archive = next(path for path in archived if path.parent.name == "macrofactor")
+            self.assertRegex(
+                coach_archive.name,
+                r"^2026-08-24--Coach-Program--[0-9a-f]{12}\.xlsx$",
+            )
+            export_validation = next(
+                entry["validation"]
+                for entry in result["entries"]
+                if entry["kind"] == "macrofactor"
+            )
+            self.assertRegex(
+                export_archive.name,
+                rf"^{export_validation['first_workout']}_to_"
+                rf"{export_validation['last_workout']}--MacroFactor-Exercise-Log--"
+                r"[0-9a-f]{12}\.xlsx$",
+            )
             payload = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
-            self.assertEqual(payload["schema_version"], 1)
-            export_entry = next(item for item in payload["entries"] if item["kind"] == "macrofactor")
+            self.assertEqual(payload["schema_version"], 2)
+            export_entry = next(
+                item for item in payload["entries"] if item["kind"] == "macrofactor"
+            )
             self.assertEqual(export_entry["validation"]["row_count"], 18)
-            coach_entry = next(item for item in payload["entries"] if item["kind"] == "coach")
+            self.assertEqual(export_entry["original_name"], "export-final-FINAL.xlsx")
+            coach_entry = next(
+                item for item in payload["entries"] if item["kind"] == "coach"
+            )
             self.assertGreaterEqual(coach_entry["validation"]["usable_sheet_count"], 1)
+            current_coach = root / "current" / "Coach Program - Current.xlsx"
+            current_export = root / "current" / "MacroFactor Exercise Log - Current.xlsx"
+            self.assertTrue(current_coach.is_symlink())
+            self.assertTrue(current_export.is_symlink())
+            self.assertEqual(current_coach.resolve(), coach_archive)
+            self.assertEqual(current_export.resolve(), export_archive)
 
     def test_repeated_content_is_deduplicated_but_each_run_gets_a_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -73,6 +101,56 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertNotEqual(first["manifest"], second["manifest"])
             status = latest_archives(root)
             self.assertEqual(status["macrofactor"]["ingested_at"], later.isoformat())
+            self.assertEqual(
+                status["macrofactor"]["current"],
+                str(root.resolve() / "current" / "MacroFactor Exercise Log - Current.xlsx"),
+            )
+
+    def test_newer_export_updates_current_link_without_renaming_upload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            original = root / "inbox" / "macrofactor" / "Macrofactor Export.xlsx"
+            original.write_bytes((FIXTURES / "macrofactor-log.xlsx").read_bytes())
+            first = archive_inbox(root, CONFIG, now=NOW)
+            first_archive = Path(first["entries"][0]["archive"])
+
+            newer = root / "inbox" / "macrofactor" / "exercise_data (3).csv"
+            newer.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2099-01-08,Upper,Press,Normal,100,8\n",
+                encoding="utf-8",
+            )
+            second = archive_inbox(
+                root,
+                CONFIG,
+                now=datetime(2026, 8, 25, 20, 15, tzinfo=timezone.utc),
+            )
+
+            current = root / "current" / "MacroFactor Exercise Log - Current.csv"
+            selected = second["current"]["macrofactor"]
+            self.assertTrue(current.is_symlink())
+            self.assertEqual(current.resolve(), Path(selected["archive"]))
+            self.assertIn("2099-01-08_to_2099-01-08", current.resolve().name)
+            self.assertTrue(first_archive.exists())
+            self.assertFalse(
+                (root / "current" / "MacroFactor Exercise Log - Current.xlsx").exists()
+            )
+
+    def test_current_regular_file_is_never_overwritten(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            protected = root / "current" / "Coach Program - Current.xlsx"
+            protected.write_bytes(b"personal file")
+            coach = root / "inbox" / "coach" / "anything.xlsx"
+            coach.write_bytes((FIXTURES / "coach-template.xlsx").read_bytes())
+
+            result = archive_inbox(root, CONFIG, now=NOW)
+
+            self.assertEqual(protected.read_bytes(), b"personal file")
+            self.assertEqual(len(result["errors"]), 1)
+            self.assertEqual(result["errors"][0]["kind"], "current")
 
     def test_invalid_or_unsupported_inputs_are_reported_and_not_archived(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

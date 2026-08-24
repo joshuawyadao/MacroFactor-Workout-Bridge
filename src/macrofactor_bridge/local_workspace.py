@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+import os
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -21,6 +21,7 @@ DIRECTORIES = (
     "inbox/macrofactor",
     "archive/coach",
     "archive/macrofactor",
+    "current",
     "generated/workbooks",
     "generated/reports",
     "manifests",
@@ -44,11 +45,6 @@ def setup_workspace(root: str | Path) -> tuple[Path, ...]:
 def default_config_path() -> Path:
     local = Path.cwd() / "config" / "exercises.local.json"
     return local if local.is_file() else bundled_config_path()
-
-
-def _safe_stem(value: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip()).strip("-.")
-    return safe or "input"
 
 
 def _validate_coach(path: Path, config_path: Path) -> dict[str, Any]:
@@ -107,26 +103,152 @@ def _archive_copy(
     source: Path,
     archive_directory: Path,
     digest: str,
-    date_label: str,
+    canonical_name: str,
 ) -> tuple[Path, bool]:
     suffix = source.suffix.lower()
     hash_label = digest[:12]
+    destination = archive_directory / canonical_name
+    if destination.exists():
+        if file_sha256(destination) == digest:
+            return destination, True
+        raise LocalWorkspaceError(
+            f"Canonical archive name already contains different data: {destination}"
+        )
+
     existing = sorted(archive_directory.glob(f"*--{hash_label}{suffix}"))
     for candidate in existing:
         if file_sha256(candidate) == digest:
-            return candidate, True
+            if (
+                "--Coach-Program--" in candidate.name
+                or "--MacroFactor-Exercise-Log--" in candidate.name
+            ):
+                return candidate, True
+            try:
+                destination.hardlink_to(candidate)
+            except OSError:
+                shutil.copy2(candidate, destination)
+            if file_sha256(destination) != digest:
+                raise LocalWorkspaceError(
+                    f"Canonical archive link failed hash validation: {destination}"
+                )
+            return destination, True
 
-    base = f"{date_label}--{_safe_stem(source.stem)}--{hash_label}"
-    destination = archive_directory / f"{base}{suffix}"
-    counter = 2
-    while destination.exists():
-        destination = archive_directory / f"{base}-{counter}{suffix}"
-        counter += 1
     with source.open("rb") as input_handle, destination.open("xb") as output_handle:
         shutil.copyfileobj(input_handle, output_handle)
     if file_sha256(destination) != digest:
         raise LocalWorkspaceError(f"Archived copy failed hash validation: {destination}")
     return destination, False
+
+
+def _canonical_archive_name(
+    kind: str,
+    source: Path,
+    digest: str,
+    date_label: str,
+    validation: dict[str, Any],
+) -> str:
+    suffix = source.suffix.lower()
+    hash_label = digest[:12]
+    if kind == "coach":
+        label = f"{date_label}--Coach-Program"
+    else:
+        first = validation["first_workout"]
+        last = validation["last_workout"]
+        label = f"{first}_to_{last}--MacroFactor-Exercise-Log"
+    return f"{label}--{hash_label}{suffix}"
+
+
+def _source_modified_at(source: Path) -> str:
+    modified = datetime.fromtimestamp(source.stat().st_mtime, tz=timezone.utc)
+    return modified.isoformat()
+
+
+def _selected_entry(kind: str, entries: list[dict[str, Any]]) -> dict[str, Any]:
+    if kind == "macrofactor":
+        return max(
+            entries,
+            key=lambda entry: (
+                entry["validation"]["last_workout"],
+                entry["validation"]["first_workout"],
+                entry["source_modified_at"],
+            ),
+        )
+    return max(
+        entries,
+        key=lambda entry: (entry["source_modified_at"], entry["archive"]),
+    )
+
+
+def _replace_current_link(current: Path, archive: Path) -> None:
+    if current.exists() and not current.is_symlink():
+        raise LocalWorkspaceError(
+            f"Refusing to replace a regular file in the managed current directory: {current}"
+        )
+    temporary = current.with_name(f".{current.name}.tmp-{file_sha256(archive)[:12]}")
+    if temporary.exists() or temporary.is_symlink():
+        if not temporary.is_symlink():
+            raise LocalWorkspaceError(
+                f"Refusing to replace an unexpected temporary file: {temporary}"
+            )
+        temporary.unlink()
+    relative_target = os.path.relpath(archive, start=current.parent)
+    temporary.symlink_to(relative_target)
+    temporary.replace(current)
+
+
+def _update_current_files(
+    workspace: Path, entries: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    current_directory = workspace / "current"
+    selected: dict[str, dict[str, Any]] = {}
+    planned: list[tuple[str, dict[str, Any], Path, tuple[Path, ...]]] = []
+    by_kind = {
+        kind: [entry for entry in entries if entry["kind"] == kind]
+        for kind in ("coach", "macrofactor")
+    }
+    for kind, candidates in by_kind.items():
+        if not candidates:
+            continue
+        entry = _selected_entry(kind, candidates)
+        archive = Path(entry["archive"])
+        if kind == "coach":
+            current = current_directory / "Coach Program - Current.xlsx"
+            managed_paths = (current,)
+        else:
+            current = current_directory / (
+                f"MacroFactor Exercise Log - Current{archive.suffix}"
+            )
+            managed_paths = tuple(
+                current_directory / f"MacroFactor Exercise Log - Current{suffix}"
+                for suffix in (".csv", ".xlsx")
+            )
+        planned.append((kind, entry, current, managed_paths))
+
+    for _, _, _, managed_paths in planned:
+        for managed in managed_paths:
+            if (managed.exists() or managed.is_symlink()) and not managed.is_symlink():
+                raise LocalWorkspaceError(
+                    "Refusing to replace a regular file in the managed current directory: "
+                    f"{managed}"
+                )
+
+    for kind, entry, current, managed_paths in planned:
+        archive = Path(entry["archive"])
+        if kind == "macrofactor":
+            for alternate in managed_paths:
+                if alternate == current or (
+                    not alternate.exists() and not alternate.is_symlink()
+                ):
+                    continue
+                alternate.unlink()
+        _replace_current_link(current, archive)
+        selected[kind] = {
+            "current": str(current),
+            "archive": entry["archive"],
+            "sha256": entry["sha256"],
+            "validation": entry["validation"],
+        }
+    return selected
 
 
 def archive_inbox(
@@ -141,11 +263,12 @@ def archive_inbox(
     timestamp = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     date_label = timestamp.date().isoformat()
     manifest: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "ingested_at": timestamp.isoformat(),
         "workspace": str(workspace),
         "config": {"path": str(config), "sha256": file_sha256(config)},
         "entries": [],
+        "current": {},
         "errors": [],
     }
     categories = (
@@ -178,8 +301,11 @@ def archive_inbox(
             try:
                 source_hash = file_sha256(source)
                 validation = validator(source)
+                canonical_name = _canonical_archive_name(
+                    kind, source, source_hash, date_label, validation
+                )
                 archived, deduplicated = _archive_copy(
-                    source, archive, source_hash, date_label
+                    source, archive, source_hash, canonical_name
                 )
             except (OSError, ValueError) as exc:
                 manifest["errors"].append(
@@ -190,6 +316,8 @@ def archive_inbox(
                 {
                     "kind": kind,
                     "source": str(source),
+                    "original_name": source.name,
+                    "source_modified_at": _source_modified_at(source),
                     "archive": str(archived),
                     "sha256": source_hash,
                     "bytes": source.stat().st_size,
@@ -197,6 +325,16 @@ def archive_inbox(
                     "validation": validation,
                 }
             )
+    try:
+        manifest["current"] = _update_current_files(workspace, manifest["entries"])
+    except (OSError, ValueError) as exc:
+        manifest["errors"].append(
+            {
+                "kind": "current",
+                "source": str(workspace / "current"),
+                "error": str(exc),
+            }
+        )
     manifest_name = timestamp.strftime("%Y%m%dT%H%M%S%fZ") + "--ingest.json"
     manifest_path = workspace / "manifests" / manifest_name
     with manifest_path.open("x", encoding="utf-8") as handle:
@@ -218,7 +356,16 @@ def latest_archives(root: str | Path) -> dict[str, dict[str, Any] | None]:
         except (OSError, json.JSONDecodeError):
             continue
         ingested_at = payload.get("ingested_at", "")
-        for entry in payload.get("entries", []):
+        current_entries = payload.get("current")
+        if isinstance(current_entries, dict) and current_entries:
+            entries = [
+                {"kind": kind, **entry}
+                for kind, entry in current_entries.items()
+                if isinstance(entry, dict)
+            ]
+        else:
+            entries = payload.get("entries", [])
+        for entry in entries:
             kind = entry.get("kind")
             if kind not in latest:
                 continue
@@ -267,7 +414,16 @@ def main(argv: list[str] | None = None) -> int:
             if entry is None:
                 print(f"{kind}: no archived input")
             else:
-                print(f"{kind}: {entry['archive']} ({entry['ingested_at']})")
+                current = entry.get("current")
+                location = current or entry["archive"]
+                details = ""
+                validation = entry.get("validation", {})
+                if kind == "macrofactor" and validation.get("first_workout"):
+                    details = (
+                        f"; workouts {validation['first_workout']} to "
+                        f"{validation['last_workout']}"
+                    )
+                print(f"{kind}: {location} ({entry['ingested_at']}{details})")
         return 0
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)

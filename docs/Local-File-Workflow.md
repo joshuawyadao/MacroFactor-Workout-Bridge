@@ -10,8 +10,9 @@ local-data/
 │   ├── coach/              # Drop new coach .xlsx workbooks here
 │   └── macrofactor/        # Drop new exercise-log .csv or .xlsx exports here
 ├── archive/
-│   ├── coach/              # Validated, hash-named coach workbook copies
-│   └── macrofactor/        # Validated, hash-named exercise-log copies
+│   ├── coach/              # Validated, consistently named workbook copies
+│   └── macrofactor/        # Validated, date-range-named exercise-log copies
+├── current/                # Stable shortcuts to the inputs the app should use
 ├── generated/
 │   ├── workbooks/          # Save completed coach workbook copies here
 │   └── reports/            # Save preview/apply JSON reports here
@@ -32,8 +33,8 @@ macrofactor-workspace setup
 
 ## Recurring workflow
 
-1. Save the latest coach `.xlsx` file into `local-data/inbox/coach/`.
-2. Export the MacroFactor exercise log and save its `.csv` or `.xlsx` file into `local-data/inbox/macrofactor/`.
+1. Save the latest coach `.xlsx` file into `local-data/inbox/coach/`. Keep whatever filename the download already has.
+2. Export the MacroFactor exercise log and save its `.csv` or `.xlsx` file into `local-data/inbox/macrofactor/`. There is no need to rename it.
 3. Validate and archive everything currently in both inboxes:
 
    ```bash
@@ -47,26 +48,30 @@ macrofactor-workspace setup
    PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace status
    ```
 
-5. Open MacroFactor Workout Bridge and select those archived files. Preview the selected worksheet, week, and explicit workout dates.
+5. Open MacroFactor Workout Bridge and select `current/Coach Program - Current.xlsx` plus `current/MacroFactor Exercise Log - Current.csv` or `.xlsx`. These stable shortcuts are updated by the archive command. Preview the selected worksheet, week, and explicit workout dates.
 6. Save the generated workbook under `local-data/generated/workbooks/` and its JSON report under `local-data/generated/reports/`.
 
 The archive command copies files; it never moves, changes, or deletes inbox files. An invalid file remains in the inbox, is recorded as an error in the run manifest, and is not copied into the archive.
 
 ## Version and validation history
 
-Archive filenames use the intake date, a safe form of the original filename, and the first twelve characters of the SHA-256 content hash:
+The archive command derives names from validated content rather than the uploaded filename. Coach workbooks use their intake date; MacroFactor exports use the first and last workout dates present in the export. Both end with the first twelve characters of the SHA-256 content hash:
 
 ```text
-2026-08-24--Coach_Program--59f565015e32.xlsx
+2026-08-24--Coach-Program--59f565015e32.xlsx
+2026-08-18_to_2026-08-24--MacroFactor-Exercise-Log--a57f84bd0ed1.xlsx
 ```
 
-Different file contents therefore create distinct versions even when the downloaded filename is reused. Dropping identical content again reuses the existing archive copy but still creates a new manifest recording that validation run.
+Different file contents therefore create distinct versions even when Downloads adds names such as ` (2)` or the same downloaded filename is reused. Dropping identical content again reuses the existing canonical archive copy but still creates a new manifest recording that validation run. The exact original upload name is retained in that manifest for traceability.
+
+The `current/` entries are relative symbolic links, so they do not duplicate the workbook data. The tool updates only links it manages and refuses to overwrite a regular file at one of those names. For MacroFactor, the current link chooses the export with the latest workout date; when two exports end on the same date, it prefers the one with the later starting date. The current coach link chooses the most recently modified validated workbook.
 
 Each manifest records:
 
 - the full SHA-256 hash and byte size;
-- the original inbox and archive paths;
+- the original filename, modification time, inbox path, and archive path;
 - whether an existing identical archive copy was reused;
+- the canonical files selected by the stable current shortcuts;
 - coach worksheet, exercise-header, and week discovery;
 - MacroFactor row count, workout date range, and exercise count;
 - validation errors for anything not archived.

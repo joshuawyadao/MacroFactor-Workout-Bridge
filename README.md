@@ -32,7 +32,7 @@ For recurring use, keep personal inputs and generated files under the Git-ignore
 PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace setup
 ```
 
-Drop coach workbooks into `local-data/inbox/coach/` and MacroFactor exercise-log exports into `local-data/inbox/macrofactor/`, then validate and archive them:
+Drop coach workbooks into `local-data/inbox/coach/` and MacroFactor exercise-log exports into `local-data/inbox/macrofactor/`, then validate and archive them. Keep their downloaded names; no manual renaming is needed:
 
 ```bash
 PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace archive \
@@ -40,7 +40,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace archive \
 PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace status
 ```
 
-Validated copies receive intake-date and content-hash filenames, and every run creates a JSON manifest. Identical files are deduplicated; inbox files are never moved, deleted, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, weekly routine, privacy rules, and recovery limitations.
+Validated coach copies receive intake-date names, while MacroFactor copies receive names based on their workout-date range; both include a content hash. Stable files under `local-data/current/` always point to the versions to select in the app. Every run creates a JSON manifest, identical content is deduplicated, and inbox files are never moved, deleted, renamed, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, weekly routine, privacy rules, and recovery limitations.
 
 ## Use the macOS app
 
