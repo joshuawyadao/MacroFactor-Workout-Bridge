@@ -18,6 +18,7 @@ app-build = ["PySide6-Essentials>=6.7,<7", "pyinstaller>=6,<7"]
 
 [project.scripts]
 macrofactor-bridge = "macrofactor_bridge.cli:main"
+macrofactor-workspace = "macrofactor_bridge.local_workspace:main"
 
 [project.gui-scripts]
 macrofactor-bridge-gui = "macrofactor_bridge.desktop:main"

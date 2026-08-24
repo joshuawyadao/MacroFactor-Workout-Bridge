@@ -16,6 +16,7 @@ dist/
 outputs/
 reports/
 config/*.local.json
+/local-data/
 
 # Only the deliberately anonymized test fixtures may be committed.
 !tests/fixtures/*.csv

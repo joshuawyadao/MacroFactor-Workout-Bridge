@@ -24,6 +24,24 @@ It does not create or import MacroFactor programs.
 
 The application never changes the MacroFactor export.
 
+## Private local file workspace
+
+For recurring use, keep personal inputs and generated files under the Git-ignored `local-data/` directory instead of Downloads:
+
+```bash
+PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace setup
+```
+
+Drop coach workbooks into `local-data/inbox/coach/` and MacroFactor exercise-log exports into `local-data/inbox/macrofactor/`, then validate and archive them:
+
+```bash
+PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace archive \
+  --config config/exercises.local.json
+PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace status
+```
+
+Validated copies receive intake-date and content-hash filenames, and every run creates a JSON manifest. Identical files are deduplicated; inbox files are never moved, deleted, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, weekly routine, privacy rules, and recovery limitations.
+
 ## Use the macOS app
 
 The local build is at:
