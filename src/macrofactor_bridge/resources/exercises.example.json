@@ -1,0 +1,59 @@
+{
+  "workbook": {
+    "exercise_header_labels": ["Variation", "Exercise"],
+    "week_header_pattern": "^week\\s*\\d+(?:\\s*\\([^)]*\\))?$"
+  },
+  "exercises": [
+    {
+      "canonical": "Tempo Back Squat",
+      "source_aliases": ["Tempo Back Squat"],
+      "coach_aliases": ["Tempo Squat"]
+    },
+    {
+      "canonical": "Hanging Straight Leg Raise",
+      "source_aliases": ["Hanging Straight Leg Raise"],
+      "coach_aliases": ["Hanging Leg Raise"]
+    },
+    {
+      "canonical": "Plate-Loaded Machine Shoulder Press",
+      "source_aliases": ["Plate-Loaded Machine Shoulder Press"],
+      "coach_aliases": ["Machine Shoulder Press"]
+    },
+    {
+      "canonical": "Pec Deck",
+      "source_aliases": ["Pec Deck"],
+      "coach_aliases": ["Pec Deck Fly"]
+    },
+    {
+      "canonical": "Cable Curl",
+      "source_aliases": ["Cable Curl"],
+      "coach_aliases": ["Arm Superset"],
+      "superset_group": "SS1",
+      "superset_order": 1
+    },
+    {
+      "canonical": "Cable Pressdown",
+      "source_aliases": ["Cable Pressdown"],
+      "coach_aliases": ["Arm Superset"],
+      "superset_group": "SS1",
+      "superset_order": 2
+    },
+    {
+      "canonical": "Dumbbell Walking Lunge",
+      "source_aliases": ["Dumbbell Walking Lunge"],
+      "coach_aliases": ["Walking Lunge"],
+      "weight_multiplier": 0.5,
+      "weight_suffix": "s"
+    },
+    {
+      "canonical": "Ambiguous Movement",
+      "source_aliases": ["Ambiguous Movement"],
+      "coach_aliases": ["Repeated Exercise"]
+    },
+    {
+      "canonical": "Chest Press",
+      "source_aliases": ["Chest Press"],
+      "coach_aliases": ["Chest Press"]
+    }
+  ]
+}
