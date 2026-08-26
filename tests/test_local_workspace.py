@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from macrofactor_bridge.local_workspace import (
@@ -106,6 +108,18 @@ class LocalWorkspaceTests(unittest.TestCase):
                 str(root.resolve() / "current" / "MacroFactor Exercise Log - Current.xlsx"),
             )
 
+    def test_same_day_repeated_content_reuses_the_canonical_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            export = root / "inbox" / "macrofactor" / "log.xlsx"
+            export.write_bytes((FIXTURES / "macrofactor-log.xlsx").read_bytes())
+            first = archive_inbox(root, CONFIG, now=NOW)
+            second = archive_inbox(root, CONFIG, now=NOW + timedelta(hours=1))
+            self.assertFalse(first["entries"][0]["deduplicated"])
+            self.assertTrue(second["entries"][0]["deduplicated"])
+            self.assertEqual(first["entries"][0]["archive"], second["entries"][0]["archive"])
+
     def test_newer_export_updates_current_link_without_renaming_upload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
@@ -185,11 +199,80 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertEqual(len(result["errors"]), 1)
             self.assertFalse(any((root / "archive" / "macrofactor").iterdir()))
 
+    def test_invalid_supported_input_does_not_block_other_valid_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            coach = root / "inbox" / "coach" / "coach.xlsx"
+            coach.write_bytes((FIXTURES / "coach-template.xlsx").read_bytes())
+            invalid_export = root / "inbox" / "macrofactor" / "broken.csv"
+            invalid_export.write_text("Date,Exercise\n2026-08-03,Squat\n", encoding="utf-8")
+
+            result = archive_inbox(root, CONFIG, now=NOW)
+
+            self.assertEqual([entry["kind"] for entry in result["entries"]], ["coach"])
+            self.assertEqual(result["errors"][0]["kind"], "macrofactor")
+            self.assertIn("missing required columns", result["errors"][0]["error"])
+            self.assertTrue(Path(result["entries"][0]["archive"]).exists())
+            self.assertTrue(invalid_export.exists())
+
+    def test_latest_archives_ignores_corrupt_manifests_and_reads_legacy_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            manifests = root / "manifests"
+            (manifests / "20260824T000000000000Z--ingest.json").write_text(
+                "not json", encoding="utf-8"
+            )
+            legacy_path = manifests / "20260824T010000000000Z--ingest.json"
+            legacy_path.write_text(
+                json.dumps(
+                    {
+                        "ingested_at": NOW.isoformat(),
+                        "entries": [
+                            {
+                                "kind": "coach",
+                                "archive": "/archive/coach.xlsx",
+                                "sha256": "abc",
+                                "validation": {"usable_sheet_count": 1},
+                            },
+                            {"kind": "unknown", "archive": "/ignored"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            status = latest_archives(root)
+
+            self.assertEqual(status["coach"]["archive"], "/archive/coach.xlsx")
+            self.assertEqual(Path(status["coach"]["manifest"]).resolve(), legacy_path.resolve())
+            self.assertIsNone(status["macrofactor"])
+
     def test_cli_setup_and_status_are_noninteractive(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
             self.assertEqual(main(["--root", str(root), "setup"]), 0)
             self.assertEqual(main(["--root", str(root), "status"]), 0)
+
+    def test_cli_archive_returns_failure_when_validation_errors_are_manifested(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            invalid_export = root / "inbox" / "macrofactor" / "broken.csv"
+            invalid_export.write_text("Date,Exercise\n2026-08-03,Squat\n", encoding="utf-8")
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(
+                    ["--root", str(root), "archive", "--config", str(CONFIG)]
+                )
+
+            self.assertEqual(exit_code, 2)
+            self.assertIn("Manifest:", stdout.getvalue())
+            self.assertIn("missing required columns", stderr.getvalue())
+            self.assertEqual(len(list((root / "manifests").glob("*--ingest.json"))), 1)
 
 
 if __name__ == "__main__":

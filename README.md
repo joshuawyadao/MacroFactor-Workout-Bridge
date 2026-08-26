@@ -206,7 +206,7 @@ QT_QPA_PLATFORM=offscreen \
   --smoke-test
 ```
 
-The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. The GUI test is skipped when the optional PySide6 dependency is not installed; the build-environment run executes it.
+The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. Negative-path coverage also exercises malformed mappings and exports, stale workbook targets, concurrent source changes, integrity-check failures, workspace recovery, and desktop preview invalidation. GUI tests are skipped when the optional PySide6 dependency is not installed; the build-environment run executes them.
 
 ## Known limitations
 
