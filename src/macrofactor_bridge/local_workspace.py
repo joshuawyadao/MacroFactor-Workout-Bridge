@@ -354,6 +354,10 @@ def archive_inbox(
             try:
                 source_hash = file_sha256(source)
                 validation = validator(source)
+                if file_sha256(source) != source_hash:
+                    raise LocalWorkspaceError(
+                        "Source content changed during validation; retry the archive operation"
+                    )
                 canonical_name = _canonical_archive_name(
                     kind, source, source_hash, date_label, validation
                 )

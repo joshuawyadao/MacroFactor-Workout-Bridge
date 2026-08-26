@@ -7,7 +7,9 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
+from macrofactor_bridge import local_workspace
 from macrofactor_bridge.local_workspace import (
     archive_inbox,
     latest_archives,
@@ -119,6 +121,40 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertFalse(first["entries"][0]["deduplicated"])
             self.assertTrue(second["entries"][0]["deduplicated"])
             self.assertEqual(first["entries"][0]["archive"], second["entries"][0]["archive"])
+
+    def test_source_replaced_during_validation_is_not_archived(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            source = root / "inbox" / "macrofactor" / "log.csv"
+            source.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2026-08-03,Upper,Press,Normal,100,8\n",
+                encoding="utf-8",
+            )
+            original_validator = local_workspace._validate_export
+
+            def replace_after_validation(path: Path) -> dict[str, object]:
+                validation = original_validator(path)
+                replacement = path.with_name("replacement.tmp")
+                replacement.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2099-01-08,Upper,Press,Normal,200,5\n",
+                    encoding="utf-8",
+                )
+                replacement.replace(path)
+                return validation
+
+            with patch(
+                "macrofactor_bridge.local_workspace._validate_export",
+                side_effect=replace_after_validation,
+            ):
+                result = archive_inbox(root, CONFIG, now=NOW)
+
+            self.assertEqual(result["entries"], [])
+            self.assertEqual(result["current"], {})
+            self.assertIn("changed during validation", result["errors"][0]["error"])
+            self.assertFalse(any((root / "archive" / "macrofactor").iterdir()))
 
     def test_newer_export_updates_current_link_without_renaming_upload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
