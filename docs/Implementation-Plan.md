@@ -1,25 +1,25 @@
 # Plan
 
-Resolve the Brooks PR-review finding that an unusable coach workbook can be archived and promoted as the current validated workbook. Make coach discovery a hard validation boundary, add a regression test, and verify the complete workflow before saving the review fix.
+Add the missing GitHub Actions verification gate required to shepherd PR #5 to merge-ready. Mirror the repository's documented desktop-capable test command in a deterministic pull-request workflow, then validate and save the workflow without changing application behavior.
 
 ## Scope
-- In: coach-workbook archive validation, manifest error behavior, current-link protection, regression coverage, verification, commit, and push.
-- Out: changing MacroFactor export validation, exercise matching rules, archive naming, or current-version selection among valid files.
+- In: a `CI Verify` GitHub Actions workflow, Python 3.11 setup, desktop-extra installation, headless full-suite execution, compile validation, diff checking, commit, and push.
+- Out: deployment, app packaging/signing, release automation, coverage thresholds, and branch-protection policy changes.
 
 ## Action items
-- [x] Change `local_workspace._validate_coach` to reject workbooks with no configured exercise header and week labels.
-- [x] Preserve the existing validation metadata shape for usable coach workbooks.
-- [x] Add a regression test proving an unusable `.xlsx` remains in the inbox, is recorded as an error, and is not archived or promoted to `current`.
-- [x] Confirm the existing successful coach-workbook archive and mixed-validity tests still pass.
-- [x] Run targeted tests, both complete standard and Qt suites, compile checks, and `git diff --check`.
-- [x] Commit and push the Brooks review fix to the current PR branch.
+- [x] Add `.github/workflows/ci-verify.yml` for pull requests and pushes to `main`.
+- [x] Install the project with its desktop extra so the three PySide6 GUI tests run rather than skip.
+- [x] Run all unit/integration/GUI tests headlessly and compile `src`, `tests`, and `packaging`.
+- [x] Check the pull-request diff for whitespace errors with full checkout history available.
+- [x] Validate the workflow structure plus the complete local standard and Qt suites.
+- [x] Commit and push the CI workflow to PR #5, then wait for `CI Verify` to reach a terminal passing state.
 
 ## Open questions
-- None. A coach workbook is valid for archival only when the app can discover at least one configured exercise header and week on the same workbook.
+- None. CI will verify the supported Python 3.11 baseline on Ubuntu; macOS app packaging remains covered by the existing local build workflow rather than this PR gate.
 
 ## Verification
-- `PYTHONPATH=src python3 -m unittest tests.test_local_workspace -v` — all 13 local-workspace tests passed.
+- Ruby's YAML parser accepted `.github/workflows/ci-verify.yml`; `actionlint` is not installed locally, so GitHub Actions will provide the authoritative workflow validation.
 - `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 55 tests passed; three optional Qt tests skipped as expected.
 - `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 55 tests passed, including the three GUI tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- `README.md` and `docs/Local-File-Workflow.md` already state that invalid files are not archived, so the code fix restores documented behavior without further documentation changes.
+- The workflow uses read-only repository permissions, a ten-minute timeout, full history for the PR diff check, and no deployment or secret access.
