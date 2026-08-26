@@ -1,27 +1,25 @@
 # Plan
 
-Add the archive intake date to every automatically generated filename so coach and MacroFactor versions can be found by when they were uploaded. Preserve the MacroFactor workout-date range, content hash, stable current shortcuts, and non-destructive handling of original files.
+Resolve the Brooks PR-review finding that an unusable coach workbook can be archived and promoted as the current validated workbook. Make coach discovery a hard validation boundary, add a regression test, and verify the complete workflow before saving the review fix.
 
 ## Scope
-- In: upload-date-prefixed MacroFactor archive names, canonical-name migration behavior, naming tests, workflow documentation, private baseline refresh, and branch save.
-- Out: renaming inbox files, changing stable `current/` shortcut names, modifying workbook contents, and changing how current versions are selected.
+- In: coach-workbook archive validation, manifest error behavior, current-link protection, regression coverage, verification, commit, and push.
+- Out: changing MacroFactor export validation, exercise matching rules, archive naming, or current-version selection among valid files.
 
 ## Action items
-- [x] Prefix MacroFactor canonical archive filenames with the UTC intake/upload date.
-- [x] Keep deduplication stable and migrate legacy canonical archive entries safely without deleting older names.
-- [x] Update naming tests for coach and MacroFactor files, including repeated-content behavior.
-- [x] Update the README and local-file workflow guide with searchable upload-date examples.
-- [x] Refresh the private baseline and verify current links, source hashes, and Git exclusions.
-- [x] Run the complete standard and desktop test suites plus compile and diff checks.
-- [x] Commit and push the completed change on the existing feature branch.
+- [x] Change `local_workspace._validate_coach` to reject workbooks with no configured exercise header and week labels.
+- [x] Preserve the existing validation metadata shape for usable coach workbooks.
+- [x] Add a regression test proving an unusable `.xlsx` remains in the inbox, is recorded as an error, and is not archived or promoted to `current`.
+- [x] Confirm the existing successful coach-workbook archive and mixed-validity tests still pass.
+- [x] Run targeted tests, both complete standard and Qt suites, compile checks, and `git diff --check`.
+- [x] Commit and push the Brooks review fix to the current PR branch.
 
 ## Open questions
-- None. “Upload date” will mean the UTC date when the archive command processes the file, formatted as `YYYY-MM-DD` at the start of every archive filename.
+- None. A coach workbook is valid for archival only when the app can discover at least one configured exercise header and week on the same workbook.
 
 ## Verification
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 27 tests passed with the optional Qt GUI test skipped as expected.
-- `QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v` — all 27 tests passed, including the GUI and eight local-workspace tests.
+- `PYTHONPATH=src python3 -m unittest tests.test_local_workspace -v` — all 13 local-workspace tests passed.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 55 tests passed; three optional Qt tests skipped as expected.
+- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 55 tests passed, including the three GUI tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- Private baseline refresh — both MacroFactor archive versions gained `2026-08-24` upload-date prefixes; the current link now resolves to the new searchable filename.
-- Source immutability — all four inbox SHA-256 hashes matched before and after the baseline refresh.
-- Privacy — `local-data/` and `config/exercises.local.json` remain Git-ignored and untracked.
+- `README.md` and `docs/Local-File-Workflow.md` already state that invalid files are not archived, so the code fix restores documented behavior without further documentation changes.

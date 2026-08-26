@@ -185,6 +185,22 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertEqual(len(result["errors"]), 1)
             self.assertFalse(any((root / "archive" / "macrofactor").iterdir()))
 
+    def test_unusable_coach_workbook_is_not_archived_or_promoted_to_current(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            unusable = root / "inbox" / "coach" / "not-a-coach-template.xlsx"
+            unusable.write_bytes((FIXTURES / "macrofactor-log.xlsx").read_bytes())
+
+            result = archive_inbox(root, CONFIG, now=NOW)
+
+            self.assertEqual(result["entries"], [])
+            self.assertEqual(result["current"], {})
+            self.assertEqual(result["errors"][0]["kind"], "coach")
+            self.assertIn("no worksheet matching", result["errors"][0]["error"])
+            self.assertTrue(unusable.exists())
+            self.assertFalse(any((root / "archive" / "coach").iterdir()))
+            self.assertFalse((root / "current" / "Coach Program - Current.xlsx").exists())
     def test_cli_setup_and_status_are_noninteractive(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
