@@ -1,24 +1,27 @@
 # Plan
 
-Address the Codex review finding that an interrupted new archive copy leaves a poisoned partial file at its canonical destination. Copy into the archive directory under a temporary name, verify its hash, publish it atomically, clean up every failure path, and prove a retry succeeds.
+Split the standalone risk-focused coverage expansion from the local-workspace application work. Preserve the current full commit graph on a dedicated dependent testing branch, remove only coverage commit `770335d` from the existing app branch, retain CI and regression tests coupled to app fixes, and verify both branch outcomes before publishing them.
 
 ## Scope
-- In: new archive copies, legacy-copy fallback, temporary cleanup, hash validation, retry behavior, tests, verification, commit, and push.
-- Out: changing canonical names, automatic retries, filesystem durability guarantees beyond atomic rename, or modifying existing corrupt archives.
+- In: `feat/local-file-workspace`, new `feat/local-file-workspace-test-coverage`, coverage commit `770335d`, its README test description, branch history, PR #5 metadata, validation, commit, and push.
+- Out: moving CI infrastructure, moving regression tests committed with app fixes, changing application behavior, merging either branch, or changing the repository default branch.
 
 ## Action items
-- [x] Copy new archive content into a unique temporary file in the destination directory.
-- [x] Verify the temporary copy before atomically replacing it into the canonical path.
-- [x] Clean up the temporary file after failures, hash mismatches, races, and success.
-- [x] Use the same safe copy path when a legacy hard-link fallback is unavailable.
-- [x] Add a regression test that interrupts copying and then succeeds on retry.
-- [x] Run focused and full tests plus compile/diff checks.
-- [x] Commit and push this Codex feedback fix, then acknowledge the review comment.
+- [x] Preserve the current full branch tip on `feat/local-file-workspace-test-coverage` and publish it before rewriting history.
+- [x] Rewrite `feat/local-file-workspace` to omit only `770335d`, replaying all later app, CI, and focused regression commits.
+- [x] Resolve replay conflicts by preserving each app fix and its directly associated regression coverage while excluding the standalone coverage additions.
+- [x] Verify the app branch contains no standalone coverage-only files or README wording and still passes its complete available suite.
+- [x] Commit this split plan on the app branch and update it remotely with `--force-with-lease` after validating the exact target.
+- [x] Verify the testing branch still contains the complete standalone coverage expansion and passes all 59 tests.
+- [ ] Refresh PR #5's description and check state so it accurately reports the app-only branch after the split.
+- [ ] Report both pushed branches, their dependency relationship, commit tips, checks, and any intentionally retained test infrastructure.
 
 ## Open questions
-- None. Temporary and final paths share a directory/filesystem, preserving atomic rename semantics.
+- None. “Testing updates” means the standalone coverage expansion introduced by `770335d`; CI and regression tests introduced in the same commits as application fixes remain with the application branch.
 
 ## Verification
-- The focused interrupted-copy regression test passed: the failed run left the archive empty and the immediate retry created a valid canonical file.
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 59 tests passed, including GUI coverage.
+- The app branch is 665 test/documentation lines smaller across exactly the intended README and six test files; application, package-data, CI, and workflow files are identical to the preserved testing branch.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — all 33 app-branch tests passed; the optional GUI test skipped as expected.
+- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 33 app-branch tests passed, including GUI coverage.
+- On `feat/local-file-workspace-test-coverage`, the standard suite passed all 59 tests with three optional GUI skips and the Qt suite passed all 59 tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
