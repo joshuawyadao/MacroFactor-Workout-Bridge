@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -132,18 +133,41 @@ def _archive_copy(
         try:
             destination.hardlink_to(existing[0])
         except OSError:
-            shutil.copy2(existing[0], destination)
+            _atomic_archive_copy(existing[0], destination, digest)
         if file_sha256(destination) != digest:
             raise LocalWorkspaceError(
                 f"Canonical archive link failed hash validation: {destination}"
             )
         return destination, True
 
-    with source.open("rb") as input_handle, destination.open("xb") as output_handle:
-        shutil.copyfileobj(input_handle, output_handle)
-    if file_sha256(destination) != digest:
-        raise LocalWorkspaceError(f"Archived copy failed hash validation: {destination}")
-    return destination, False
+    deduplicated = _atomic_archive_copy(source, destination, digest)
+    return destination, deduplicated
+
+
+def _atomic_archive_copy(source: Path, destination: Path, digest: str) -> bool:
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.tmp-", dir=destination.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as output_handle:
+            with source.open("rb") as input_handle:
+                shutil.copyfileobj(input_handle, output_handle)
+        if file_sha256(temporary) != digest:
+            raise LocalWorkspaceError(
+                f"Temporary archive copy failed hash validation: {destination}"
+            )
+        if destination.exists():
+            if file_sha256(destination) == digest:
+                return True
+            raise LocalWorkspaceError(
+                f"Canonical archive name already contains different data: {destination}"
+            )
+        temporary.replace(destination)
+        return False
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def _has_upload_date_name(name: str) -> bool:
