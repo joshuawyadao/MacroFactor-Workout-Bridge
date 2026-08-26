@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 from macrofactor_bridge.desktop_model import (
     bundled_config_path,
@@ -27,6 +28,18 @@ class DesktopModelTests(unittest.TestCase):
         self.assertEqual(bundled_config_path(), CONFIG)
         choices = discover_sheet_weeks(FIXTURES / "coach-template.xlsx", CONFIG)
         self.assertIn(("Training Block", ("Week 1", "Week 2")), choices)
+
+    def test_bundled_mapping_falls_back_to_installed_package_data(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            missing_checkout = Path(directory) / "missing.json"
+            with patch(
+                "macrofactor_bridge.desktop_model._checkout_config_path",
+                return_value=missing_checkout,
+            ):
+                packaged = bundled_config_path()
+
+        self.assertEqual(packaged.parent.name, "resources")
+        self.assertEqual(packaged.read_bytes(), CONFIG.read_bytes())
 
     def test_latest_export_date_selects_its_monday_through_sunday(self) -> None:
         start, end = latest_export_week(FIXTURES / "macrofactor-log.xlsx")
