@@ -156,6 +156,37 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertIn("changed during validation", result["errors"][0]["error"])
             self.assertFalse(any((root / "archive" / "macrofactor").iterdir()))
 
+    def test_interrupted_archive_copy_leaves_no_partial_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            source = root / "inbox" / "macrofactor" / "log.csv"
+            source.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2026-08-03,Upper,Press,Normal,100,8\n",
+                encoding="utf-8",
+            )
+
+            def interrupt_copy(input_handle: object, output_handle: object) -> None:
+                output_handle.write(input_handle.read(16))
+                raise OSError("simulated interrupted copy")
+
+            with patch(
+                "macrofactor_bridge.local_workspace.shutil.copyfileobj",
+                side_effect=interrupt_copy,
+            ):
+                failed = archive_inbox(root, CONFIG, now=NOW)
+
+            archive = root / "archive" / "macrofactor"
+            self.assertEqual(failed["entries"], [])
+            self.assertIn("simulated interrupted copy", failed["errors"][0]["error"])
+            self.assertFalse(any(archive.iterdir()))
+
+            retried = archive_inbox(root, CONFIG, now=NOW + timedelta(seconds=1))
+            self.assertEqual(retried["errors"], [])
+            self.assertEqual(len(retried["entries"]), 1)
+            self.assertTrue(Path(retried["entries"][0]["archive"]).is_file())
+
     def test_newer_export_updates_current_link_without_renaming_upload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
