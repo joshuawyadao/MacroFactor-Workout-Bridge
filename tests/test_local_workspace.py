@@ -151,6 +151,35 @@ class LocalWorkspaceTests(unittest.TestCase):
                 (root / "current" / "MacroFactor Exercise Log - Current.xlsx").exists()
             )
 
+    def test_older_later_upload_does_not_roll_current_link_backward(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            inbox = root / "inbox" / "macrofactor"
+            newer = inbox / "newer.csv"
+            newer.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2099-01-08,Upper,Press,Normal,100,8\n",
+                encoding="utf-8",
+            )
+            first = archive_inbox(root, CONFIG, now=NOW)
+            newer_archive = Path(first["entries"][0]["archive"])
+            newer.unlink()
+
+            older = inbox / "older.csv"
+            older.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2020-01-08,Upper,Press,Normal,90,10\n",
+                encoding="utf-8",
+            )
+            second = archive_inbox(root, CONFIG, now=NOW + timedelta(days=1))
+
+            current = root / "current" / "MacroFactor Exercise Log - Current.csv"
+            self.assertEqual(len(second["entries"]), 1)
+            self.assertIn("2020-01-08", second["entries"][0]["archive"])
+            self.assertEqual(Path(second["current"]["macrofactor"]["archive"]), newer_archive)
+            self.assertEqual(current.resolve(), newer_archive)
+
     def test_legacy_macrofactor_archive_gets_upload_date_name_safely(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"

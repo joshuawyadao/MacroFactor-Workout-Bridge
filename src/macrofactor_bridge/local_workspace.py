@@ -266,6 +266,44 @@ def _update_current_files(
     return selected
 
 
+def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    manifests = workspace / "manifests"
+    if not manifests.is_dir():
+        return entries
+    for path in sorted(manifests.glob("*--ingest.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict) or not isinstance(payload.get("entries"), list):
+            continue
+        for entry in payload["entries"]:
+            if not isinstance(entry, dict):
+                continue
+            kind = entry.get("kind")
+            archive_value = entry.get("archive")
+            digest = entry.get("sha256")
+            validation = entry.get("validation")
+            source_modified_at = entry.get("source_modified_at")
+            if (
+                kind not in {"coach", "macrofactor"}
+                or not isinstance(archive_value, str)
+                or not isinstance(digest, str)
+                or not isinstance(validation, dict)
+                or not isinstance(source_modified_at, str)
+            ):
+                continue
+            archive = Path(archive_value)
+            try:
+                if not archive.is_file() or file_sha256(archive) != digest:
+                    continue
+            except OSError:
+                continue
+            entries.append(entry)
+    return entries
+
+
 def archive_inbox(
     root: str | Path,
     config_path: str | Path | None = None,
@@ -341,7 +379,11 @@ def archive_inbox(
                 }
             )
     try:
-        manifest["current"] = _update_current_files(workspace, manifest["entries"])
+        selection_entries = [
+            *_archived_history_entries(workspace),
+            *manifest["entries"],
+        ]
+        manifest["current"] = _update_current_files(workspace, selection_entries)
     except (OSError, ValueError) as exc:
         manifest["errors"].append(
             {
