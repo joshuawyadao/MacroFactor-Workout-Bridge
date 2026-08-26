@@ -216,6 +216,23 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertTrue(Path(result["entries"][0]["archive"]).exists())
             self.assertTrue(invalid_export.exists())
 
+    def test_unusable_coach_workbook_is_not_archived_or_promoted_to_current(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            unusable = root / "inbox" / "coach" / "not-a-coach-template.xlsx"
+            unusable.write_bytes((FIXTURES / "macrofactor-log.xlsx").read_bytes())
+
+            result = archive_inbox(root, CONFIG, now=NOW)
+
+            self.assertEqual(result["entries"], [])
+            self.assertEqual(result["current"], {})
+            self.assertEqual(result["errors"][0]["kind"], "coach")
+            self.assertIn("no worksheet matching", result["errors"][0]["error"])
+            self.assertTrue(unusable.exists())
+            self.assertFalse(any((root / "archive" / "coach").iterdir()))
+            self.assertFalse((root / "current" / "Coach Program - Current.xlsx").exists())
+
     def test_latest_archives_ignores_corrupt_manifests_and_reads_legacy_entries(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"

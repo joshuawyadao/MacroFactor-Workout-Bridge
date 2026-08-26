@@ -61,12 +61,16 @@ def _validate_coach(path: Path, config_path: Path) -> dict[str, Any]:
         for sheet in discovered
     ]
     usable = [sheet for sheet in sheets if sheet["exercise_header"] and sheet["weeks"]]
+    if not usable:
+        raise LocalWorkspaceError(
+            "Coach workbook has no worksheet matching the configured exercise and week headers"
+        )
     return {
         "type": "coach_workbook",
         "sheet_count": len(package.sheets),
         "usable_sheet_count": len(usable),
         "sheets": sheets,
-        "warnings": [] if usable else ["No worksheet matched the configured exercise/week headers"],
+        "warnings": [],
     }
 
 

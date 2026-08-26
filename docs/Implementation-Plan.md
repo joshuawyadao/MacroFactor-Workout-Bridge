@@ -1,27 +1,25 @@
 # Plan
 
-Strengthen the test suite around the bridge's safety guarantees, malformed input handling, local-workspace recovery, and desktop error-state behavior. Add focused unit and integration cases through public interfaces where practical, preserving the existing fast fixture-based suite without changing application behavior unless a test exposes a genuine defect.
+Resolve the Brooks PR-review finding that an unusable coach workbook can be archived and promoted as the current validated workbook. Make coach discovery a hard validation boundary, add a regression test, and verify the complete workflow before saving the review fix.
 
 ## Scope
-- In: workbook apply/write rejection paths, configuration and import validation, preview edge cases, workspace manifest/CLI recovery, desktop preview invalidation and failure states, test documentation, validation, commit, and push.
-- Out: new product features, changing accepted file formats or mapping semantics, broad GUI automation, and coverage-percentage tooling or thresholds.
+- In: coach-workbook archive validation, manifest error behavior, current-link protection, regression coverage, verification, commit, and push.
+- Out: changing MacroFactor export validation, exercise matching rules, archive naming, or current-version selection among valid files.
 
 ## Action items
-- [x] Add reusable test helpers for temporary configuration, CSV, and XLSX mutation scenarios without introducing shared-state fixtures.
-- [x] Cover configuration schema failures and MacroFactor CSV/XLSX parsing boundaries with focused unit tests.
-- [x] Cover preview and workbook-apply safety gates, including stale targets, invalid output paths, empty proposals, source mutation detection, and integrity failures.
-- [x] Cover local-workspace validation errors, same-day deduplication, corrupt/legacy manifests, and CLI archive/status exit behavior.
-- [x] Cover desktop preview invalidation and representative discovery/preview failure states while keeping GUI tests offscreen and deterministic.
-- [x] Update the README test description to reflect the strengthened negative-path coverage; no user-workflow documentation changes are expected because runtime behavior is unchanged.
-- [x] Run targeted tests, both full standard and Qt suites, compile checks, and `git diff --check`; revisit any uncovered high-risk branches identified during implementation.
-- [x] Commit and push the completed coverage work on the current branch.
+- [x] Change `local_workspace._validate_coach` to reject workbooks with no configured exercise header and week labels.
+- [x] Preserve the existing validation metadata shape for usable coach workbooks.
+- [x] Add a regression test proving an unusable `.xlsx` remains in the inbox, is recorded as an error, and is not archived or promoted to `current`.
+- [x] Confirm the existing successful coach-workbook archive and mixed-validity tests still pass.
+- [x] Run targeted tests, both complete standard and Qt suites, compile checks, and `git diff --check`.
+- [x] Commit and push the Brooks review fix to the current PR branch.
 
 ## Open questions
-- None. The recommendations will be implemented as risk-focused tests rather than an attempt to reach a numeric coverage target.
+- None. A coach workbook is valid for archival only when the app can discover at least one configured exercise header and week on the same workbook.
 
 ## Verification
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 54 tests passed; three optional Qt tests skipped as expected.
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 54 tests passed, including the three GUI tests.
+- `PYTHONPATH=src python3 -m unittest tests.test_local_workspace -v` — all 13 local-workspace tests passed.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 55 tests passed; three optional Qt tests skipped as expected.
+- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 55 tests passed, including the three GUI tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- Standard-library execution tracing confirmed the targeted risk areas improved: configuration 78%→100%, importers 81%→94%, service 79%→97%, local workspace 85%→90%, and workbook selection 86%→93%.
-- No production behavior or local-file workflow changed, so `docs/Local-File-Workflow.md` required no update.
+- `README.md` and `docs/Local-File-Workflow.md` already state that invalid files are not archived, so the code fix restores documented behavior without further documentation changes.
