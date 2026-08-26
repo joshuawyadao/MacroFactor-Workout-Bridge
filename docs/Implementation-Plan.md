@@ -13,8 +13,8 @@ Split the standalone risk-focused coverage expansion from the local-workspace ap
 - [x] Verify the app branch contains no standalone coverage-only files or README wording and still passes its complete available suite.
 - [x] Commit this split plan on the app branch and update it remotely with `--force-with-lease` after validating the exact target.
 - [x] Verify the testing branch still contains the complete standalone coverage expansion and passes all 59 tests.
-- [ ] Refresh PR #5's description and check state so it accurately reports the app-only branch after the split.
-- [ ] Report both pushed branches, their dependency relationship, commit tips, checks, and any intentionally retained test infrastructure.
+- [x] Refresh PR #5's description and check state so it accurately reports the app-only branch after the split.
+- [x] Report both pushed branches, their dependency relationship, commit tips, checks, and any intentionally retained test infrastructure.
 
 ## Open questions
 - None. “Testing updates” means the standalone coverage expansion introduced by `770335d`; CI and regression tests introduced in the same commits as application fixes remain with the application branch.
@@ -25,3 +25,4 @@ Split the standalone risk-focused coverage expansion from the local-workspace ap
 - `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 33 app-branch tests passed, including GUI coverage.
 - On `feat/local-file-workspace-test-coverage`, the standard suite passed all 59 tests with three optional GUI skips and the Qt suite passed all 59 tests.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
+- PR #5's description now reports the app-only 33-test scope and links the dependent 59-test coverage branch.
