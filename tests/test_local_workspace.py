@@ -241,6 +241,26 @@ class LocalWorkspaceTests(unittest.TestCase):
             (manifests / "20260824T000000000000Z--ingest.json").write_text(
                 "not json", encoding="utf-8"
             )
+            malformed_payloads = (
+                [],
+                {"ingested_at": NOW.isoformat(), "entries": {}},
+                {"ingested_at": NOW.isoformat(), "entries": [None, "entry"]},
+                {"ingested_at": NOW.isoformat(), "current": {"coach": []}},
+                {
+                    "ingested_at": NOW.isoformat(),
+                    "entries": [
+                        {
+                            "kind": "coach",
+                            "archive": "/invalid/coach.xlsx",
+                            "validation": [],
+                        }
+                    ],
+                },
+            )
+            for index, payload in enumerate(malformed_payloads, start=1):
+                (manifests / f"20260824T00000{index}000000Z--ingest.json").write_text(
+                    json.dumps(payload), encoding="utf-8"
+                )
             legacy_path = manifests / "20260824T010000000000Z--ingest.json"
             legacy_path.write_text(
                 json.dumps(

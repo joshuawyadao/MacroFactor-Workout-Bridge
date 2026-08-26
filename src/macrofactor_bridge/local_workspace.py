@@ -370,19 +370,31 @@ def latest_archives(root: str | Path) -> dict[str, dict[str, Any] | None]:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
+        if not isinstance(payload, dict):
+            continue
         ingested_at = payload.get("ingested_at", "")
+        if not isinstance(ingested_at, str):
+            continue
         current_entries = payload.get("current")
         if isinstance(current_entries, dict) and current_entries:
             entries = [
-                {"kind": kind, **entry}
+                {**entry, "kind": kind}
                 for kind, entry in current_entries.items()
                 if isinstance(entry, dict)
             ]
         else:
             entries = payload.get("entries", [])
+            if not isinstance(entries, list):
+                continue
         for entry in entries:
+            if not isinstance(entry, dict):
+                continue
             kind = entry.get("kind")
-            if kind not in latest:
+            if (
+                kind not in latest
+                or not isinstance(entry.get("archive"), str)
+                or not isinstance(entry.get("validation", {}), dict)
+            ):
                 continue
             candidate = {**entry, "ingested_at": ingested_at, "manifest": str(path)}
             current = latest[kind]
