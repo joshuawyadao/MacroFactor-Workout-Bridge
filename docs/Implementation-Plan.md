@@ -1,24 +1,25 @@
 # Plan
 
-Address the Codex review finding that an interrupted new archive copy leaves a poisoned partial file at its canonical destination. Copy into the archive directory under a temporary name, verify its hash, publish it atomically, clean up every failure path, and prove a retry succeeds.
+Keep the standalone safety and negative-path coverage expansion on a dedicated feature branch that depends on `feat/local-file-workspace`. Preserve the coverage additions independently from the app PR so they can be reviewed and merged as a focused follow-up.
 
 ## Scope
-- In: new archive copies, legacy-copy fallback, temporary cleanup, hash validation, retry behavior, tests, verification, commit, and push.
-- Out: changing canonical names, automatic retries, filesystem durability guarantees beyond atomic rename, or modifying existing corrupt archives.
+- In: reusable XLSX test helpers, configuration/import validation, preview and write safety gates, workspace recovery, desktop error states, README test documentation, validation, commit, and push.
+- Out: application behavior changes, CI infrastructure, regression tests committed alongside app fixes, merging this branch, or changing its app-branch dependency.
 
 ## Action items
-- [x] Copy new archive content into a unique temporary file in the destination directory.
-- [x] Verify the temporary copy before atomically replacing it into the canonical path.
-- [x] Clean up the temporary file after failures, hash mismatches, races, and success.
-- [x] Use the same safe copy path when a legacy hard-link fallback is unavailable.
-- [x] Add a regression test that interrupts copying and then succeeds on retry.
-- [x] Run focused and full tests plus compile/diff checks.
-- [x] Commit and push this Codex feedback fix, then acknowledge the review comment.
+- [x] Preserve coverage commit `770335d` and its complete final test state on `feat/local-file-workspace-test-coverage`.
+- [x] Keep the app branch free of the standalone coverage-only files and README wording.
+- [x] Retain test helpers and focused unit, integration, workspace, service-edge, and desktop scenarios on this branch.
+- [x] Document the strengthened negative-path coverage in the README.
+- [x] Verify the complete standard and desktop-enabled suites.
+- [x] Compile Python sources and check the branch diff.
+- [x] Commit and push the dedicated testing branch.
 
 ## Open questions
-- None. Temporary and final paths share a directory/filesystem, preserving atomic rename semantics.
+- None. This branch remains dependent on `feat/local-file-workspace` until the app PR merges into `main`.
 
 ## Verification
-- The focused interrupted-copy regression test passed: the failed run left the archive empty and the immediate retry created a valid canonical file.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — all 59 tests passed; three optional GUI tests skipped as expected.
 - `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 59 tests passed, including GUI coverage.
 - `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
+- Relative to the app branch before its final plan-only commits, the testing branch adds 665 lines across the intended README and six test files while leaving application and CI files unchanged.
