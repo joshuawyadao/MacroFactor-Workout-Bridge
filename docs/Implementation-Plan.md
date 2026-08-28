@@ -1,28 +1,17 @@
 # Plan
 
-Split the standalone risk-focused coverage expansion from the local-workspace application work. Preserve the current full commit graph on a dedicated dependent testing branch, remove only coverage commit `770335d` from the existing app branch, retain CI and regression tests coupled to app fixes, and verify both branch outcomes before publishing them.
+Make the pending MacroFactor CI workflow quota-aware before it reaches `main`. Preserve its complete Linux verification while running it only for merge-ready pull requests or manual requests, cancelling superseded work, and avoiding a duplicate post-merge run.
 
 ## Scope
-- In: `feat/local-file-workspace`, new `feat/local-file-workspace-test-coverage`, coverage commit `770335d`, its README test description, branch history, PR #5 metadata, validation, commit, and push.
-- Out: moving CI infrastructure, moving regression tests committed with app fixes, changing application behavior, merging either branch, or changing the repository default branch.
+- In: `.github/workflows/ci-verify.yml` trigger, concurrency, draft policy, manual dispatch, and README CI guidance on the existing PR branch.
+- Out: application behavior, Python tests, packaging behavior, branch-protection settings, paid or self-hosted runners, and the local-only `local-data/` directory.
 
 ## Action items
-- [x] Preserve the current full branch tip on `feat/local-file-workspace-test-coverage` and publish it before rewriting history.
-- [x] Rewrite `feat/local-file-workspace` to omit only `770335d`, replaying all later app, CI, and focused regression commits.
-- [x] Resolve replay conflicts by preserving each app fix and its directly associated regression coverage while excluding the standalone coverage additions.
-- [x] Verify the app branch contains no standalone coverage-only files or README wording and still passes its complete available suite.
-- [x] Commit this split plan on the app branch and update it remotely with `--force-with-lease` after validating the exact target.
-- [x] Verify the testing branch still contains the complete standalone coverage expansion and passes all 59 tests.
-- [x] Refresh PR #5's description and check state so it accurately reports the app-only branch after the split.
-- [x] Report both pushed branches, their dependency relationship, commit tips, checks, and any intentionally retained test infrastructure.
+[x] Restrict hosted CI to merge-ready pull requests plus manual dispatch, removing the duplicate `main` push trigger.
+[x] Add per-workflow/per-ref concurrency cancellation while preserving the existing timeout, permissions, test suite, compile check, and pull-request diff check.
+[x] Document the hosted CI trigger and manual-dispatch policy in the README.
+[x] Validate YAML parsing, workflow-policy invariants, `git diff --check`, and the scoped diff; no Python test files are needed because executable bridge behavior is unchanged.
+[x] Commit and push the existing `feat/local-file-workspace` PR branch while leaving `local-data/` in the original checkout untouched.
 
 ## Open questions
-- None. “Testing updates” means the standalone coverage expansion introduced by `770335d`; CI and regression tests introduced in the same commits as application fixes remain with the application branch.
-
-## Verification
-- The app branch is 665 test/documentation lines smaller across exactly the intended README and six test files; application, package-data, CI, and workflow files are identical to the preserved testing branch.
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — all 33 app-branch tests passed; the optional GUI test skipped as expected.
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src .app-build-venv/bin/python -m unittest discover -s tests -v` — all 33 app-branch tests passed, including GUI coverage.
-- On `feat/local-file-workspace-test-coverage`, the standard suite passed all 59 tests with three optional GUI skips and the Qt suite passed all 59 tests.
-- `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- PR #5's description now reports the app-only 33-test scope and links the dependent 59-test coverage branch.
+- None.
