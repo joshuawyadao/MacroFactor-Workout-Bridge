@@ -69,10 +69,12 @@ class DesktopModelTests(unittest.TestCase):
         report.rows_in_range = 2
         report.unmatched_exercises.append({"exercise": "Unknown"})
         report.zero_rep_rows.append({"row": 4, "reps": "0"})
+        report.exercise_notes.append({"exercise": "Example", "note": "Use the blue rack"})
         sections = review_sections(report)
-        self.assertEqual([section.count for section in sections], [1, 0, 1, 0, 0])
+        self.assertEqual([section.count for section in sections], [1, 0, 1, 0, 0, 1])
         text = review_text(report)
         self.assertIn("Unmatched exercises: 1", text)
+        self.assertIn("MacroFactor exercise notes: 1", text)
         self.assertIn("missing workout is never interpreted as skipped", text)
 
 

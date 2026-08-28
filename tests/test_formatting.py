@@ -4,7 +4,7 @@ import unittest
 from datetime import date
 from decimal import Decimal
 
-from macrofactor_bridge.formatting import format_sets
+from macrofactor_bridge.formatting import format_sets, format_superset
 from macrofactor_bridge.models import ExerciseRule, SetRecord
 
 
@@ -96,6 +96,60 @@ class FormattingTests(unittest.TestCase):
             weight_suffix="s",
         )
         self.assertEqual(format_sets([record("Standard Set", "30", "12", 1)], suffix_only), "30s x 12")
+
+    def test_superset_pairs_weights_and_reps_by_set_position(self) -> None:
+        second_rule = ExerciseRule(
+            canonical="Second",
+            source_aliases=("Second",),
+            coach_aliases=("Exercise",),
+        )
+        value = format_superset(
+            [
+                ([record("Standard Set", "55", "9", 1), record("Standard Set", "55", "9", 3)], self.rule),
+                ([record("Standard Set", "65", "10", 2), record("Standard Set", "65", "9", 4)], second_rule),
+            ]
+        )
+        self.assertEqual(value, "55/65 x 9/10, 9/9")
+
+    def test_superset_separates_weight_pair_changes_with_semicolons(self) -> None:
+        second_rule = ExerciseRule(
+            canonical="Second",
+            source_aliases=("Second",),
+            coach_aliases=("Exercise",),
+        )
+        value = format_superset(
+            [
+                (
+                    [
+                        record("Standard Set", "55", "9", 1),
+                        record("Standard Set", "55", "9", 3),
+                        record("Standard Set", "55", "9", 5),
+                    ],
+                    self.rule,
+                ),
+                (
+                    [
+                        record("Standard Set", "65", "10", 2),
+                        record("Standard Set", "55", "10", 4),
+                        record("Standard Set", "65", "9", 6),
+                    ],
+                    second_rule,
+                ),
+            ]
+        )
+        self.assertEqual(value, "55/65 x 9/10; 55/55 x 9/10; 55/65 x 9/9")
+
+    def test_superset_rejects_mismatched_completed_set_counts(self) -> None:
+        with self.assertRaisesRegex(ValueError, "different completed-set counts"):
+            format_superset(
+                [
+                    ([record("Standard Set", "55", "9", 1)], self.rule),
+                    (
+                        [record("Standard Set", "65", "10", 2), record("Standard Set", "65", "9", 4)],
+                        self.rule,
+                    ),
+                ]
+            )
 
 
 if __name__ == "__main__":

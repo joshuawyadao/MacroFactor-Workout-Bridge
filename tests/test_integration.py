@@ -51,7 +51,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(proposals["J6"], "0 x 10, 9")
         self.assertEqual(proposals["J7"], "160 x 10+3+2")
         self.assertEqual(proposals["J8"], "100 x 8→70 x 10")
-        self.assertEqual(proposals["J9"], "50 x 10/60 x 12")
+        self.assertEqual(proposals["J9"], "50/60 x 10/12")
         self.assertEqual(proposals["J10"], "45s x 12")
         self.assertEqual(len(report.zero_rep_rows), 1)
         self.assertEqual(len(report.unmatched_exercises), 1)

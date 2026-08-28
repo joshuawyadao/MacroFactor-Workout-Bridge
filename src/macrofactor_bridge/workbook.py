@@ -22,6 +22,7 @@ class TargetRow:
     exercise_cell: str
     result_cell: str
     result: CellData | None
+    context_values: tuple[str, ...]
 
 
 def discover_workbook(path: str | Path, config: BridgeConfig) -> tuple[SheetOptions, ...]:
@@ -129,6 +130,21 @@ def target_rows(
         return ()
     snapshot = package.sheet_snapshot(sheet)
     header_row, _ = split_cell_reference(options.exercise_header_cell)
+    context_column_limit = min(
+        (candidate.first_column for candidate in options.weeks),
+        default=week.first_column,
+    )
+    context_by_row: dict[int, list[tuple[str, str]]] = {}
+    for candidate_reference, candidate in snapshot.cells.items():
+        candidate_row, candidate_column = split_cell_reference(candidate_reference)
+        if (
+            candidate_column < context_column_limit
+            and isinstance(candidate.value, str)
+            and candidate.value.strip()
+        ):
+            context_by_row.setdefault(candidate_row, []).append(
+                (candidate_reference, candidate.value.strip())
+            )
     rows: list[TargetRow] = []
     for reference, cell in snapshot.cells.items():
         row, column = split_cell_reference(reference)
@@ -144,6 +160,11 @@ def target_rows(
                 exercise_cell=reference,
                 result_cell=result_reference,
                 result=snapshot.cells.get(result_reference),
+                context_values=tuple(
+                    value
+                    for candidate_reference, value in context_by_row.get(row, [])
+                    if candidate_reference != reference
+                ),
             )
         )
     return tuple(sorted(rows, key=lambda item: item.row))

@@ -122,6 +122,7 @@ cp config/exercises.example.json config/exercises.local.json
 
 - `source_aliases` are exact names accepted from the MacroFactor export.
 - `coach_aliases` are exact names accepted in the workbook's exercise column.
+- `coach_context_aliases` optionally disambiguate repeated exercise-column labels by requiring an exact match in another text cell on the same row. For example, `Abs` can be paired with the exact variation `hanging leg raises (3ct tempo eccentric)` without selecting a separate GHD sit-up row.
 - `weight_multiplier` defaults to `1`. Set it to `0.5` only for a confirmed per-side exercise.
 - `weight_suffix` defaults to an empty string. It is independent of weight conversion.
 - `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in the configured order.
@@ -164,7 +165,8 @@ Preview reports:
 - exercises appearing in multiple workout sessions in the selected date range;
 - zero-rep and missing-rep rows;
 - occupied result cells;
-- missing or unsupported data.
+- missing or unsupported data;
+- relevant exercise-level notes found in MacroFactor's `Active Program` table. Notes are review-only and are not appended to result cells.
 
 ## Create an output workbook
 
@@ -191,7 +193,8 @@ Apply refuses to create an output when there are no proposed writes.
 - Repeated weight: `200 x 8, 7`
 - Weight changes: `200 x 8, 7; 180 x 10`
 - Myo and mini sets: `160 x 10+3+2`
-- Supersets: `50 x 10/60 x 12`
+- Supersets: `50/60 x 10/12, 9/11`
+- Superset weight changes: `50/60 x 10/12; 50/55 x 9/11`
 - Drop sets: `100 x 8→70 x 10`
 - Bodyweight or a blank MacroFactor weight: `0 x reps`
 - Configured per-side conversion plus suffix: `45s x 12`
@@ -215,7 +218,8 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - Coach workbooks must be `.xlsx`; macro-enabled `.xlsm` files are not supported.
 - A target result cell must already exist in the worksheet XML. The application skips a completely absent cell instead of creating one without a trustworthy style.
 - One source exercise may appear in only one workout session within the selected date range. Repeated sessions are reported as ambiguous rather than merged.
-- Superset exercises must share one configured target and superset group.
+- Superset exercises must share one configured target and superset group, contain the same number of completed standard sets, and are paired by set position in configured exercise order.
+- Current MacroFactor `.xlsx` exports expose exercise-level notes in `Active Program`, but the `Workout Log` table does not expose program-level or session-level notes. Exercise notes appear in review output only and represent the current active-program value rather than a historical note attached to one completed set.
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build currently targets Apple silicon and is locally signed but not Apple-notarized.

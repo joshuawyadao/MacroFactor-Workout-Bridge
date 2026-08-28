@@ -338,6 +338,7 @@ class BridgeWindow(QMainWindow):
                 report.zero_rep_rows,
                 report.occupied_cells,
                 report.skipped_rows,
+                report.exercise_notes,
             )
         )
         self._set_status(

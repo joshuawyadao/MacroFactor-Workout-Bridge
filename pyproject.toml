@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "macrofactor-workout-bridge"
-version = "0.2.0"
+version = "0.2.1"
 description = "Safely copy MacroFactor workout results into a coach Excel workbook."
 readme = "README.md"
 requires-python = ">=3.11"
