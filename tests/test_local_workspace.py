@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -11,6 +12,7 @@ from unittest.mock import patch
 from macrofactor_bridge import local_workspace
 from macrofactor_bridge.local_workspace import (
     archive_inbox,
+    LocalWorkspaceError,
     latest_archives,
     main,
     setup_workspace,
@@ -34,6 +36,67 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertTrue((root / "archive" / "macrofactor").is_dir())
             self.assertTrue((root / "current").is_dir())
             self.assertTrue((root / "generated" / "reports").is_dir())
+
+    def test_custom_workspace_managed_data_is_ignored_by_git(self) -> None:
+        for location in ("workout-data", "nested/workouts", "."):
+            with self.subTest(location=location), tempfile.TemporaryDirectory() as directory:
+                repository = Path(directory).resolve()
+                subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+                root = repository / location
+                root.mkdir(parents=True, exist_ok=True)
+                ignore = root / ".gitignore"
+                original_rules = "# Personal rules\n*.bak\n/manifests/\n!/manifests/\n"
+                ignore.write_text(original_rules, encoding="utf-8")
+                setup_workspace(root)
+                protected_rules = ignore.read_text(encoding="utf-8")
+                self.assertTrue(protected_rules.startswith(original_rules))
+                setup_workspace(root)
+                self.assertEqual(ignore.read_text(encoding="utf-8"), protected_rules)
+                source = root / "inbox" / "macrofactor" / "log.csv"
+                source.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2026-08-03,Upper,Press,Normal,100,8\n",
+                    encoding="utf-8",
+                )
+                result = archive_inbox(root, CONFIG, now=NOW)
+                report = root / "generated" / "reports" / "private-review.json"
+                report.write_text('{"private": "synthetic"}', encoding="utf-8")
+                paths = (
+                    source,
+                    Path(result["manifest"]),
+                    Path(result["entries"][0]["archive"]),
+                    Path(result["current"]["macrofactor"]["current"]),
+                    report,
+                )
+
+                ignored = subprocess.run(
+                    ["git", "-C", str(repository), "check-ignore", "--", *map(str, paths)],
+                    capture_output=True, text=True, check=False,
+                )
+                status = subprocess.run(
+                    ["git", "-C", str(repository), "status", "--porcelain", "--untracked-files=all"],
+                    capture_output=True, text=True, check=True,
+                )
+
+                self.assertEqual(ignored.returncode, 0, ignored.stderr)
+                self.assertEqual(len(ignored.stdout.splitlines()), len(paths))
+                self.assertNotIn("ingest.json", status.stdout)
+                self.assertNotIn("private-review.json", status.stdout)
+                self.assertNotIn("log.csv", status.stdout)
+
+    def test_workspace_setup_refuses_symlinked_ignore_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "workspace"
+            root.mkdir()
+            external = Path(directory) / "personal-ignore"
+            external.write_text("keep unchanged\n", encoding="utf-8")
+            (root / ".gitignore").symlink_to(external)
+
+            with self.assertRaisesRegex(LocalWorkspaceError, "symlink"):
+                setup_workspace(root)
+
+            self.assertEqual(external.read_text(encoding="utf-8"), "keep unchanged\n")
+            self.assertFalse((root / "inbox").exists())
 
     def test_archive_validates_copies_manifests_and_preserves_sources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

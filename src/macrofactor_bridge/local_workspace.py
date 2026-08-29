@@ -36,6 +36,20 @@ class LocalWorkspaceError(ValueError):
 
 def setup_workspace(root: str | Path) -> tuple[Path, ...]:
     workspace = Path(root).resolve()
+    workspace.mkdir(parents=True, exist_ok=True)
+    ignore_path = workspace / ".gitignore"
+    if ignore_path.is_symlink():
+        raise LocalWorkspaceError("Refusing to modify a symlinked workspace .gitignore")
+    existing = ignore_path.read_text(encoding="utf-8") if ignore_path.exists() else ""
+    managed = dict.fromkeys(Path(relative).parts[0] for relative in DIRECTORIES)
+    privacy_rules = "# MacroFactor Workout Bridge: private workspace data\n" + "".join(
+        f"/{directory}/\n" for directory in managed
+    )
+    if not existing.endswith(privacy_rules):
+        with ignore_path.open("a", encoding="utf-8") as handle:
+            if existing and not existing.endswith("\n"):
+                handle.write("\n")
+            handle.write(privacy_rules)
     created: list[Path] = []
     for relative in DIRECTORIES:
         directory = workspace / relative

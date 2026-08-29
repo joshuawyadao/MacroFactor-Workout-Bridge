@@ -31,6 +31,8 @@ After an editable install, the shorter equivalent is:
 macrofactor-workspace setup
 ```
 
+Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom location, and pass the same `--root` to `archive` and `status`. Setup and archive append managed-directory rules to the workspace's own `.gitignore` before creating data directories. Existing ignore content is preserved, and repeated setup is idempotent. This protects inboxes, archives, current links, generated files, and manifests even when the custom directory is inside a Git checkout. A symlinked `.gitignore` is refused rather than modified.
+
 ## Recurring workflow
 
 1. Save the latest coach `.xlsx` file into `local-data/inbox/coach/`. Keep whatever filename the download already has.
@@ -89,6 +91,7 @@ This is local version history, not a backup service. Back up `local-data/` separ
 ## Privacy and safety
 
 - The whole `local-data/` tree is ignored by Git.
+- Custom roots also receive workspace-local ignore rules for every managed data directory. Ignore rules do not remove files already tracked or prevent force-adding files; audit existing Git history separately if private data was previously committed.
 - Personal exports, manifests, generated workbooks, and reports must not be force-added to Git.
 - Only MacroFactor exercise-log exports belong in the MacroFactor inbox. Program exports do not contain the required exercise-log table and will fail validation.
 - Keep using Preview before creating output. Archival validation does not authorize or perform workbook writes.
