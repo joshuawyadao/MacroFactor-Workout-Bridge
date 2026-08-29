@@ -123,13 +123,15 @@ The bundled mapping is an example, not a promise that every personal exercise na
 
 ### Build locally
 
-The first build requires internet access so the isolated environment can install PySide6 and PyInstaller:
+The first build requires internet access so the isolated environment can install the reviewed PySide6 and PyInstaller dependency closure:
 
 ```sh
 ./scripts/build_macos_app.sh
 ```
 
 The script creates `dist/MacroFactor Workout Bridge.app`, embeds Python and Qt, generates the app icon, applies an ad-hoc signature, and verifies the bundle. Build environments and application artifacts are excluded from Git.
+
+The app-build dependency closure is pinned in `requirements/app-build.lock`; the direct optional dependencies in `pyproject.toml` use the same PySide6 and PyInstaller versions. Update this lockfile only as a tested unit: resolve it on Python 3.11, run `python -m pip check`, rebuild the app, and run the offscreen GUI suite. The command-line package deliberately has no runtime dependencies.
 
 Because the app is built locally, it should open normally on that Mac. A copied or downloaded build is not Apple-notarized; macOS may require Control-clicking the app, choosing **Open**, and confirming **Open**. Developer ID signing and notarization are outside the current project.
 

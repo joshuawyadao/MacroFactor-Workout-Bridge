@@ -19,8 +19,8 @@ if [[ ! -x "$BUILD_VENV/bin/python" ]]; then
   "$BUILD_PYTHON" -m venv "$BUILD_VENV"
 fi
 
-"$BUILD_VENV/bin/python" -m pip install --upgrade pip
-"$BUILD_VENV/bin/python" -m pip install -e ".[app-build]"
+"$BUILD_VENV/bin/python" -m pip install --requirement "$APP_ROOT/requirements/app-build.lock"
+"$BUILD_VENV/bin/python" -m pip install --no-build-isolation --no-deps -e "$APP_ROOT"
 "$BUILD_VENV/bin/python" packaging/build_icon.py "$ICONSET"
 iconutil --convert icns --output "$ICON_FILE" "$ICONSET"
 
