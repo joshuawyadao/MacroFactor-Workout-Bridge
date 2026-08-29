@@ -1,20 +1,24 @@
 # Plan
 
-Calibrate the bridge from the finalized Week 1 files without weakening its conservative matching. Add exact row-context disambiguation, pair superset sets in exercise order, and surface the exercise notes that MacroFactor actually includes in its workbook export.
+Finish PR #5 by fixing the four remaining local-workspace review findings, preserving main's publication safeguards, and validating the combined app before the approved squash merge. Keep the separate coverage branch and all private user files unchanged.
 
 ## Scope
-- In: exact companion-cell matching for duplicate coach labels, paired-set superset output, MacroFactor Active Program exercise-note reporting, private Week 1 mapping calibration, tests, and user documentation.
-- Out: fuzzy matching, inferred skipped workouts, automatic insertion of arbitrary note text into coach result cells, reverse program import, and assumptions about session notes that are absent from the export.
+- In: completed-set archive validation, defensive historical metadata, relocatable archive history, custom-root Git privacy, focused regression tests, README/workflow documentation, CI, and app-branch cleanup after merge.
+- Out: broader coverage-branch changes, new app features, private data edits, protection bypasses, and unrelated branch cleanup.
 
 ## Action items
-[x] Add an optional exact coach-row context alias to configuration and use it only to filter otherwise matching coach rows.
-[x] Calibrate Hanging Straight Leg Raise to the main `Abs` row using its exact hanging-leg-raise variation, leaving the optional GHD row unmatched.
-[x] Format supersets by aligned set position as `weight/weight x reps/reps`, grouping repeated weight pairs and separating weight-pair changes with semicolons.
-[x] Read non-empty Active Program exercise notes from `.xlsx` exports and show relevant notes in preview/review reports without writing them into result cells.
-[x] Add or update anonymized tests for row disambiguation, paired supersets, weight changes, mismatched set counts, and note reporting.
-[x] Update the README and local workflow documentation with the matching, superset, and note-export behavior and limitations.
-[x] Run targeted and complete tests, validate a private Week 1 preview against the finalized inputs, and confirm both personal source hashes remain unchanged.
-[x] Commit and push only repository implementation files on `feat/local-file-workspace`; keep private mappings, exports, reports, and generated workbooks out of Git.
+[x] Inspect PR #5, main's publication changes, `docs/Local-File-Workflow.md`, and the archive tests; use an isolated checkout.
+[ ] Reconcile main's README, ignore rules, and pinned CI with the existing local-workspace and calibration behavior.
+[ ] Reject exports lacking any usable completed set; cover blank exercise/type, missing/nonpositive reps, and mixed-validity input in `tests/test_local_workspace.py`.
+[ ] Skip malformed historical selection metadata, including invalid dates and timestamps, without losing valid history.
+[ ] Resolve archived files beneath the current workspace after relocation; preserve legacy manifests and test moved/copied workspaces and unsafe paths.
+[ ] Protect every managed directory under custom roots with local Git ignore rules, without replacing user ignore content; test with a real temporary Git repository.
+[ ] Update `README.md` and `docs/Local-File-Workflow.md` with validation, relocation, and privacy behavior; no other public docs need behavior changes.
+[ ] Run targeted tests after each fix, then the complete source-only and offscreen Qt suites, compile checks, privacy checks, and `git diff --check`; commit/push each finding separately and acknowledge its comment.
+[ ] Confirm hosted CI and merge readiness, squash-merge PR #5, delete only the app feature branch, and verify the testing branch and private files are preserved.
 
 ## Open questions
 - None.
+
+## Merge gates
+- Marking addressed GitHub review conversations resolved awaits the separately requested explicit permission; implementation can proceed.
