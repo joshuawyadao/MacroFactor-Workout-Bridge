@@ -1,35 +1,21 @@
 # Plan
 
-Add a friendly, double-clickable macOS application around the completed MacroFactor-to-coach-workbook engine. The app will guide the user through file selection, worksheet and week selection, review, and safe workbook creation without requiring terminal prompts, while keeping the existing command-line workflow available.
+Prepare MacroFactor Workout Bridge for safe public collaboration by auditing every published branch, hardening repository files and CI, and matching the proven GitHub security settings used by macOS Widgets. Publish only after the local verification gate and remote-history checks pass.
 
 ## Scope
-
-- In: a native-style PySide6 desktop interface, file pickers, worksheet/week discovery, calendar dates, a proposed-change table, review-needed reporting, safe output selection, a bundled editable mapping example, a reproducible PyInstaller `.app` build, local ad-hoc signing, automated tests, and updated documentation.
-- Out: the reverse coach-program import workflow, automatic fuzzy exercise matching, edits to original workout files, Apple Developer ID signing/notarization, App Store distribution, Windows/Linux installers, and changes to `main`.
+- In: `main` branch setup, remote-history and fixture privacy checks, public-facing README and community policies, defensive ignore rules, pinned least-privilege CI, GitHub visibility and security settings, branch rules, local verification, commit, and push.
+- Out: merging unrelated feature branches, rewriting clean GitHub history, distributing signed binaries, changing application behavior, and deleting existing branches or user data.
 
 ## Action items
-
-- [x] Record the approved desktop tracer-bullet in GitHub issue [#4](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/4).
-- [x] Add a framework-independent desktop workflow model for defaults, resource discovery, output naming, and human-readable safety reports.
-- [x] Build the graphical workflow for choosing inputs, selecting the target worksheet/week, previewing changes, reviewing skipped data, and creating a separate workbook.
-- [x] Bundle a default exercise mapping and let users save an editable copy without changing the application bundle.
-- [x] Add a reproducible macOS packaging script and PyInstaller specification that creates an ad-hoc-signed `MacroFactor Workout Bridge.app`.
-- [x] Add automated tests for desktop workflow helpers and a packaged-app smoke-test mode while retaining all existing CLI and workbook tests.
-- [x] Update the README with graphical installation, usage, safety, build, Gatekeeper, and known-limitation guidance.
-- [x] Build the local `.app`; run unit, integration, workbook-integrity, GUI smoke, bundle metadata, and code-signature checks.
-- [x] Mark this plan complete and commit and push the finished feature branch for review without modifying `main`.
+[x] Confirm all GitHub-reachable commits and anonymized fixtures contain no credentials, personal paths, private workout files, repository secrets, deploy keys, webhooks, or unexpected collaborators.
+[x] Expand `.gitignore` for credentials, environment files, local workspaces, editor state, logs, and generated distribution artifacts while preserving anonymized fixtures.
+[x] Add the MIT license, private vulnerability-reporting policy, contribution guide, Contributor Covenant, and focused issue and pull-request templates.
+[x] Rework `README.md` for a public audience with project status, engineering and privacy highlights, architecture, safe local setup, verification, contribution, security-reporting, and licensing guidance.
+[x] Add `.github/workflows/ci-verify.yml` with read-only permissions, immutable official-action pins, bounded runtime, pull-request concurrency cancellation, and the complete offscreen test and compile gate.
+[x] Run the full unit/integration suite, compile checks, workflow and documentation consistency checks, fixture/privacy scans, `git diff --check`, and a second GitHub-reachable history scan; no application tests need changes because executable behavior is unchanged.
+[ ] Commit and push the publication files on `main` with the repository-local Git identity set to the verified GitHub noreply address.
+[ ] Set GitHub's default branch to `main`, make the repository public, enable private vulnerability reporting, Dependabot alerts and security updates, secret scanning and push protection, restrict Actions to SHA-pinned GitHub-owned actions with read-only workflow permissions, and apply the macOS Widgets protected-main ruleset.
+[ ] Verify the public repository metadata, security settings, required `CI Verify` status, ruleset, remote commit, and clean local worktree after publication.
 
 ## Open questions
-
-- None. This build targets the current Apple-silicon Mac, uses a self-contained Qt runtime, and applies an ad-hoc local signature; public distribution signing and notarization remain future work.
-
-## Verification
-
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v` — 18 tests passed; the optional Qt GUI test skipped as intended without desktop dependencies.
-- `QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v` — all 19 tests passed, including the populated graphical preview.
-- `python3 -m compileall -q src tests packaging` and `git diff --check` — passed.
-- `./scripts/build_macos_app.sh` — created the 75 MB Apple-silicon `dist/MacroFactor Workout Bridge.app`, generated its icon, ad-hoc signed it, and verified the deep signature.
-- Packaged executable `--smoke-test` — passed using the embedded Qt runtime and bundled mapping.
-- Bundle checks — identifier, version `0.2.0`, macOS 13 minimum, icon, arm64 executable, and ad-hoc signature all confirmed.
-- Visual GUI inspection — anonymized Week 1 preview showed all six proposed writes and all five conservative review categories in the two-panel layout.
-- Workbook integration validation — the anonymized apply test created six writes while preserving source/export hashes, formulas, styles, merged cells, ZIP membership, and byte-identical unrelated workbook parts.
+- None. Existing feature branches remain intact and public; the audit confirms their GitHub-reachable histories exclude the private manifests found only in local Codex checkpoint refs.

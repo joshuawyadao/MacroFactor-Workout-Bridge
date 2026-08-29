@@ -1,12 +1,43 @@
+# macOS and editor state
 .DS_Store
+.AppleDouble
+.LSOverride
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python environments, caches, and coverage
 .venv/
 .app-build-venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 build/
 dist/
 *.egg-info/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.template
+.python-version
+.pypirc
+*.key
+*.pem
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+*.private.json
 
 # Personal exports, workbooks, generated reports, and application output.
 *.csv
@@ -16,6 +47,14 @@ dist/
 outputs/
 reports/
 config/*.local.json
+/local-data/
+
+# Logs, temporary files, and local distribution artifacts
+*.log
+*.tmp
+*.temp
+*.dmg
+*.pkg
 
 # Only the deliberately anonymized test fixtures may be committed.
 !tests/fixtures/*.csv

@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest a focused improvement to the local workbook workflow.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Explain the workflow problem without including real workout or workbook data.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest safe outcome that would solve the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and privacy considerations
+      description: Note effects on source immutability, overwrite prevention, workbook integrity, local data, or external services.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: I did not attach real exports, workbooks, reports, credentials, or unredacted paths.
+          required: true

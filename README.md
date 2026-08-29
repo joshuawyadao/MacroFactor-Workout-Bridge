@@ -1,96 +1,142 @@
 # MacroFactor Workout Bridge
 
+[![CI Verify](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/workflows/ci-verify.yml/badge.svg)](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/workflows/ci-verify.yml)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://www.apple.com/macos/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 MacroFactor Workout Bridge is a conservative local macOS application that copies completed workout results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook. It includes a double-clickable graphical app and an optional command-line interface.
 
-The MVP supports only this direction:
+The supported direction is intentionally narrow:
 
 **MacroFactor exercise log → coach `.xlsx` workbook**
 
 It does not create or import MacroFactor programs.
 
+> **Project status:** Source-first personal utility. It processes files locally, has no hosted backend, and does not distribute a signed or notarized binary.
+
+## Engineering highlights
+
+- **Preview before write:** every proposed workbook change is shown before an output can be created.
+- **Immutable inputs:** source hashes are checked around apply, and output must use a distinct path that does not already exist.
+- **Surgical OOXML edits:** only the selected worksheet XML may change; unrelated workbook parts must remain byte-identical.
+- **Conservative matching:** exercise names use exact normalized aliases, with no fuzzy or inferred matches.
+- **Reviewable ambiguity:** duplicates, occupied cells, zero-rep rows, unsupported data, and unmatched exercises are reported instead of guessed.
+- **Local-first privacy:** the app and CLI do not upload workout or workbook data and have no runtime network dependency.
+- **Reproducible verification:** anonymized fixtures cover parsing, formatting, workbook integrity, desktop behavior, and packaged-app smoke behavior.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Export["MacroFactor export"] --> Importer["Strict export importer"]
+    Mapping["Local exact-alias config"] --> Service["Preview/apply service"]
+    Coach["Coach .xlsx workbook"] --> OOXML["OOXML workbook reader/writer"]
+    Importer --> Service
+    OOXML --> Service
+    Service --> Preview["Human-reviewable preview"]
+    Preview -->|explicit apply| Output["New workbook copy"]
+```
+
+```text
+src/macrofactor_bridge/  Import, matching, formatting, OOXML, service, CLI, and desktop workflow
+packaging/               PyInstaller entry point, specification, and icon generation
+scripts/                 Reproducible local macOS application build
+config/                  Synthetic example exercise mapping
+tests/                   Unit, integration, GUI, and anonymized workbook fixtures
+```
+
+## Privacy and security
+
+- Real MacroFactor exports, coach workbooks, generated reports, application outputs, local mappings, and local workspaces are excluded from Git.
+- Only deliberately anonymized fixtures under `tests/fixtures/` may be committed.
+- The application processes selected files on the local machine and does not transmit their contents.
+- The build script downloads declared Python build dependencies, but the built application has no runtime network integration.
+- The local `.app` is ad-hoc signed. It is not Developer ID signed, Apple-notarized, or suitable for trusted direct-download distribution.
+
+See the [Security Policy](SECURITY.md) to report a vulnerability privately. Never attach real workout or workbook data, credentials, or unredacted local paths to a public issue.
+
 ## Safety model
 
 - Preview is read-only and shows every proposed write before an output workbook is created.
-- Apply writes to a separate output path. It refuses to use the coach workbook as the output path.
+- Apply writes to a separate output path and refuses to use the coach workbook as the output path.
 - Apply refuses to overwrite an existing output file.
 - Only existing, empty result cells are eligible. Existing values and formulas are always skipped.
 - The source workbook and MacroFactor export are hashed before and after apply; a hash mismatch fails the operation.
 - The output keeps the same ZIP member list, and every workbook part except the selected worksheet XML must remain byte-identical.
 - Updates retain the target cell's style and leave formulas, merged cells, relationships, drawings, and workbook structure intact.
-- Exercise matching is exact after case/whitespace normalization and configured aliases. There is no fuzzy matching.
-- Missing workouts are never labeled as skipped. Only rows that are present in the export can be reported.
+- Exercise matching is exact after case and whitespace normalization plus configured aliases. There is no fuzzy matching.
+- Missing workouts are never labeled as skipped. Only rows present in the export can be reported.
 - Zero-rep rows are ignored and reported.
-- Real exports, workbooks, generated reports, and outputs are excluded from Git. Only anonymized test fixtures are allowed.
 
 The application never changes the MacroFactor export.
 
 ## Use the macOS app
 
-The local build is at:
+After a local build, the application is at:
 
 ```text
 dist/MacroFactor Workout Bridge.app
 ```
 
-Open Finder, navigate to `dist`, and double-click **MacroFactor Workout Bridge**. The app is self-contained; using it does not require Python or Terminal.
+Open Finder, navigate to `dist`, and double-click **MacroFactor Workout Bridge**. The app is self-contained; using the built app does not require Python or Terminal.
 
-The app walks through one screen:
+The app guides one workflow:
 
 1. Choose the MacroFactor `.csv` or `.xlsx` exercise-log export.
 2. Choose the coach `.xlsx` workbook.
 3. Use the bundled exercise mapping, or save an editable JSON copy and select it.
 4. Click **Discover**, then select the worksheet and coach week.
-5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that any absent workout was skipped.
-6. Click **Preview workbook changes** and inspect both the proposed-change table and **Review needed** panel.
+5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that an absent workout was skipped.
+6. Click **Preview workbook changes** and inspect the proposed-change table and **Review needed** panel.
 7. Click **Create safe workbook copy…** and choose a new `.xlsx` filename.
 8. Optionally save the full review and validation report as JSON.
 
-The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file in Documents, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
+The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file outside the repository, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
 
-### macOS security note
-
-The local app is ad-hoc signed and verified by the build script. Because it is built directly on this Mac, it should open normally. A copied or downloaded build is not Apple-notarized; if macOS blocks it, Control-click the app, choose **Open**, then confirm **Open**. Developer ID signing and notarization are outside this MVP.
-
-## App requirements
+### Requirements
 
 - macOS 13 or newer on Apple silicon
+- Python 3.11 or newer to build from source
 - A MacroFactor exercise-log export in `.csv` or `.xlsx` format
 - A coach workbook in `.xlsx` format
 
-## Rebuild the macOS app
+### Build locally
 
-Building requires Python 3.11 or newer and internet access the first time so the isolated build environment can install PySide6 and PyInstaller:
+The first build requires internet access so the isolated environment can install PySide6 and PyInstaller:
 
-```bash
+```sh
 ./scripts/build_macos_app.sh
 ```
 
-The script creates `dist/MacroFactor Workout Bridge.app`, embeds Python and Qt, generates the app icon, applies an ad-hoc signature, and verifies the bundle. Build environments and app artifacts are excluded from Git.
+The script creates `dist/MacroFactor Workout Bridge.app`, embeds Python and Qt, generates the app icon, applies an ad-hoc signature, and verifies the bundle. Build environments and application artifacts are excluded from Git.
 
-## Optional command-line installation
+Because the app is built locally, it should open normally on that Mac. A copied or downloaded build is not Apple-notarized; macOS may require Control-clicking the app, choosing **Open**, and confirming **Open**. Developer ID signing and notarization are outside the current project.
 
-From the repository root:
+## Optional command-line workflow
 
-```bash
+Create a virtual environment and install the project:
+
+```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
-The command-line engine has no runtime dependencies. You can then run `macrofactor-bridge`. Without installation, use:
+Run `macrofactor-bridge`, or use the source tree without installation:
 
-```bash
+```sh
 PYTHONPATH=src python3 -m macrofactor_bridge --help
 ```
 
-## Configure exercise mappings from Terminal
+### Configure exercise mappings
 
-Copy the example and edit it locally:
+Copy the synthetic example and edit the ignored local file:
 
-```bash
+```sh
 cp config/exercises.example.json config/exercises.local.json
 ```
 
-`config/exercises.local.json` should contain one rule per MacroFactor exercise:
+Each mapping rule follows this shape:
 
 ```json
 {
@@ -105,26 +151,26 @@ cp config/exercises.example.json config/exercises.local.json
 - `source_aliases` are exact names accepted from the MacroFactor export.
 - `coach_aliases` are exact names accepted in the workbook's exercise column.
 - `weight_multiplier` defaults to `1`. Set it to `0.5` only for a confirmed per-side exercise.
-- `weight_suffix` defaults to an empty string. It is independent of weight conversion.
-- `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in the configured order.
+- `weight_suffix` defaults to an empty string and is independent of weight conversion.
+- `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in configured order.
 
 There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule.
 
-## Discover worksheets and weeks
+### Discover worksheets and weeks
 
-```bash
+```sh
 PYTHONPATH=src python3 -m macrofactor_bridge inspect \
   --workbook "/path/to/Coach_Program.xlsx" \
   --config config/exercises.local.json
 ```
 
-Worksheet names, week labels, header rows, and result columns are discovered from the workbook. They are not fixed in code. The default configuration recognizes an exercise column headed `Variation` or `Exercise` and week headings matching `Week <number>`. Repeated headers for the same week and result column are consolidated. A merged week header uses its rightmost column as the result column; an unmerged header uses the adjacent column.
+Worksheet names, week labels, header rows, and result columns are discovered from the workbook rather than fixed in code. The default configuration recognizes an exercise column headed `Variation` or `Exercise` and week headings matching `Week <number>`. Repeated headers for the same week and result column are consolidated. A merged week header uses its rightmost column as the result column; an unmerged header uses the adjacent column.
 
-## Preview changes
+### Preview changes
 
 Use an explicit inclusive date range so results cannot be assigned to a coach week accidentally:
 
-```bash
+```sh
 PYTHONPATH=src python3 -m macrofactor_bridge preview \
   --export "/path/to/MacroFactor-Exercise_Log.xlsx" \
   --workbook "/path/to/Coach_Program.xlsx" \
@@ -138,21 +184,13 @@ PYTHONPATH=src python3 -m macrofactor_bridge preview \
 
 Omit `--sheet` or `--week` to choose from an interactive numbered list.
 
-Preview reports:
+Preview reports proposed values, unmatched exercises, ambiguous matches or sessions, zero-rep and missing-rep rows, occupied cells, and unsupported data.
 
-- proposed cell values;
-- unmatched source exercises;
-- configured aliases matching multiple workbook rows;
-- exercises appearing in multiple workout sessions in the selected date range;
-- zero-rep and missing-rep rows;
-- occupied result cells;
-- missing or unsupported data.
-
-## Create an output workbook
+### Create an output workbook
 
 After reviewing the preview, repeat the selection with `apply` and provide a new output filename:
 
-```bash
+```sh
 PYTHONPATH=src python3 -m macrofactor_bridge apply \
   --export "/path/to/MacroFactor-Exercise_Log.xlsx" \
   --workbook "/path/to/Coach_Program.xlsx" \
@@ -175,20 +213,38 @@ Apply refuses to create an output when there are no proposed writes.
 - Myo and mini sets: `160 x 10+3+2`
 - Supersets: `50 x 10/60 x 12`
 - Drop sets: `100 x 8→70 x 10`
-- Bodyweight or a blank MacroFactor weight: `0 x reps`
+- Bodyweight or blank MacroFactor weight: `0 x reps`
 - Configured per-side conversion plus suffix: `45s x 12`
 
-## Tests
+## Verification
 
-```bash
+Run the source-only suite:
+
+```sh
 PYTHONPATH=src python3 -m unittest discover -s tests -v
-QT_QPA_PLATFORM=offscreen .app-build-venv/bin/python -m unittest discover -s tests -v
+python3 -m compileall -q src tests packaging
+git diff --check
+```
+
+To include the graphical test locally:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[desktop]"
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -v
+```
+
+After building the application, verify its embedded Qt runtime:
+
+```sh
 QT_QPA_PLATFORM=offscreen \
   "dist/MacroFactor Workout Bridge.app/Contents/MacOS/MacroFactor Workout Bridge" \
   --smoke-test
 ```
 
-The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. The GUI test is skipped when the optional PySide6 dependency is not installed; the build-environment run executes it.
+GitHub-hosted CI runs the complete Python and offscreen desktop suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the suite on `main`.
+
+The tests use small anonymized workbooks and verify parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet and week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts.
 
 ## Known limitations
 
@@ -198,5 +254,13 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - Superset exercises must share one configured target and superset group.
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
-- The `.app` build currently targets Apple silicon and is locally signed but not Apple-notarized.
-- Fuzzy exercise matching and reverse coach-program import are intentionally outside the MVP.
+- The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.
+- Fuzzy exercise matching and reverse coach-program import are intentionally outside the current scope.
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before participating. Report conduct concerns through the private channel in the [Code of Conduct](CODE_OF_CONDUCT.md#enforcement). Follow the [Security Policy](SECURITY.md#reporting-a-vulnerability) for vulnerabilities: never publish exploit or sensitive details, but if private vulnerability reporting is unavailable, a sanitized public issue may request a private contact channel.
+
+## License
+
+Released under the [MIT License](LICENSE). MacroFactor is a product of Stronger By Science Technologies LLC; this independent project is not affiliated with or endorsed by MacroFactor.
