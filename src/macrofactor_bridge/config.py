@@ -57,6 +57,13 @@ def load_config(path: str | Path) -> BridgeConfig:
             isinstance(item, str) for item in coach_aliases
         ):
             raise ConfigError(f"Exercise rule {canonical!r} needs coach_aliases")
+        context_aliases = raw.get("coach_context_aliases", [])
+        if not isinstance(context_aliases, list) or not all(
+            isinstance(item, str) for item in context_aliases
+        ):
+            raise ConfigError(
+                f"Exercise rule {canonical!r} coach_context_aliases must be a list of strings"
+            )
         try:
             multiplier = Decimal(str(raw.get("weight_multiplier", 1)))
         except InvalidOperation as exc:
@@ -85,6 +92,9 @@ def load_config(path: str | Path) -> BridgeConfig:
                 canonical=canonical.strip(),
                 source_aliases=aliases,
                 coach_aliases=tuple(dict.fromkeys(item.strip() for item in coach_aliases)),
+                coach_context_aliases=tuple(
+                    dict.fromkeys(item.strip() for item in context_aliases if item.strip())
+                ),
                 weight_multiplier=multiplier,
                 weight_suffix=suffix,
                 superset_group=group.strip() if isinstance(group, str) and group.strip() else None,

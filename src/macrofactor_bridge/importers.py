@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from .models import SetRecord
+from .models import ExerciseNote, SetRecord
 from .ooxml import WorkbookError, XlsxPackage, split_cell_reference
 
 
@@ -60,6 +60,61 @@ def load_exercise_log(path: str | Path) -> list[SetRecord]:
     if suffix == ".xlsx":
         return _load_xlsx(source)
     raise ImportError("MacroFactor export must be .csv or .xlsx")
+
+
+def load_exercise_notes(path: str | Path) -> list[ExerciseNote]:
+    """Read exercise-level notes exposed by MacroFactor's Active Program table."""
+    source = Path(path)
+    if source.suffix.lower() == ".csv":
+        return []
+    if source.suffix.lower() != ".xlsx":
+        raise ImportError("MacroFactor export must be .csv or .xlsx")
+    try:
+        package = XlsxPackage(source)
+    except WorkbookError as exc:
+        raise ImportError(str(exc)) from exc
+
+    notes: list[ExerciseNote] = []
+    for sheet in package.sheets:
+        snapshot = package.sheet_snapshot(sheet)
+        by_row: dict[int, dict[int, object]] = {}
+        for reference, cell in snapshot.cells.items():
+            row, column = split_cell_reference(reference)
+            by_row.setdefault(row, {})[column] = cell.value
+        note_tables: list[tuple[int, int, int]] = []
+        for header_row, header_values in sorted(by_row.items()):
+            headers = {
+                str(value).strip(): column
+                for column, value in header_values.items()
+                if isinstance(value, str) and str(value).strip()
+            }
+            if not {"Exercise", "Notes"}.issubset(headers):
+                continue
+            note_tables.append((header_row, headers["Exercise"], headers["Notes"]))
+        for table_index, (header_row, exercise_column, notes_column) in enumerate(note_tables):
+            next_header = (
+                note_tables[table_index + 1][0]
+                if table_index + 1 < len(note_tables)
+                else None
+            )
+            for row_number in sorted(
+                row
+                for row in by_row
+                if row > header_row and (next_header is None or row < next_header)
+            ):
+                values = by_row[row_number]
+                exercise = str(values.get(exercise_column) or "").strip()
+                note = str(values.get(notes_column) or "").strip()
+                if exercise and note:
+                    notes.append(
+                        ExerciseNote(
+                            source_row=row_number,
+                            sheet=sheet.name,
+                            exercise=exercise,
+                            note=note,
+                        )
+                    )
+    return notes
 
 
 def _load_csv(path: Path) -> list[SetRecord]:

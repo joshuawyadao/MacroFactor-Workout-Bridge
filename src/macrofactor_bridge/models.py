@@ -11,6 +11,7 @@ class ExerciseRule:
     canonical: str
     source_aliases: tuple[str, ...]
     coach_aliases: tuple[str, ...]
+    coach_context_aliases: tuple[str, ...] = ()
     weight_multiplier: Decimal = Decimal("1")
     weight_suffix: str = ""
     superset_group: str | None = None
@@ -33,6 +34,14 @@ class SetRecord:
     set_type: str
     weight: Decimal | None
     reps: Decimal | None
+
+
+@dataclass(frozen=True)
+class ExerciseNote:
+    source_row: int
+    sheet: str
+    exercise: str
+    note: str
 
 
 @dataclass(frozen=True)
@@ -98,6 +107,7 @@ class BridgeReport:
     zero_rep_rows: list[dict[str, Any]] = field(default_factory=list)
     skipped_rows: list[dict[str, Any]] = field(default_factory=list)
     occupied_cells: list[dict[str, Any]] = field(default_factory=list)
+    exercise_notes: list[dict[str, Any]] = field(default_factory=list)
     source_hash_before: str | None = None
     source_hash_after: str | None = None
     export_hash_before: str | None = None

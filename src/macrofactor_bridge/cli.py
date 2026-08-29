@@ -68,7 +68,8 @@ def _print_report(report, mode: str) -> None:
         f"{len(report.ambiguous_matches)} ambiguous, "
         f"{len(report.zero_rep_rows)} zero-rep, "
         f"{len(report.occupied_cells)} occupied, "
-        f"{len(report.skipped_rows)} other skipped"
+        f"{len(report.skipped_rows)} other skipped, "
+        f"{len(report.exercise_notes)} exercise notes"
     )
     if report.output_file:
         print(f"Output: {report.output_file}")

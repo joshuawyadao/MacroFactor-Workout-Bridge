@@ -71,3 +71,36 @@ def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
             current_weight = weight
         current_kind = "standard"
     return "; ".join(output)
+
+
+def format_superset(exercises: list[tuple[list[SetRecord], ExerciseRule]]) -> str:
+    """Pair standard superset sets by position in configured exercise order."""
+    completed = [
+        ([record for record in records if record.reps is not None and record.reps > 0], rule)
+        for records, rule in exercises
+    ]
+    if not completed or any(not records for records, _ in completed):
+        raise ValueError("Superset exercises must each contain completed sets")
+    counts = {len(records) for records, _ in completed}
+    if len(counts) != 1:
+        raise ValueError("Superset exercises have different completed-set counts")
+    for records, _ in completed:
+        if any(
+            any(marker in record.set_type.casefold().replace("-", " ") for marker in ("mini", "myo", "drop"))
+            for record in records
+        ):
+            raise ValueError("Paired supersets currently require standard sets")
+
+    output: list[str] = []
+    current_weights: str | None = None
+    current_index: int | None = None
+    for set_index in range(next(iter(counts))):
+        weights = "/".join(_weight(records[set_index], rule) for records, rule in completed)
+        reps = "/".join(_reps(records[set_index]) for records, _ in completed)
+        if current_index is not None and weights == current_weights:
+            output[current_index] += f", {reps}"
+        else:
+            output.append(f"{weights} x {reps}")
+            current_index = len(output) - 1
+            current_weights = weights
+    return "; ".join(output)

@@ -5,6 +5,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from datetime import date, timedelta
+from importlib import resources
 from pathlib import Path
 
 from .config import load_config
@@ -20,16 +21,29 @@ class ReviewSection:
     details: tuple[str, ...]
 
 
+def _checkout_config_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "config" / "exercises.example.json"
+
+
+def _packaged_config_path() -> Path:
+    resource = resources.files("macrofactor_bridge").joinpath(
+        "resources", "exercises.example.json"
+    )
+    return Path(str(resource))
+
+
 def bundled_config_path() -> Path:
-    """Return the bundled example mapping in source and frozen-app layouts."""
+    """Return the bundled example mapping in source, package, and frozen layouts."""
     frozen_root = getattr(sys, "_MEIPASS", None)
     if frozen_root:
-        path = Path(frozen_root) / "config" / "exercises.example.json"
+        candidates = (Path(frozen_root) / "config" / "exercises.example.json",)
     else:
-        path = Path(__file__).resolve().parents[2] / "config" / "exercises.example.json"
-    if not path.is_file():
-        raise FileNotFoundError(f"Bundled exercise mapping was not found: {path}")
-    return path
+        candidates = (_checkout_config_path(), _packaged_config_path())
+    for path in candidates:
+        if path.is_file():
+            return path
+    searched = ", ".join(str(path) for path in candidates)
+    raise FileNotFoundError(f"Bundled exercise mapping was not found in: {searched}")
 
 
 def copy_mapping(source: str | Path, destination: str | Path) -> Path:
@@ -86,6 +100,7 @@ def review_sections(report: BridgeReport) -> tuple[ReviewSection, ...]:
         ("Zero-rep rows", report.zero_rep_rows),
         ("Occupied cells", report.occupied_cells),
         ("Other skipped data", report.skipped_rows),
+        ("MacroFactor exercise notes", report.exercise_notes),
     )
     sections: list[ReviewSection] = []
     for title, entries in categories:

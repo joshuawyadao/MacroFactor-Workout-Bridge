@@ -71,6 +71,26 @@ See the [Security Policy](SECURITY.md) to report a vulnerability privately. Neve
 
 The application never changes the MacroFactor export.
 
+## Private local file workspace
+
+For recurring use, keep personal inputs and generated files under the Git-ignored `local-data/` directory instead of Downloads:
+
+```bash
+PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace setup
+```
+
+Drop coach workbooks into `local-data/inbox/coach/` and MacroFactor exercise-log exports into `local-data/inbox/macrofactor/`, then validate and archive them. Keep their downloaded names; no manual renaming is needed:
+
+```bash
+PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace archive \
+  --config config/exercises.local.json
+PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace status
+```
+
+Every validated copy starts with its UTC upload/intake date for easy searching. MacroFactor names also include their workout-date range, and all archive names include a content hash. Stable files under `local-data/current/` always point to the versions to select in the app. Every run creates a JSON manifest, identical content is deduplicated, and inbox files are never moved, deleted, renamed, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, naming examples, weekly routine, privacy rules, and recovery limitations.
+
+Exports must contain at least one usable completed set. Malformed history entries are skipped, and moving the whole workspace preserves archive selection and status paths. Custom `--root` locations receive local Git ignore rules for all managed data directories, including private manifests and reports; existing tracked files are not automatically untracked.
+
 ## Use the macOS app
 
 After a local build, the application is at:
@@ -103,13 +123,15 @@ The bundled mapping is an example, not a promise that every personal exercise na
 
 ### Build locally
 
-The first build requires internet access so the isolated environment can install PySide6 and PyInstaller:
+The first build requires internet access so the isolated environment can install the reviewed PySide6 and PyInstaller dependency closure:
 
 ```sh
 ./scripts/build_macos_app.sh
 ```
 
 The script creates `dist/MacroFactor Workout Bridge.app`, embeds Python and Qt, generates the app icon, applies an ad-hoc signature, and verifies the bundle. Build environments and application artifacts are excluded from Git.
+
+The app-build dependency closure is pinned in `requirements/app-build.lock`; the direct optional dependencies in `pyproject.toml` use the same PySide6 and PyInstaller versions. Update this lockfile only as a tested unit: resolve it on Python 3.11, run `python -m pip check`, rebuild the app, and run the offscreen GUI suite. The command-line package deliberately has no runtime dependencies.
 
 Because the app is built locally, it should open normally on that Mac. A copied or downloaded build is not Apple-notarized; macOS may require Control-clicking the app, choosing **Open**, and confirming **Open**. Developer ID signing and notarization are outside the current project.
 
@@ -150,6 +172,7 @@ Each mapping rule follows this shape:
 
 - `source_aliases` are exact names accepted from the MacroFactor export.
 - `coach_aliases` are exact names accepted in the workbook's exercise column.
+- `coach_context_aliases` optionally disambiguate repeated exercise-column labels by requiring an exact match in another text cell on the same row. For example, `Abs` can be paired with the exact variation `hanging leg raises (3ct tempo eccentric)` without selecting a separate GHD sit-up row.
 - `weight_multiplier` defaults to `1`. Set it to `0.5` only for a confirmed per-side exercise.
 - `weight_suffix` defaults to an empty string and is independent of weight conversion.
 - `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in configured order.
@@ -184,7 +207,16 @@ PYTHONPATH=src python3 -m macrofactor_bridge preview \
 
 Omit `--sheet` or `--week` to choose from an interactive numbered list.
 
-Preview reports proposed values, unmatched exercises, ambiguous matches or sessions, zero-rep and missing-rep rows, occupied cells, and unsupported data.
+Preview reports:
+
+- proposed cell values;
+- unmatched source exercises;
+- configured aliases matching multiple workbook rows;
+- exercises appearing in multiple workout sessions in the selected date range;
+- zero-rep and missing-rep rows;
+- occupied result cells;
+- missing or unsupported data;
+- relevant exercise-level notes found in MacroFactor's `Active Program` table. Notes are review-only and are not appended to result cells.
 
 ### Create an output workbook
 
@@ -211,7 +243,8 @@ Apply refuses to create an output when there are no proposed writes.
 - Repeated weight: `200 x 8, 7`
 - Weight changes: `200 x 8, 7; 180 x 10`
 - Myo and mini sets: `160 x 10+3+2`
-- Supersets: `50 x 10/60 x 12`
+- Supersets: `50/60 x 10/12, 9/11`
+- Superset weight changes: `50/60 x 10/12; 50/55 x 9/11`
 - Drop sets: `100 x 8→70 x 10`
 - Bodyweight or blank MacroFactor weight: `0 x reps`
 - Configured per-side conversion plus suffix: `45s x 12`
@@ -242,16 +275,17 @@ QT_QPA_PLATFORM=offscreen \
   --smoke-test
 ```
 
-GitHub-hosted CI runs the complete Python and offscreen desktop suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the suite on `main`.
+GitHub-hosted CI runs the complete Python and offscreen desktop test suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the same suite on `main`. Use the Actions tab's manual **CI Verify** dispatch when a hosted rerun is needed.
 
-The tests use small anonymized workbooks and verify parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet and week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts.
+The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. The GUI test is skipped when the optional PySide6 dependency is not installed; the build-environment run executes it.
 
 ## Known limitations
 
 - Coach workbooks must be `.xlsx`; macro-enabled `.xlsm` files are not supported.
 - A target result cell must already exist in the worksheet XML. The application skips a completely absent cell instead of creating one without a trustworthy style.
 - One source exercise may appear in only one workout session within the selected date range. Repeated sessions are reported as ambiguous rather than merged.
-- Superset exercises must share one configured target and superset group.
+- Superset exercises must share one configured target and superset group, contain the same number of completed standard sets, and are paired by set position in configured exercise order.
+- Current MacroFactor `.xlsx` exports expose exercise-level notes in `Active Program`, but the `Workout Log` table does not expose program-level or session-level notes. Exercise notes appear in review output only and represent the current active-program value rather than a historical note attached to one completed set.
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.

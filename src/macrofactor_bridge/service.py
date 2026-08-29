@@ -7,11 +7,11 @@ from datetime import date
 from pathlib import Path
 
 from .config import normalize_name, source_rule_index
-from .formatting import format_sets
-from .importers import load_exercise_log
+from .formatting import format_sets, format_superset
+from .importers import load_exercise_log, load_exercise_notes
 from .models import BridgeConfig, BridgeReport, ExerciseRule, ProposedWrite, SetRecord
 from .ooxml import WorkbookError, file_sha256, split_cell_reference, validate_copy_integrity
-from .workbook import select_sheet_options, target_rows
+from .workbook import TargetRow, select_sheet_options, target_rows
 
 
 SUPERSET_MARKER = re.compile(r"\s*∈\s*(SS\d+)\s*$", re.IGNORECASE)
@@ -26,6 +26,7 @@ class _FormattedTarget:
     target_name: str
     superset_key: str | None
     first_row: int
+    records: tuple[SetRecord, ...]
 
 
 def _source_name_and_superset(value: str) -> tuple[str, str | None]:
@@ -33,6 +34,23 @@ def _source_name_and_superset(value: str) -> tuple[str, str | None]:
     if not match:
         return value.strip(), None
     return value[: match.start()].strip(), match.group(1).upper()
+
+
+def _matching_coach_rows(
+    rule: ExerciseRule, coach_index: dict[str, list[TargetRow]]
+) -> dict[str, TargetRow]:
+    matching_rows: list[TargetRow] = []
+    for alias in rule.coach_aliases:
+        matching_rows.extend(coach_index.get(normalize_name(alias), []))
+    unique_rows = {row.exercise_cell: row for row in matching_rows}
+    if not rule.coach_context_aliases:
+        return unique_rows
+    context_keys = {normalize_name(alias) for alias in rule.coach_context_aliases}
+    return {
+        cell: row
+        for cell, row in unique_rows.items()
+        if context_keys.intersection(normalize_name(value) for value in row.context_values)
+    }
 
 
 def build_preview(
@@ -47,6 +65,7 @@ def build_preview(
     if to_date < from_date:
         raise ValueError("to-date must be on or after from-date")
     records = load_exercise_log(export_path)
+    exercise_notes = load_exercise_notes(export_path)
     package, sheet, options, week = select_sheet_options(
         workbook_path, config, sheet_name, week_label
     )
@@ -104,6 +123,20 @@ def build_preview(
             )
         source_supersets.setdefault(key, superset)
 
+    for note in exercise_notes:
+        base_name, _ = _source_name_and_superset(note.exercise)
+        if normalize_name(base_name) not in grouped:
+            continue
+        report.exercise_notes.append(
+            {
+                "exercise": base_name,
+                "note": note.note,
+                "sheet": note.sheet,
+                "row": note.source_row,
+                "behavior": "reported for review; not written into the coach result cell",
+            }
+        )
+
     formatted_targets: list[_FormattedTarget] = []
     for key, exercise_records in grouped.items():
         source_name = source_names[key]
@@ -123,16 +156,17 @@ def build_preview(
                 }
             )
             continue
-        matching_rows = []
-        for alias in rule.coach_aliases:
-            matching_rows.extend(coach_index.get(normalize_name(alias), []))
-        unique_rows = {row.exercise_cell: row for row in matching_rows}
+        unique_rows = _matching_coach_rows(rule, coach_index)
         if not unique_rows:
             report.unmatched_exercises.append(
                 {
                     "exercise": source_name,
                     "canonical": rule.canonical,
-                    "reason": "no exact configured coach alias on selected worksheet",
+                    "reason": (
+                        "no exact configured coach alias and row context on selected worksheet"
+                        if rule.coach_context_aliases
+                        else "no exact configured coach alias on selected worksheet"
+                    ),
                 }
             )
             continue
@@ -171,6 +205,7 @@ def build_preview(
                 target_name=target.exercise_name,
                 superset_key=rule.superset_group or source_supersets.get(key),
                 first_row=min(record.source_row for record in exercise_records),
+                records=tuple(exercise_records),
             )
         )
 
@@ -204,7 +239,19 @@ def build_preview(
                 )
                 continue
             pieces.sort(key=lambda piece: (piece.rule.superset_order, piece.first_row))
-            combined = "/".join(piece.value for piece in pieces)
+            try:
+                combined = format_superset(
+                    [(list(piece.records), piece.rule) for piece in pieces]
+                )
+            except ValueError as exc:
+                report.ambiguous_matches.append(
+                    {
+                        "cell": cell_reference,
+                        "reason": str(exc),
+                        "exercises": [piece.source_name for piece in pieces],
+                    }
+                )
+                continue
         report.proposed_writes.append(
             ProposedWrite(
                 sheet=sheet_name,

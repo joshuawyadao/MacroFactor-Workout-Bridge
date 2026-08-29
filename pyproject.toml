@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "macrofactor-workout-bridge"
-version = "0.2.0"
+version = "0.2.1"
 description = "Safely copy MacroFactor workout results into a coach Excel workbook."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,11 +13,12 @@ authors = [{ name = "Joshua Wyadao" }]
 dependencies = []
 
 [project.optional-dependencies]
-desktop = ["PySide6-Essentials>=6.7,<7"]
-app-build = ["PySide6-Essentials>=6.7,<7", "pyinstaller>=6,<7"]
+desktop = ["PySide6-Essentials==6.11.2"]
+app-build = ["PySide6-Essentials==6.11.2", "pyinstaller==6.22.2"]
 
 [project.scripts]
 macrofactor-bridge = "macrofactor_bridge.cli:main"
+macrofactor-workspace = "macrofactor_bridge.local_workspace:main"
 
 [project.gui-scripts]
 macrofactor-bridge-gui = "macrofactor_bridge.desktop:main"
@@ -27,3 +28,6 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+macrofactor_bridge = ["resources/*.json"]
