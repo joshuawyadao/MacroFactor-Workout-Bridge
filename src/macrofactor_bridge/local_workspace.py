@@ -316,6 +316,21 @@ def _valid_workout_range(validation: dict[str, Any]) -> bool:
     )
 
 
+def _history_archive_path(workspace: Path, kind: str, archive_value: str) -> Path | None:
+    """Locate a managed archive in this workspace, never at its old absolute root."""
+    recorded = Path(archive_value)
+    if ".." in recorded.parts or recorded.parts[-3:-1] != ("archive", kind):
+        return None
+    directory = workspace / "archive" / kind
+    archive = directory / recorded.name
+    try:
+        if archive.resolve().parent != directory:
+            return None
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return archive
+
+
 def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     manifests = workspace / "manifests"
@@ -354,13 +369,15 @@ def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
                 modified_at = modified.astimezone(timezone.utc).isoformat()
             except (ValueError, OverflowError):
                 continue
-            archive = Path(archive_value)
+            archive = _history_archive_path(workspace, kind, archive_value)
+            if archive is None:
+                continue
             try:
                 if not archive.is_file() or file_sha256(archive) != digest:
                     continue
             except OSError:
                 continue
-            entries.append({**entry, "source_modified_at": modified_at})
+            entries.append({**entry, "archive": str(archive), "source_modified_at": modified_at})
     return entries
 
 
@@ -506,6 +523,15 @@ def latest_archives(root: str | Path) -> dict[str, dict[str, Any] | None]:
             if kind == "macrofactor" and not _valid_workout_range(entry.get("validation", {})):
                 continue
             candidate = {**entry, "ingested_at": ingested_at, "manifest": str(path)}
+            archive = _history_archive_path(workspace, kind, entry["archive"])
+            if archive is not None:
+                candidate["archive"] = str(archive)
+                if isinstance(entry.get("current"), str):
+                    current_name = (
+                        "Coach Program - Current.xlsx" if kind == "coach"
+                        else f"MacroFactor Exercise Log - Current{archive.suffix}"
+                    )
+                    candidate["current"] = str(workspace / "current" / current_name)
             current = latest[kind]
             if current is None or candidate["ingested_at"] >= current["ingested_at"]:
                 latest[kind] = candidate

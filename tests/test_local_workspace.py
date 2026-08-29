@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -277,6 +278,76 @@ class LocalWorkspaceTests(unittest.TestCase):
                     result["current"]["macrofactor"]["archive"],
                     valid["entries"][0]["archive"],
                 )
+
+    def test_relocated_workspace_keeps_newest_archive_and_rebases_status(self) -> None:
+        for relocation in ("move", "copy"):
+            with self.subTest(relocation=relocation), tempfile.TemporaryDirectory() as directory:
+                original = Path(directory) / "original"
+                setup_workspace(original)
+                source = original / "inbox" / "macrofactor" / "newest.csv"
+                source.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2099-01-08,Upper,Press,Normal,100,8\n",
+                    encoding="utf-8",
+                )
+                first = archive_inbox(original, CONFIG, now=NOW)
+                archived = Path(first["entries"][0]["archive"])
+                source.unlink()
+                moved = Path(directory) / "restored"
+                if relocation == "move":
+                    original.rename(moved)
+                else:
+                    shutil.copytree(original, moved, symlinks=True)
+                expected = moved.resolve() / "archive" / "macrofactor" / archived.name
+
+                status = latest_archives(moved)["macrofactor"]
+
+                self.assertEqual(Path(status["archive"]), expected)
+                self.assertEqual(Path(status["current"]).resolve(), expected)
+                older = moved / "inbox" / "macrofactor" / "older.csv"
+                older.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2026-08-03,Upper,Press,Normal,90,8\n",
+                    encoding="utf-8",
+                )
+
+                result = archive_inbox(moved, CONFIG, now=NOW + timedelta(days=1))
+
+                self.assertEqual(result["errors"], [])
+                self.assertEqual(Path(result["current"]["macrofactor"]["archive"]), expected)
+                self.assertEqual(Path(result["current"]["macrofactor"]["current"]).resolve(), expected)
+                self.assertEqual(file_sha256(expected), first["entries"][0]["sha256"])
+
+    def test_history_cannot_select_archive_paths_outside_managed_directory(self) -> None:
+        for unsafe_path in ("traversal", "symlink"):
+            with self.subTest(unsafe_path=unsafe_path), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "local-data"
+                setup_workspace(root)
+                source = root / "inbox" / "macrofactor" / "log.csv"
+                source.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2026-08-03,Upper,Press,Normal,100,8\n",
+                    encoding="utf-8",
+                )
+                first = archive_inbox(root, CONFIG, now=NOW)
+                source.unlink()
+                manifest_path = Path(first["manifest"])
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                archived = Path(payload["entries"][0]["archive"])
+                if unsafe_path == "traversal":
+                    payload["entries"][0]["archive"] = str(
+                        archived.parent / ".." / "macrofactor" / archived.name
+                    )
+                else:
+                    external = Path(directory) / "outside.csv"
+                    archived.rename(external)
+                    archived.symlink_to(external)
+                manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+                result = archive_inbox(root, CONFIG, now=NOW + timedelta(days=1))
+
+                self.assertEqual(result["errors"], [])
+                self.assertEqual(result["current"], {})
 
     def test_legacy_macrofactor_archive_gets_upload_date_name_safely(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
