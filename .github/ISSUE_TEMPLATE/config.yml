@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/security/advisories/new
+    about: Do not disclose exploits, credentials, personal paths, or real workout/workbook data in a public issue.
