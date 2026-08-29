@@ -281,6 +281,56 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertEqual(len(result["errors"]), 1)
             self.assertFalse(any((root / "archive" / "macrofactor").iterdir()))
 
+    def test_export_without_completed_sets_is_not_archived_or_promoted(self) -> None:
+        invalid_rows = (
+            "2026-08-03,Upper,,Normal,100,8\n",
+            "2026-08-03,Upper,Press,Normal,100,\n",
+            "2026-08-03,Upper,Press,Normal,100,0\n",
+            "2026-08-03,Upper,Press,Normal,100,-1\n",
+            "2026-08-03,Upper,Press,Normal,100,NaN\n",
+            "2026-08-03,Upper,Press,Normal,100,Infinity\n",
+            "2026-08-03,Upper,Press,,100,8\n",
+        )
+        for row in invalid_rows:
+            with self.subTest(row=row), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "local-data"
+                setup_workspace(root)
+                source = root / "inbox" / "macrofactor" / "incomplete.csv"
+                source.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n" + row,
+                    encoding="utf-8",
+                )
+                source_hash = file_sha256(source)
+
+                result = archive_inbox(root, CONFIG, now=NOW)
+
+                self.assertEqual(result["entries"], [])
+                self.assertEqual(result["current"], {})
+                self.assertIn("no usable completed sets", result["errors"][0]["error"])
+                self.assertFalse(any((root / "archive" / "macrofactor").iterdir()))
+                self.assertEqual(file_sha256(source), source_hash)
+
+    def test_export_with_some_completed_sets_remains_usable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "local-data"
+            setup_workspace(root)
+            source = root / "inbox" / "macrofactor" / "mixed.csv"
+            source.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2026-08-03,Upper,Press,Normal,100,0\n"
+                "2026-08-03,Upper,Pull Up,Normal,,8\n",
+                encoding="utf-8",
+            )
+
+            result = archive_inbox(root, CONFIG, now=NOW)
+
+            self.assertEqual(result["errors"], [])
+            self.assertEqual(result["entries"][0]["validation"]["row_count"], 2)
+            self.assertEqual(
+                file_sha256(Path(result["current"]["macrofactor"]["archive"])),
+                file_sha256(source),
+            )
+
     def test_unusable_coach_workbook_is_not_archived_or_promoted_to_current(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"

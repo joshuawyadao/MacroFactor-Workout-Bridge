@@ -79,6 +79,15 @@ def _validate_export(path: Path) -> dict[str, Any]:
     records = load_exercise_log(path)
     if not records:
         raise LocalWorkspaceError("MacroFactor export contains no exercise-log rows")
+    if not any(
+        record.exercise
+        and record.set_type
+        and record.reps is not None
+        and record.reps.is_finite()
+        and record.reps > 0
+        for record in records
+    ):
+        raise LocalWorkspaceError("MacroFactor export contains no usable completed sets")
     dates = [record.workout_date for record in records]
     exercises = sorted({record.exercise for record in records if record.exercise})
     return {
