@@ -233,6 +233,51 @@ class LocalWorkspaceTests(unittest.TestCase):
             self.assertEqual(Path(second["current"]["macrofactor"]["archive"]), newer_archive)
             self.assertEqual(current.resolve(), newer_archive)
 
+    def test_malformed_history_selection_fields_are_skipped(self) -> None:
+        malformed = (
+            {"validation": {}},
+            {"validation": {"first_workout": "2099-01-08"}},
+            {"validation": {"first_workout": [], "last_workout": "2099-01-08"}},
+            {"validation": {"first_workout": "2099-01-08", "last_workout": None}},
+            {"validation": {"first_workout": "2099-02-30", "last_workout": "2099-03-01"}},
+            {"validation": {"first_workout": "2099-01-09", "last_workout": "2099-01-08"}},
+            {"source_modified_at": "invalid"},
+            {"source_modified_at": "2099-01-08T12:00:00"},
+            {"source_modified_at": []},
+            {"kind": []},
+        )
+        for fields in malformed:
+            with self.subTest(fields=fields), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "local-data"
+                setup_workspace(root)
+                source = root / "inbox" / "macrofactor" / "log.csv"
+                source.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2026-08-03,Upper,Press,Normal,100,8\n",
+                    encoding="utf-8",
+                )
+                valid = archive_inbox(root, CONFIG, now=NOW)
+                source.write_text(
+                    "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                    "2099-01-08,Upper,Press,Normal,100,8\n",
+                    encoding="utf-8",
+                )
+                newest = archive_inbox(root, CONFIG, now=NOW + timedelta(days=1))
+                source.unlink()
+                manifest_path = Path(newest["manifest"])
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                payload["entries"][0].update(fields)
+                manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+                result = archive_inbox(root, CONFIG, now=NOW + timedelta(days=2))
+
+                self.assertEqual(result["errors"], [])
+                self.assertEqual(result["entries"], [])
+                self.assertEqual(
+                    result["current"]["macrofactor"]["archive"],
+                    valid["entries"][0]["archive"],
+                )
+
     def test_legacy_macrofactor_archive_gets_upload_date_name_safely(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
@@ -361,6 +406,14 @@ class LocalWorkspaceTests(unittest.TestCase):
                 {"ingested_at": NOW.isoformat(), "entries": {}},
                 {"ingested_at": NOW.isoformat(), "entries": [None, "entry"]},
                 {"ingested_at": NOW.isoformat(), "current": {"coach": []}},
+                {"ingested_at": NOW.isoformat(), "entries": [{"kind": []}]},
+                {
+                    "ingested_at": NOW.isoformat(),
+                    "current": {"macrofactor": {
+                        "archive": "/invalid/log.csv",
+                        "validation": {"first_workout": "2026-08-03"},
+                    }},
+                },
                 {
                     "ingested_at": NOW.isoformat(),
                     "entries": [

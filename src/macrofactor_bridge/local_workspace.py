@@ -7,7 +7,7 @@ import re
 import shutil
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -299,6 +299,23 @@ def _update_current_files(
     return selected
 
 
+def _valid_workout_range(validation: dict[str, Any]) -> bool:
+    first = validation.get("first_workout")
+    last = validation.get("last_workout")
+    if not isinstance(first, str) or not isinstance(last, str):
+        return False
+    try:
+        first_date = date.fromisoformat(first)
+        last_date = date.fromisoformat(last)
+    except ValueError:
+        return False
+    return (
+        first_date.isoformat() == first
+        and last_date.isoformat() == last
+        and first_date <= last_date
+    )
+
+
 def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     manifests = workspace / "manifests"
@@ -320,12 +337,22 @@ def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
             validation = entry.get("validation")
             source_modified_at = entry.get("source_modified_at")
             if (
-                kind not in {"coach", "macrofactor"}
+                not isinstance(kind, str)
+                or kind not in {"coach", "macrofactor"}
                 or not isinstance(archive_value, str)
                 or not isinstance(digest, str)
                 or not isinstance(validation, dict)
                 or not isinstance(source_modified_at, str)
             ):
+                continue
+            if kind == "macrofactor" and not _valid_workout_range(validation):
+                continue
+            try:
+                modified = datetime.fromisoformat(source_modified_at)
+                if modified.tzinfo is None:
+                    continue
+                modified_at = modified.astimezone(timezone.utc).isoformat()
+            except (ValueError, OverflowError):
                 continue
             archive = Path(archive_value)
             try:
@@ -333,7 +360,7 @@ def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
                     continue
             except OSError:
                 continue
-            entries.append(entry)
+            entries.append({**entry, "source_modified_at": modified_at})
     return entries
 
 
@@ -470,10 +497,13 @@ def latest_archives(root: str | Path) -> dict[str, dict[str, Any] | None]:
                 continue
             kind = entry.get("kind")
             if (
-                kind not in latest
+                not isinstance(kind, str)
+                or kind not in latest
                 or not isinstance(entry.get("archive"), str)
                 or not isinstance(entry.get("validation", {}), dict)
             ):
+                continue
+            if kind == "macrofactor" and not _valid_workout_range(entry.get("validation", {})):
                 continue
             candidate = {**entry, "ingested_at": ingested_at, "manifest": str(path)}
             current = latest[kind]
