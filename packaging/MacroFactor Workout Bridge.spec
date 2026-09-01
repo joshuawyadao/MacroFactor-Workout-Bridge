@@ -53,6 +53,6 @@ app = BUNDLE(
         "CFBundleVersion": "3",
         "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
-        "NSHumanReadableCopyright": "Copyright © 2026 Joshua Wyadao",
+        "NSHumanReadableCopyright": "Copyright © 2026 Joshua Yadao",
     },
 )

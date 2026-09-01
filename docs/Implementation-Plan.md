@@ -1,19 +1,18 @@
 # Plan
 
-Make PR #5's macOS app build reproducible and auditable by pinning the tested PySide6 and PyInstaller dependency closure, while retaining the project's Python 3.11 support and existing runtime-dependency-free CLI. The change deliberately avoids a framework major migration or runtime dependency expansion.
+Standardize the public maintainer name as “Joshua Yadao” across repository licensing, Python package metadata, and macOS application metadata so attribution is consistent. This is a metadata-only cleanup with no executable behavior change.
 
 ## Scope
-- In: exact app-build dependency lock, direct optional-dependency pins, deterministic build installation, build/verification documentation, and dependency-focused validation.
-- Out: application feature changes, PySide6/PyInstaller major upgrades, runtime dependencies, CI toolchain upgrades, and unrelated PR #5 work.
+- In: `LICENSE`, `pyproject.toml`, macOS bundle copyright metadata, repository-wide spelling verification, and the implementation plan.
+- Out: Commit-author history rewriting, contact-email changes, local Codex checkpoint refs, application behavior, and test fixtures.
 
 ## Action items
-[x] Inspect PR #5's manifest, packaging script, CI, documentation, and current dependency-audit evidence.
-[x] Resolve the direct app-build dependencies against Python 3.11 and record their exact compatible transitive closure.
-[x] Add the reviewed app-build lockfile and pin the direct optional dependencies in `pyproject.toml`.
-[x] Update `scripts/build_macos_app.sh` to install only the lockfile before installing the local project without dependency resolution.
-[x] Document the reproducible build dependency policy and exact update/validation workflow in `README.md`.
-[x] Verify the lockfile in a clean temporary virtual environment with `pip check`, then run the complete offscreen test suite, compile checks, and `git diff --check`.
-[x] Review the final diff, commit the scoped files, and push the commit to PR #5's remote branch.
+[x] Replace every non-standard maintainer attribution with “Joshua Yadao”.
+[x] Verify licensing, package, and macOS bundle metadata use the standardized spelling.
+[x] Confirm no unintended spelling variants remain in the tracked working tree.
+[x] Run the complete unit test suite to ensure the metadata-only change does not affect packaging or application behavior.
+[x] Compile Python sources and run `git diff --check` as the broader repository verification gate.
+[x] Review the final diff, commit the scoped files, and push the feature branch.
 
 ## Open questions
 - None.

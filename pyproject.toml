@@ -9,7 +9,7 @@ description = "Safely copy MacroFactor workout results into a coach Excel workbo
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Joshua Wyadao" }]
+authors = [{ name = "Joshua Yadao" }]
 dependencies = []
 
 [project.optional-dependencies]
