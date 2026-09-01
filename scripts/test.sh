@@ -13,6 +13,7 @@ SHARED_ROOT=$(dirname -- "$GIT_COMMON_DIR")
 BOOTSTRAP_PYTHON=${PYTHON_BIN:-python3}
 TEST_REQUIREMENTS="$WORKTREE_ROOT/requirements/test.lock"
 TEST_VENV_ROOT=${MACROFACTOR_TEST_VENV_ROOT:-"$SHARED_ROOT/.venv/worktree-tests"}
+export PYTHONPATH="$WORKTREE_ROOT/src"
 
 python_is_supported() {
     "$1" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))' >/dev/null 2>&1
@@ -118,11 +119,6 @@ if ! environment_ready; then
 fi
 
 export QT_QPA_PLATFORM=${QT_QPA_PLATFORM:-offscreen}
-if [ -n "${PYTHONPATH:-}" ]; then
-    export PYTHONPATH="$WORKTREE_ROOT/src:$PYTHONPATH"
-else
-    export PYTHONPATH="$WORKTREE_ROOT/src"
-fi
 
 cd "$WORKTREE_ROOT"
 exec "$TEST_PYTHON" -m unittest discover -s tests -v

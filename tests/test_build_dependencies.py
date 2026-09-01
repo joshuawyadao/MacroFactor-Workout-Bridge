@@ -35,9 +35,15 @@ elif arguments[:2] == ["-m", "pip"]:
         log.write("provisioned\\n")
     time.sleep(0.5)
 elif arguments[:2] == ["-m", "unittest"]:
-    pass
+    pythonpath_log = os.environ.get("FAKE_PYTHONPATH_LOG")
+    if pythonpath_log:
+        with pathlib.Path(pythonpath_log).open("a") as log:
+            log.write(os.environ.get("PYTHONPATH", "") + "\\n")
 elif arguments and arguments[0] == "-c" and "PySide6" in arguments[1]:
-    pass
+    pythonpath_log = os.environ.get("FAKE_PYTHONPATH_LOG")
+    if pythonpath_log:
+        with pathlib.Path(pythonpath_log).open("a") as log:
+            log.write(os.environ.get("PYTHONPATH", "") + "\\n")
 else:
     os.execv(sys.executable, [sys.executable, *arguments])
 """
@@ -281,6 +287,38 @@ class BuildDependencyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(provision_log.read_text().splitlines(), ["provisioned"])
             self.assertIn("FAKE_PYTHON_LOG", incomplete_python.read_text())
+
+    def test_test_runner_excludes_the_callers_pythonpath(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            fake_python = temporary_root / "fake-python"
+            provision_log = temporary_root / "provision.log"
+            pythonpath_log = temporary_root / "pythonpath.log"
+            virtualenv_root = temporary_root / "environments"
+            caller_pythonpath = temporary_root / "caller-packages"
+            fake_python.write_text(FAKE_PYTHON_ADAPTER)
+            fake_python.chmod(0o755)
+            caller_pythonpath.mkdir()
+
+            environment = os.environ.copy()
+            environment["PYTHON_BIN"] = str(fake_python)
+            environment["MACROFACTOR_TEST_VENV_ROOT"] = str(virtualenv_root)
+            environment["FAKE_PYTHON_LOG"] = str(provision_log)
+            environment["FAKE_PYTHONPATH_LOG"] = str(pythonpath_log)
+            environment["PYTHONPATH"] = str(caller_pythonpath)
+
+            result = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh")],
+                capture_output=True,
+                text=True,
+                env=environment,
+                timeout=10,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            observed_paths = pythonpath_log.read_text().splitlines()
+            self.assertGreaterEqual(len(observed_paths), 2)
+            self.assertEqual(set(observed_paths), {str(PROJECT_ROOT / "src")})
 
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
