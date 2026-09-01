@@ -44,12 +44,6 @@ if [ "${1:-}" = "--print-venv" ]; then
     exit 0
 fi
 
-if [ -x "$TEST_PYTHON" ] && ! python_is_supported "$TEST_PYTHON"; then
-    printf 'The existing test environment uses an unsupported Python: %s\n' "$TEST_VENV" >&2
-    printf 'Remove that fingerprinted environment so it can be provisioned again.\n' >&2
-    exit 1
-fi
-
 environment_ready() {
     [ -x "$TEST_PYTHON" ] &&
         python_is_supported "$TEST_PYTHON" &&
@@ -108,9 +102,7 @@ acquire_lock() {
 if ! environment_ready; then
     acquire_lock
     if ! environment_ready; then
-        if [ ! -x "$TEST_PYTHON" ]; then
-            "$BOOTSTRAP_PYTHON" -m venv "$TEST_VENV"
-        fi
+        "$BOOTSTRAP_PYTHON" -m venv --clear "$TEST_VENV"
         "$TEST_PYTHON" -m pip install \
             --disable-pip-version-check \
             --requirement "$TEST_REQUIREMENTS"

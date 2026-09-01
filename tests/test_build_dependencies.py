@@ -23,7 +23,10 @@ import time
 arguments = sys.argv[1:]
 
 if arguments[:2] == ["-m", "venv"]:
-    test_python = pathlib.Path(arguments[2]) / "bin" / "python"
+    environment = pathlib.Path(arguments[-1])
+    if "--clear" in arguments and environment.exists():
+        shutil.rmtree(environment)
+    test_python = environment / "bin" / "python"
     test_python.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(__file__, test_python)
     test_python.chmod(0o755)
@@ -240,6 +243,44 @@ class BuildDependencyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(provision_log.read_text().splitlines(), ["provisioned"])
             self.assertFalse(provision_lock.exists())
+
+    def test_test_runner_recreates_an_incomplete_virtualenv(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            fake_python = temporary_root / "fake-python"
+            provision_log = temporary_root / "provision.log"
+            virtualenv_root = temporary_root / "environments"
+            fake_python.write_text(FAKE_PYTHON_ADAPTER)
+            fake_python.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment["PYTHON_BIN"] = str(fake_python)
+            environment["MACROFACTOR_TEST_VENV_ROOT"] = str(virtualenv_root)
+            environment["FAKE_PYTHON_LOG"] = str(provision_log)
+            selection = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            selected_environment = Path(selection.stdout.strip())
+            incomplete_python = selected_environment / "bin" / "python"
+            incomplete_python.parent.mkdir(parents=True)
+            incomplete_python.write_text("#!/bin/sh\nexit 1\n")
+            incomplete_python.chmod(0o755)
+
+            result = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh")],
+                capture_output=True,
+                text=True,
+                env=environment,
+                timeout=10,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(provision_log.read_text().splitlines(), ["provisioned"])
+            self.assertIn("FAKE_PYTHON_LOG", incomplete_python.read_text())
 
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
