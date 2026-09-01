@@ -33,7 +33,7 @@ if arguments[:2] == ["-m", "venv"]:
 elif arguments[:2] == ["-m", "pip"]:
     with pathlib.Path(os.environ["FAKE_PYTHON_LOG"]).open("a") as log:
         log.write("provisioned\\n")
-    time.sleep(0.5)
+    time.sleep(float(os.environ.get("FAKE_PYTHON_PROVISION_DELAY", "0.5")))
 elif arguments[:2] == ["-m", "unittest"]:
     pythonpath_log = os.environ.get("FAKE_PYTHONPATH_LOG")
     if pythonpath_log:
@@ -319,6 +319,48 @@ class BuildDependencyTests(unittest.TestCase):
             observed_paths = pythonpath_log.read_text().splitlines()
             self.assertGreaterEqual(len(observed_paths), 2)
             self.assertEqual(set(observed_paths), {str(PROJECT_ROOT / "src")})
+
+    def test_test_runner_exits_after_a_provisioning_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            fake_python = temporary_root / "fake-python"
+            provision_log = temporary_root / "provision.log"
+            virtualenv_root = temporary_root / "environments"
+            fake_python.write_text(FAKE_PYTHON_ADAPTER)
+            fake_python.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment["PYTHON_BIN"] = str(fake_python)
+            environment["MACROFACTOR_TEST_VENV_ROOT"] = str(virtualenv_root)
+            environment["FAKE_PYTHON_LOG"] = str(provision_log)
+            environment["FAKE_PYTHON_PROVISION_DELAY"] = "1"
+            selection = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            selected_environment = Path(selection.stdout.strip())
+            provision_lock = Path(f"{selected_environment}.provision-lock")
+
+            runner = subprocess.Popen(
+                [str(PROJECT_ROOT / "scripts" / "test.sh")],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=environment,
+            )
+            wait_for_file(provision_log)
+            self.assertTrue(provision_lock.is_dir())
+            runner.terminate()
+            stdout, stderr = runner.communicate(timeout=10)
+
+            self.assertEqual(runner.returncode, 143, stdout + stderr)
+            self.assertFalse(provision_lock.exists())
+            self.assertFalse(
+                (selected_environment / ".macrofactor-test-requirements.sha256").exists()
+            )
 
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()

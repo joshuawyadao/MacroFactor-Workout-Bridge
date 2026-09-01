@@ -61,6 +61,13 @@ release_lock() {
     fi
 }
 
+handle_signal() {
+    exit_status=$1
+    release_lock
+    trap - EXIT HUP INT TERM
+    exit "$exit_status"
+}
+
 recover_stale_lock() {
     expected_owner=$1
     lock_owner=$(cat "$LOCK_OWNER_FILE" 2>/dev/null || true)
@@ -97,7 +104,10 @@ acquire_lock() {
         sleep 0.1
     done
     printf '%s\n' "$$" > "$LOCK_OWNER_FILE"
-    trap release_lock EXIT HUP INT TERM
+    trap release_lock EXIT
+    trap 'handle_signal 129' HUP
+    trap 'handle_signal 130' INT
+    trap 'handle_signal 143' TERM
 }
 
 if ! environment_ready; then
