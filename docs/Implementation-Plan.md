@@ -1,19 +1,18 @@
 # Plan
 
-Isolate the shared test runner on its own feature branch and prevent concurrent worktrees from changing one another’s dependencies by keying environments to the Python version and test-lock fingerprint. Preserve automatic setup, current-worktree source imports, and the same local/CI test command.
+Close the shared test runner's concurrency-coverage gap by exercising two real runner processes against one fresh temporary environment root through the existing `PYTHON_BIN` seam. Preserve the runner's public interface and behavior, then publish a reviewed, green pull request for user approval without merging it.
 
 ## Scope
-- In: branch isolation, fingerprint-keyed shared environments, compatibility and concurrency-focused tests, CI verification, contributor documentation, and hosted Ubuntu validation.
-- Out: Maintainer-name metadata, application runtime dependencies, macOS app-build dependencies, private workout data, PR creation, and automatic deletion of the legacy shared `.venv`.
+- In: deterministic concurrent-provisioning coverage, plan traceability, targeted and complete verification, branch save, pull-request creation, CI, and review follow-up.
+- Out: application behavior, dependency-version changes, new runner configuration, maintainer-name changes, merging the pull request, and updating the second feature branch before this branch merges.
 
 ## Action items
-[x] Resolve the branch split so this branch contains only test-runner changes relative to `main`.
-[x] Change `scripts/test.sh` to select an immutable shared environment by Python version and `requirements/test.lock` fingerprint.
-[x] Keep provisioning locks scoped to each fingerprinted environment and retain safe explicit-path overrides.
-[x] Update automated tests for default environment identity, lock changes, Python versions, and explicit overrides.
-[x] Reuse the existing ignored `.venv/` root and update `README.md` and `CONTRIBUTING.md` for the fingerprinted environment layout.
-[x] Run targeted tests, a fresh environment bootstrap, the complete GUI-enabled suite, compilation, dependency, diff, and scope checks.
-[x] Commit and push the isolated runner branch, validate it with a manual hosted workflow, and restore the spelling branch to its focused commit.
+[x] Add a lightweight fake Python adapter in `tests/test_build_dependencies.py` that exercises the runner without network access or a real virtual environment.
+[x] Launch two `scripts/test.sh` processes against one fresh temporary root and verify both succeed, provisioning runs once, the environment becomes ready, and the lock is released.
+[x] Run the focused dependency tests, the complete GUI-enabled suite, compilation, dependency, and diff checks.
+[x] Confirm `README.md` and `CONTRIBUTING.md` remain accurate; avoid documentation changes if observable runner behavior is unchanged.
+[ ] Commit and push the scoped follow-up on `codex/shared-test-environment`.
+[ ] Open a ready-for-review PR, request Codex review, run Brooks review, and shepherd all visible checks to a terminal state without merging.
 
 ## Open questions
 - None.

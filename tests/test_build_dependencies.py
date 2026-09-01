@@ -4,12 +4,48 @@ import hashlib
 import os
 import subprocess
 import sys
+import tempfile
+import time
 import tomllib
 import unittest
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+FAKE_PYTHON_ADAPTER = """#!/usr/bin/env python3
+import os
+import pathlib
+import shutil
+import sys
+import time
+
+arguments = sys.argv[1:]
+
+if arguments[:2] == ["-m", "venv"]:
+    test_python = pathlib.Path(arguments[2]) / "bin" / "python"
+    test_python.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(__file__, test_python)
+    test_python.chmod(0o755)
+elif arguments[:2] == ["-m", "pip"]:
+    with pathlib.Path(os.environ["FAKE_PYTHON_LOG"]).open("a") as log:
+        log.write("provisioned\\n")
+    time.sleep(0.5)
+elif arguments[:2] == ["-m", "unittest"]:
+    pass
+elif arguments and arguments[0] == "-c" and "PySide6" in arguments[1]:
+    pass
+else:
+    os.execv(sys.executable, [sys.executable, *arguments])
+"""
+
+
+def wait_for_file(path: Path, timeout_seconds: float = 5.0) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while not path.exists():
+        if time.monotonic() >= deadline:
+            raise AssertionError(f"Timed out waiting for {path}")
+        time.sleep(0.01)
 
 
 class BuildDependencyTests(unittest.TestCase):
@@ -112,6 +148,58 @@ class BuildDependencyTests(unittest.TestCase):
         selected_environment = Path(result.stdout.strip())
         self.assertEqual(selected_environment.parent, override_root)
         self.assertRegex(selected_environment.name, r"^py\d+\.\d+-[0-9a-f]{64}$")
+
+    def test_concurrent_runners_share_one_provisioned_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            fake_python = temporary_root / "fake-python"
+            provision_log = temporary_root / "provision.log"
+            virtualenv_root = temporary_root / "environments"
+            fake_python.write_text(FAKE_PYTHON_ADAPTER)
+            fake_python.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment["PYTHON_BIN"] = str(fake_python)
+            environment["MACROFACTOR_TEST_VENV_ROOT"] = str(virtualenv_root)
+            environment["FAKE_PYTHON_LOG"] = str(provision_log)
+
+            selection = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            selected_environment = Path(selection.stdout.strip())
+
+            first_runner = subprocess.Popen(
+                [str(PROJECT_ROOT / "scripts" / "test.sh")],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=environment,
+            )
+            wait_for_file(provision_log)
+            provision_lock = Path(f"{selected_environment}.provision-lock")
+            self.assertIsNone(first_runner.poll())
+            self.assertTrue(provision_lock.is_dir())
+            second_runner = subprocess.Popen(
+                [str(PROJECT_ROOT / "scripts" / "test.sh")],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=environment,
+            )
+
+            for runner in (first_runner, second_runner):
+                stdout, stderr = runner.communicate(timeout=10)
+                self.assertEqual(runner.returncode, 0, stdout + stderr)
+
+            self.assertEqual(provision_log.read_text().splitlines(), ["provisioned"])
+            self.assertTrue(
+                (selected_environment / ".macrofactor-test-requirements.sha256").is_file()
+            )
+            self.assertFalse(provision_lock.exists())
 
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
