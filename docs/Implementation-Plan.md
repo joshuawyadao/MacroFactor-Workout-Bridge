@@ -1,19 +1,19 @@
 # Plan
 
-Make PR #5's macOS app build reproducible and auditable by pinning the tested PySide6 and PyInstaller dependency closure, while retaining the project's Python 3.11 support and existing runtime-dependency-free CLI. The change deliberately avoids a framework major migration or runtime dependency expansion.
+Isolate the shared test runner on its own feature branch and prevent concurrent worktrees from changing one another’s dependencies by keying environments to the Python version and test-lock fingerprint. Preserve automatic setup, current-worktree source imports, and the same local/CI test command.
 
 ## Scope
-- In: exact app-build dependency lock, direct optional-dependency pins, deterministic build installation, build/verification documentation, and dependency-focused validation.
-- Out: application feature changes, PySide6/PyInstaller major upgrades, runtime dependencies, CI toolchain upgrades, and unrelated PR #5 work.
+- In: branch isolation, fingerprint-keyed shared environments, compatibility and concurrency-focused tests, CI verification, contributor documentation, and hosted Ubuntu validation.
+- Out: Maintainer-name metadata, application runtime dependencies, macOS app-build dependencies, private workout data, PR creation, and automatic deletion of the legacy shared `.venv`.
 
 ## Action items
-[x] Inspect PR #5's manifest, packaging script, CI, documentation, and current dependency-audit evidence.
-[x] Resolve the direct app-build dependencies against Python 3.11 and record their exact compatible transitive closure.
-[x] Add the reviewed app-build lockfile and pin the direct optional dependencies in `pyproject.toml`.
-[x] Update `scripts/build_macos_app.sh` to install only the lockfile before installing the local project without dependency resolution.
-[x] Document the reproducible build dependency policy and exact update/validation workflow in `README.md`.
-[x] Verify the lockfile in a clean temporary virtual environment with `pip check`, then run the complete offscreen test suite, compile checks, and `git diff --check`.
-[x] Review the final diff, commit the scoped files, and push the commit to PR #5's remote branch.
+[x] Resolve the branch split so this branch contains only test-runner changes relative to `main`.
+[x] Change `scripts/test.sh` to select an immutable shared environment by Python version and `requirements/test.lock` fingerprint.
+[x] Keep provisioning locks scoped to each fingerprinted environment and retain safe explicit-path overrides.
+[x] Update automated tests for default environment identity, lock changes, Python versions, and explicit overrides.
+[x] Reuse the existing ignored `.venv/` root and update `README.md` and `CONTRIBUTING.md` for the fingerprinted environment layout.
+[x] Run targeted tests, a fresh environment bootstrap, the complete GUI-enabled suite, compilation, dependency, diff, and scope checks.
+[x] Commit and push the isolated runner branch, validate it with a manual hosted workflow, and restore the spelling branch to its focused commit.
 
 ## Open questions
 - None.

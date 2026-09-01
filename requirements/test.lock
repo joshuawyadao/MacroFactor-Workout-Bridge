@@ -1,0 +1,4 @@
+# Reviewed desktop test dependency closure for Python 3.11 and newer.
+# Keep this aligned with the desktop optional dependency in pyproject.toml.
+PySide6_Essentials==6.11.2
+shiboken6==6.11.2

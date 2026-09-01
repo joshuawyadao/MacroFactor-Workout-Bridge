@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import subprocess
+import sys
 import tomllib
 import unittest
 from pathlib import Path
@@ -26,6 +30,88 @@ class BuildDependencyTests(unittest.TestCase):
         self.assertIn("PySide6_Essentials==6.11.2", lock_lines)
         self.assertIn("pyinstaller==6.22.2", lock_lines)
         self.assertIn("shiboken6==6.11.2", lock_lines)
+
+    def test_test_lock_matches_the_desktop_dependency(self) -> None:
+        project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
+        test_lock = PROJECT_ROOT / "requirements" / "test.lock"
+        lock_lines = {
+            line.strip()
+            for line in test_lock.read_text().splitlines()
+            if line and not line.startswith("#")
+        }
+
+        self.assertEqual(
+            project["project"]["optional-dependencies"]["desktop"],
+            ["PySide6-Essentials==6.11.2"],
+        )
+        self.assertEqual(
+            lock_lines,
+            {"PySide6_Essentials==6.11.2", "shiboken6==6.11.2"},
+        )
+
+    def test_test_runner_uses_a_fingerprinted_shared_virtualenv(self) -> None:
+        common_dir = Path(
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(PROJECT_ROOT),
+                    "rev-parse",
+                    "--git-common-dir",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        )
+        if not common_dir.is_absolute():
+            common_dir = PROJECT_ROOT / common_dir
+        common_dir = common_dir.resolve()
+        requirements = PROJECT_ROOT / "requirements" / "test.lock"
+        fingerprint = hashlib.sha256(requirements.read_bytes()).hexdigest()
+        python_key = f"py{sys.version_info.major}.{sys.version_info.minor}"
+        result = subprocess.run(
+            [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(
+            Path(result.stdout.strip()),
+            common_dir.parent
+            / ".venv"
+            / "worktree-tests"
+            / f"{python_key}-{fingerprint}",
+        )
+
+    def test_ci_and_contributor_docs_use_the_canonical_test_runner(self) -> None:
+        checked_files = (
+            "README.md",
+            "CONTRIBUTING.md",
+            ".github/workflows/ci-verify.yml",
+        )
+        for relative_path in checked_files:
+            with self.subTest(relative_path=relative_path):
+                text = (PROJECT_ROOT / relative_path).read_text()
+                self.assertIn("./scripts/test.sh", text)
+
+    def test_test_runner_honors_the_virtualenv_root_override(self) -> None:
+        override_root = PROJECT_ROOT / ".test-venv-override"
+        environment = os.environ.copy()
+        environment["MACROFACTOR_TEST_VENV_ROOT"] = str(override_root)
+
+        result = subprocess.run(
+            [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        selected_environment = Path(result.stdout.strip())
+        self.assertEqual(selected_environment.parent, override_root)
+        self.assertRegex(selected_environment.name, r"^py\d+\.\d+-[0-9a-f]{64}$")
 
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()

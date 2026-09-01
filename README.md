@@ -251,20 +251,20 @@ Apply refuses to create an output when there are no proposed writes.
 
 ## Verification
 
-Run the source-only suite:
+Run the complete source and graphical suite:
 
 ```sh
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+./scripts/test.sh
 python3 -m compileall -q src tests packaging
 git diff --check
 ```
 
-To include the graphical test locally:
+The first test run creates an environment under the primary project checkout's already-ignored `.venv/worktree-tests/` directory and requires internet access unless the pinned wheels are already cached. Its directory name contains the Python version and SHA-256 fingerprint of `requirements/test.lock`: worktrees with the same test dependencies reuse one environment, while branches with different locks cannot modify an environment used by another test run. Linked Git worktrees discover the shared root through Git's common directory, and the runner always prepends the launching worktree's `src/` directory to `PYTHONPATH`.
+
+Use `MACROFACTOR_TEST_VENV_ROOT=/absolute/path` to override the directory containing fingerprinted environments. Existing files directly inside `.venv` remain available to the primary checkout; the runner manages only its `worktree-tests/` child. To run only tests that do not require the optional graphical dependency, bypass the runner:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[desktop]"
-QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
 After building the application, verify its embedded Qt runtime:
@@ -277,7 +277,7 @@ QT_QPA_PLATFORM=offscreen \
 
 GitHub-hosted CI runs the complete Python and offscreen desktop test suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the same suite on `main`. Use the Actions tab's manual **CI Verify** dispatch when a hosted rerun is needed.
 
-The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. The GUI test is skipped when the optional PySide6 dependency is not installed; the build-environment run executes it.
+The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
 
 ## Known limitations
 

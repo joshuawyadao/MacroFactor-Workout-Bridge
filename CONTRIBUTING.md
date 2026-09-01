@@ -16,19 +16,20 @@ By participating, you agree to follow the [Contributor Covenant Code of Conduct]
 ## Development workflow
 
 1. Fork the repository and create a descriptive branch from `main`.
-2. Create a Python 3.11 or newer virtual environment and install the desktop test dependency:
+2. Run the canonical test command from any linked worktree:
 
    ```sh
-   python3 -m venv .venv
-   .venv/bin/python -m pip install -e ".[desktop]"
+   ./scripts/test.sh
    ```
+
+   The first run provisions the pinned desktop test dependencies under the primary checkout's ignored `.venv/worktree-tests/` directory. Environments are keyed by Python version and test-lock fingerprint, so compatible worktrees reuse dependencies without allowing divergent branches to modify one another's environment.
 
 3. Add or update focused tests when behavior changes. Fixtures must be synthetic or deliberately anonymized.
 4. Run the complete verification gate:
 
    ```sh
-   QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -v
-   .venv/bin/python -m compileall -q src tests packaging
+   ./scripts/test.sh
+   python3 -m compileall -q src tests packaging
    git diff --check
    ```
 
