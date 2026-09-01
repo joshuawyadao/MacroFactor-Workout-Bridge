@@ -1,18 +1,19 @@
 # Plan
 
-Close the shared test runner's concurrency-coverage gap by exercising two real runner processes against one fresh temporary environment root through the existing `PYTHON_BIN` seam. Preserve the runner's public interface and behavior, then publish a reviewed, green pull request for user approval without merging it.
+Address all four actionable Codex review threads on PR #7 while preserving the canonical test command and fingerprinted environment layout. Handle each concern as an independently validated commit, push, and acknowledgment, then leave the pull request open for maintainer review.
 
 ## Scope
-- In: deterministic concurrent-provisioning coverage, plan traceability, targeted and complete verification, branch save, pull-request creation, CI, and review follow-up.
-- Out: application behavior, dependency-version changes, new runner configuration, maintainer-name changes, merging the pull request, and updating the second feature branch before this branch merges.
+- In: owner-aware provisioning locks, incomplete-environment recovery, isolated `PYTHONPATH`, signal-safe lock cleanup, regression coverage, CI, and Codex comment acknowledgment.
+- Out: dependency-version changes, application behavior, maintainer-name changes, resolving GitHub threads, explanatory GitHub replies, and merging PR #7.
 
 ## Action items
-[x] Add a lightweight fake Python adapter in `tests/test_build_dependencies.py` that exercises the runner without network access or a real virtual environment.
-[x] Launch two `scripts/test.sh` processes against one fresh temporary root and verify both succeed, provisioning runs once, the environment becomes ready, and the lock is released.
-[x] Run the focused dependency tests, the complete GUI-enabled suite, compilation, dependency, and diff checks.
-[x] Confirm `README.md` and `CONTRIBUTING.md` remain accurate; avoid documentation changes if observable runner behavior is unchanged.
-[ ] Commit and push the scoped follow-up on `codex/shared-test-environment`.
-[ ] Open a ready-for-review PR, request Codex review, run Brooks review, and shepherd all visible checks to a terminal state without merging.
+[x] Replace the fixed 30-second wait with an atomic owner-aware lock that waits while provisioning is alive and safely recovers stale locks.
+[ ] Recreate any not-ready fingerprinted environment before installing dependencies so interrupted virtual environments recover automatically.
+[ ] Set `PYTHONPATH` exclusively to the launching worktree's `src/` directory so caller dependencies cannot affect readiness or GUI tests.
+[ ] Make `HUP`, `INT`, and `TERM` handlers release only the current runner's lock and exit with the conventional signal status.
+[ ] Add focused regression coverage for lock ownership, stale locks, incomplete environments, inherited path isolation, and provisioning signals.
+[ ] Validate each feedback item before its separate commit, push, and thumbs-up reaction; then run the complete GUI-enabled suite, compilation, dependency, shell, and diff checks.
+[ ] Re-read PR #7 threads, CI, and mergeability, leaving the PR open and unmerged for maintainer review.
 
 ## Open questions
 - None.

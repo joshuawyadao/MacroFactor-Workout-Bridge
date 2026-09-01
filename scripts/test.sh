@@ -37,6 +37,7 @@ TEST_VENV="$TEST_VENV_ROOT/$ENVIRONMENT_KEY"
 TEST_PYTHON="$TEST_VENV/bin/python"
 STAMP_FILE="$TEST_VENV/.macrofactor-test-requirements.sha256"
 LOCK_DIR="$TEST_VENV.provision-lock"
+LOCK_OWNER_FILE="$LOCK_DIR/owner-pid"
 
 if [ "${1:-}" = "--print-venv" ]; then
     printf '%s\n' "$TEST_VENV"
@@ -58,21 +59,49 @@ environment_ready() {
 }
 
 release_lock() {
-    rmdir "$LOCK_DIR" 2>/dev/null || true
+    lock_owner=$(cat "$LOCK_OWNER_FILE" 2>/dev/null || true)
+    if [ "$lock_owner" = "$$" ]; then
+        rm -f "$LOCK_OWNER_FILE"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+    fi
+}
+
+recover_stale_lock() {
+    expected_owner=$1
+    lock_owner=$(cat "$LOCK_OWNER_FILE" 2>/dev/null || true)
+    [ "$lock_owner" = "$expected_owner" ] || return 0
+
+    stale_lock="$LOCK_DIR.stale.$$"
+    if mv "$LOCK_DIR" "$stale_lock" 2>/dev/null; then
+        rm -f "$stale_lock/owner-pid"
+        rmdir "$stale_lock" 2>/dev/null || true
+    fi
 }
 
 acquire_lock() {
     mkdir -p "$(dirname -- "$LOCK_DIR")"
-    attempts=0
+    unknown_lock_attempts=0
     until mkdir "$LOCK_DIR" 2>/dev/null; do
-        attempts=$((attempts + 1))
-        if [ "$attempts" -ge 300 ]; then
-            printf 'Timed out waiting for test environment lock: %s\n' "$LOCK_DIR" >&2
-            printf 'Remove it only if no other worktree is provisioning the environment.\n' >&2
-            exit 1
-        fi
+        lock_owner=$(cat "$LOCK_OWNER_FILE" 2>/dev/null || true)
+        case "$lock_owner" in
+            ''|*[!0-9]*)
+                unknown_lock_attempts=$((unknown_lock_attempts + 1))
+                if [ "$unknown_lock_attempts" -ge 18000 ]; then
+                    printf 'Timed out waiting for an ownerless test environment lock: %s\n' "$LOCK_DIR" >&2
+                    printf 'Remove it only if no other worktree is provisioning the environment.\n' >&2
+                    exit 1
+                fi
+                ;;
+            *)
+                unknown_lock_attempts=0
+                if ! kill -0 "$lock_owner" 2>/dev/null; then
+                    recover_stale_lock "$lock_owner"
+                fi
+                ;;
+        esac
         sleep 0.1
     done
+    printf '%s\n' "$$" > "$LOCK_OWNER_FILE"
     trap release_lock EXIT HUP INT TERM
 }
 

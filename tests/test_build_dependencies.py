@@ -183,6 +183,10 @@ class BuildDependencyTests(unittest.TestCase):
             provision_lock = Path(f"{selected_environment}.provision-lock")
             self.assertIsNone(first_runner.poll())
             self.assertTrue(provision_lock.is_dir())
+            self.assertEqual(
+                (provision_lock / "owner-pid").read_text().strip(),
+                str(first_runner.pid),
+            )
             second_runner = subprocess.Popen(
                 [str(PROJECT_ROOT / "scripts" / "test.sh")],
                 stdout=subprocess.PIPE,
@@ -199,6 +203,42 @@ class BuildDependencyTests(unittest.TestCase):
             self.assertTrue(
                 (selected_environment / ".macrofactor-test-requirements.sha256").is_file()
             )
+            self.assertFalse(provision_lock.exists())
+
+    def test_test_runner_recovers_a_lock_owned_by_a_dead_process(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary_root = Path(temporary_directory)
+            fake_python = temporary_root / "fake-python"
+            provision_log = temporary_root / "provision.log"
+            virtualenv_root = temporary_root / "environments"
+            fake_python.write_text(FAKE_PYTHON_ADAPTER)
+            fake_python.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment["PYTHON_BIN"] = str(fake_python)
+            environment["MACROFACTOR_TEST_VENV_ROOT"] = str(virtualenv_root)
+            environment["FAKE_PYTHON_LOG"] = str(provision_log)
+            selection = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            provision_lock = Path(f"{selection.stdout.strip()}.provision-lock")
+            provision_lock.mkdir(parents=True)
+            (provision_lock / "owner-pid").write_text("99999999\n")
+
+            result = subprocess.run(
+                [str(PROJECT_ROOT / "scripts" / "test.sh")],
+                capture_output=True,
+                text=True,
+                env=environment,
+                timeout=10,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(provision_log.read_text().splitlines(), ["provisioned"])
             self.assertFalse(provision_lock.exists())
 
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
