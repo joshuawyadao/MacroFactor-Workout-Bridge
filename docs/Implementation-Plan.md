@@ -26,3 +26,13 @@ Address every actionable Codex review thread on PR #10 while preserving the cons
 
 ## Open questions
 - None.
+
+## Second Codex review
+
+Finish the three findings from the review of `c136f43`, keeping each fix in its own checkpoint. The README safety model remains the contract: preserve namespace meaning and non-fill formatting, including styles inherited from rows and columns.
+
+- [x] Make desktop review guidance independent of configured marker text; update the existing review-panel assertion.
+- [ ] Replace global namespace registration during writes with namespace-aware DOM edits that preserve declaration scopes; cover rebound prefixes in both worksheets and stylesheets.
+- [ ] Resolve explicit-cell, row, and column style precedence before cloning a highlight style; cover inherited fonts, borders, alignment, and number formats with synthetic XML.
+- [ ] Run focused tests for each checkpoint, then the complete suite, compilation, and diff checks; rebuild and verify the app after the final code change.
+- [ ] Push each checkpoint, acknowledge the addressed feedback, and verify the final PR checks and review state.

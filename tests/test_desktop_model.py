@@ -76,7 +76,7 @@ class DesktopModelTests(unittest.TestCase):
         text = review_text(report)
         self.assertIn("Unmatched exercises: 1", text)
         self.assertIn("MacroFactor exercise notes: 1", text)
-        self.assertIn("highlighted Skip value is a review marker", text)
+        self.assertIn("highlighted marker indicates a programmed day", text)
 
 
 if __name__ == "__main__":
