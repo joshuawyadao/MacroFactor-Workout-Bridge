@@ -116,6 +116,8 @@ if ! environment_ready; then
         "$BOOTSTRAP_PYTHON" -m venv --clear "$TEST_VENV"
         "$TEST_PYTHON" -m pip install \
             --disable-pip-version-check \
+            --only-binary=:all: \
+            --require-hashes \
             --requirement "$TEST_REQUIREMENTS"
         printf '%s\n' "$REQUIREMENTS_FINGERPRINT" > "$STAMP_FILE"
     fi

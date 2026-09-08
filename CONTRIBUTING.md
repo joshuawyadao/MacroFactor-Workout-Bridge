@@ -29,9 +29,14 @@ By participating, you agree to follow the [Contributor Covenant Code of Conduct]
 
    ```sh
    ./scripts/test.sh
+   python3 -m pip_audit --disable-pip --require-hashes \
+     --requirement requirements/app-build.lock \
+     --requirement requirements/test.lock
    python3 -m compileall -q src tests packaging
    git diff --check
    ```
+
+   The dependency audit requires `pip-audit`; CI installs an exact reviewed version before running the same known-vulnerability check. Dependency lock changes must retain exact versions, reviewed wheel SHA-256 hashes, and binary-only installation unless a separately reviewed source-build requirement is documented.
 
 5. Describe the user-visible behavior, privacy and workbook-safety implications, verification performed, and any manual macOS checks in the pull request.
 

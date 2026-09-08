@@ -15,11 +15,12 @@ ICONSET="$APP_ROOT/build/AppIcon.iconset"
 ICON_FILE="$APP_ROOT/build/MacroFactor Workout Bridge.icns"
 APP_BUNDLE="$APP_ROOT/dist/MacroFactor Workout Bridge.app"
 
-if [[ ! -x "$BUILD_VENV/bin/python" ]]; then
-  "$BUILD_PYTHON" -m venv "$BUILD_VENV"
-fi
+"$BUILD_PYTHON" -m venv --clear "$BUILD_VENV"
 
-"$BUILD_VENV/bin/python" -m pip install --requirement "$APP_ROOT/requirements/app-build.lock"
+"$BUILD_VENV/bin/python" -m pip install \
+  --only-binary=:all: \
+  --require-hashes \
+  --requirement "$APP_ROOT/requirements/app-build.lock"
 "$BUILD_VENV/bin/python" -m pip install --no-build-isolation --no-deps -e "$APP_ROOT"
 "$BUILD_VENV/bin/python" packaging/build_icon.py "$ICONSET"
 iconutil --convert icns --output "$ICON_FILE" "$ICONSET"
