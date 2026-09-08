@@ -115,11 +115,14 @@ class BuildDependencyTests(unittest.TestCase):
         requirements = PROJECT_ROOT / "requirements" / "test.lock"
         fingerprint = hashlib.sha256(requirements.read_bytes()).hexdigest()
         python_key = f"py{sys.version_info.major}.{sys.version_info.minor}"
+        environment = os.environ.copy()
+        environment.pop("MACROFACTOR_TEST_VENV_ROOT", None)
         result = subprocess.run(
             [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
             check=True,
             capture_output=True,
             text=True,
+            env=environment,
         )
 
         self.assertEqual(
