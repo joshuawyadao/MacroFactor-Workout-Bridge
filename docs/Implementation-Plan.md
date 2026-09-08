@@ -1,18 +1,18 @@
 # Plan
 
-Fix the observed `CI Verify` startup failure without widening the repository's GitHub Actions allowlist. Run the exact-version dependency auditor through the existing Python environment, preserve hash-enforced lock auditing, and keep the change isolated from application behavior.
+Integrate current `main` into the dependency-integrity branch without losing either change. Preserve `main`'s override-safe GUI runner test and this branch's hash-enforced dependency installation and allowlist-compatible advisory audit.
 
 ## Scope
-- In: CI audit execution, its dependency contract test, local audit documentation, focused validation, commit, and push.
+- In: `docs/Implementation-Plan.md` conflict resolution, verification of the shared test change, dependency contracts, complete GUI suite, merge commit, and CI rerun.
 - Out: GitHub Actions permission changes, dependency version or hash changes, application behavior, and unrelated packaging issues.
 
 ## Action items
-[x] Replace the disallowed third-party audit action with an exact-version `pip-audit` install and CLI audit step.
-[x] Keep the audit read-only and enforce hash validation against both complete dependency closures.
-[x] Update the CI contract test to verify the package version is exact without duplicating the chosen version.
-[x] Remove unnecessary local documentation coupling to one auditor release.
-[x] Run focused dependency tests, workflow syntax checks, and `git diff --check`.
-[x] Commit and push the CI fix, then watch the replacement `CI Verify` run to completion.
+[x] Capture the isolated GUI-suite failure and confirm it is limited to the default-root assertion inheriting `MACROFACTOR_TEST_VENV_ROOT`.
+[x] Update the default-root test to remove the override from the subprocess environment without weakening its path and fingerprint assertions.
+[x] Preserve the allowlist-compatible `pip-audit` CLI gate and binary-only SHA-256 lock enforcement from the feature branch.
+[x] Run the focused dependency tests and complete GUI-enabled suite after the merge.
+[x] Run source compilation, shell syntax, dependency audit, and diff checks.
+[x] Commit and push the conflict resolution, then watch fresh CI and Codex review gates.
 
 ## Open questions
 - None.
