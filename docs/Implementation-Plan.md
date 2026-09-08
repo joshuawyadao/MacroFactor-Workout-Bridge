@@ -35,4 +35,14 @@ Finish the three findings from the review of `c136f43`, keeping each fix in its 
 - [x] Replace global namespace registration during writes with namespace-aware DOM edits that preserve declaration scopes; cover rebound prefixes in both worksheets and stylesheets (15 focused OOXML/integration tests passed).
 - [x] Resolve explicit-cell, row, and column style precedence before cloning a highlight style; cover inherited fonts, borders, alignment, and number formats with synthetic XML. Reject invalid or conflicting inherited styles.
 - [x] Run focused tests for each checkpoint (20 OOXML/integration tests after the final fix), then the complete 75-test suite, compilation, and diff checks; rebuild and verify the app after the final code change.
-- [ ] Push each checkpoint, acknowledge the addressed feedback, and verify the final PR checks and review state.
+- [x] Push each checkpoint, acknowledge the addressed feedback, and verify the final PR checks and review state. All fixes are published and all nine Codex comments have thumbs-up reactions; the second-round threads also have fix/validation replies.
+
+## Review checkpoint ledger
+
+- `76f4754`: addressed the Brooks concerns by extracting marker generation and directly testing GUI highlight rendering.
+- `751f229`: addressed the first six Codex findings listed above; focused regressions, full tests, and packaging validation passed.
+- `c2bed20` and `c136f43`: resolved implementation-plan and review-history conflicts while bringing the latest main changes into the feature branch. Preserved the isolated GUI test runner and locked dependency hardening, and retained both review-history entries. Local main was not changed.
+- `e1b0d91`: removed fixed marker text from desktop guidance; six desktop-model tests passed.
+- `721be1d`: preserved scoped namespace declarations; 15 focused OOXML/integration tests passed; CI Verify passed.
+- `bd5bb46`: preserved inherited non-fill styles; 20 focused tests and all 75 GUI-enabled tests passed. Compilation, diff checks, app rebuild, and signature verification passed. CI Verify run 34264039294 passed.
+- Codex review completed twice. All nine actionable findings are fixed; none are deferred. The three second-round conversations remain open pending explicit permission to mark them resolved. GitHub reports no merge conflicts, but conversation resolution is required before merging. PR #10 remains unmerged.
