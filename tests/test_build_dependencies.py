@@ -138,9 +138,17 @@ class BuildDependencyTests(unittest.TestCase):
                 self.assertIn("--require-hashes", text)
 
         workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
-        self.assertIn(
-            "pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266",
-            workflow,
+        audit_action_lines = [
+            line.strip()
+            for line in workflow.splitlines()
+            if "uses: pypa/gh-action-pip-audit@" in line
+        ]
+        self.assertEqual(len(audit_action_lines), 1)
+        action_reference = audit_action_lines[0].split("@", 1)[1].split()[0]
+        self.assertRegex(
+            action_reference,
+            r"^[0-9a-f]{40}$",
+            "The dependency audit action must use an immutable commit SHA",
         )
         self.assertIn("inputs: requirements/app-build.lock requirements/test.lock", workflow)
         self.assertIn("disable-pip: true", workflow)
