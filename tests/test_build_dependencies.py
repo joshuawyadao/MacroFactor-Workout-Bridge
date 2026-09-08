@@ -155,6 +155,14 @@ class BuildDependencyTests(unittest.TestCase):
         self.assertIn("--requirement requirements/app-build.lock", workflow)
         self.assertIn("--requirement requirements/test.lock", workflow)
 
+    def test_macos_builder_recreates_environment_before_locked_install(self) -> None:
+        script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
+        recreation = '"$BUILD_PYTHON" -m venv --clear "$BUILD_VENV"'
+        locked_install = '"$BUILD_VENV/bin/python" -m pip install \\\n'
+
+        self.assertEqual(script.count(recreation), 1)
+        self.assertLess(script.index(recreation), script.index(locked_install))
+
     def test_test_runner_uses_a_fingerprinted_shared_virtualenv(self) -> None:
         common_dir = Path(
             subprocess.run(
