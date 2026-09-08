@@ -64,7 +64,7 @@ See the [Security Policy](SECURITY.md) to report a vulnerability privately. Neve
 - Only existing, empty result cells are eligible. Existing values and formulas are always skipped.
 - The source workbook and MacroFactor export are hashed before and after apply; a hash mismatch fails the operation.
 - The output keeps the same ZIP member list. Every workbook part except the selected worksheet XML and, when highlighted review markers are written, `xl/styles.xml` must remain byte-identical.
-- Normal result updates retain the target cell's style. Highlighted review markers change only the fill while retaining the font, border, alignment, and number format. Formulas, merged cells, relationships, drawings, and workbook structure remain intact.
+- Normal result updates retain the target cell's style. Highlighted review markers change only the fill while retaining the font, border, alignment, and number format, including formatting inherited from a row or column when the cell has no explicit style. Formulas, merged cells, relationships, drawings, and workbook structure remain intact. Edited XML retains namespace declaration scopes, including prefixes used only by compatibility attributes.
 - Exercise matching is exact after case and whitespace normalization plus configured aliases. There is no fuzzy matching.
 - When enabled in the mapping, a programmed day with no matched session receives a yellow `Skip` review marker. It is a visual prompt to confirm the absence, not proof that MacroFactor recorded a skip.
 - Zero-rep rows are ignored and reported.

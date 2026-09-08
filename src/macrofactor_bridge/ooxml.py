@@ -109,6 +109,26 @@ def split_range(reference: str) -> tuple[int, int, int, int]:
     return start_row, start_col, end_row, end_col
 
 
+def _effective_style(
+    cell: ET.Element, row: ET.Element | None, columns: list[ET.Element]
+) -> int:
+    """Resolve cell, custom row, column, then default formatting for a fill clone."""
+    if "s" in cell.attrib:
+        return int(cell.attrib["s"])
+    if row is not None and row.attrib.get("customFormat") in {"1", "true"}:
+        return int(row.attrib.get("s", "0"))
+    _, column_number = split_cell_reference(cell.attrib["r"])
+    styles = {
+        int(column.attrib["style"])
+        for column in columns
+        if "style" in column.attrib
+        and int(column.attrib["min"]) <= column_number <= int(column.attrib["max"])
+    }
+    if len(styles) > 1:
+        raise ValueError("Conflicting column styles")
+    return next(iter(styles), 0)
+
+
 class XlsxPackage:
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -311,6 +331,12 @@ class XlsxPackage:
             for cell in sheet_root.iter(qn(MAIN_NS, "c"))
             if cell.attrib.get("r")
         }
+        rows_by_cell = {
+            cell.attrib.get("r"): row
+            for row in sheet_root.findall(f"{qn(MAIN_NS, 'sheetData')}/{qn(MAIN_NS, 'row')}")
+            for cell in row.findall(qn(MAIN_NS, "c"))
+        }
+        columns = sheet_root.findall(f"{qn(MAIN_NS, 'cols')}/{qn(MAIN_NS, 'col')}")
         with minidom.parseString(styles_xml) as document:
             styles_root = document.documentElement
             fills = _dom_child(styles_root, "fills")
@@ -336,11 +362,11 @@ class XlsxPackage:
                     _dom_append(pattern, "bgColor", {"indexed": "64"})
                     fill_indexes[color] = fill_index
                 try:
-                    base_style = int(cell.attrib.get("s", "0"))
+                    base_style = _effective_style(cell, rows_by_cell.get(reference), columns)
                     if base_style < 0:
                         raise ValueError("Negative style index")
                     base_xf = original_xfs[base_style]
-                except (ValueError, IndexError) as exc:
+                except (ValueError, IndexError, KeyError) as exc:
                     raise WorkbookError(f"Target cell {reference} has an invalid style") from exc
                 style_key = (base_style, color)
                 style_index = style_indexes.get(style_key)

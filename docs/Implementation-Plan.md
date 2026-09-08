@@ -18,7 +18,7 @@ Address every actionable Codex review thread on PR #10 while preserving the cons
 
 ## Verification
 - Focused integration and desktop-model suite: 19 tests passed.
-- Canonical GUI-enabled suite after merging the latest `main`: 68 tests passed.
+- Canonical GUI-enabled suite after the second review fixes: 75 tests passed.
 - `python3 -m compileall -q src tests packaging` passed.
 - `git diff --check` passed.
 - The rebuilt macOS app is ad-hoc signed, verifies with `codesign --verify --deep --strict`, and reports version 0.3.0 build 4.
@@ -33,6 +33,6 @@ Finish the three findings from the review of `c136f43`, keeping each fix in its 
 
 - [x] Make desktop review guidance independent of configured marker text; update the existing review-panel assertion.
 - [x] Replace global namespace registration during writes with namespace-aware DOM edits that preserve declaration scopes; cover rebound prefixes in both worksheets and stylesheets (15 focused OOXML/integration tests passed).
-- [ ] Resolve explicit-cell, row, and column style precedence before cloning a highlight style; cover inherited fonts, borders, alignment, and number formats with synthetic XML.
-- [ ] Run focused tests for each checkpoint, then the complete suite, compilation, and diff checks; rebuild and verify the app after the final code change.
+- [x] Resolve explicit-cell, row, and column style precedence before cloning a highlight style; cover inherited fonts, borders, alignment, and number formats with synthetic XML. Reject invalid or conflicting inherited styles.
+- [x] Run focused tests for each checkpoint (20 OOXML/integration tests after the final fix), then the complete 75-test suite, compilation, and diff checks; rebuild and verify the app after the final code change.
 - [ ] Push each checkpoint, acknowledge the addressed feedback, and verify the final PR checks and review state.

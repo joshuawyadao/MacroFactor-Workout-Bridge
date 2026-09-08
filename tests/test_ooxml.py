@@ -4,7 +4,7 @@ import unittest
 from xml.dom import minidom
 from xml.etree import ElementTree as ET
 
-from macrofactor_bridge.ooxml import MAIN_NS, XML_NS, XlsxPackage, qn
+from macrofactor_bridge.ooxml import MAIN_NS, XML_NS, WorkbookError, XlsxPackage, qn
 
 
 MC_NS = "http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -65,3 +65,89 @@ class NamespacePreservationTests(unittest.TestCase):
         self.assertEqual(indexes, {"A1": 1})
         self.assertEqual(xfs[1].attrib["fillId"], "1")
         self.assertEqual(xfs[1].attrib["applyFill"], "1")
+
+
+class InheritedHighlightStyleTests(unittest.TestCase):
+    def setUp(self) -> None:
+        formats = "".join(
+            f'<xf numFmtId="{164 + index}" fontId="{index}" fillId="0" '
+            f'borderId="{index}" xfId="0" applyAlignment="1" applyNumberFormat="1">'
+            f'<alignment horizontal="center" indent="{index}" wrapText="1"/>'
+            '<protection locked="0"/></xf>'
+            for index in range(4)
+        )
+        self.styles = (
+            f'<styleSheet xmlns="{MAIN_NS}"><fills count="1">'
+            '<fill><patternFill patternType="none"/></fill></fills>'
+            f'<cellXfs count="4">{formats}</cellXfs></styleSheet>'
+        ).encode()
+
+    def assert_highlight_uses_style(
+        self, row_attributes: str, cell_attributes: str, columns: str, expected: int
+    ) -> None:
+        sheet = (
+            f'<worksheet xmlns="{MAIN_NS}"><cols>{columns}</cols>'
+            f'<sheetData><row r="1" {row_attributes}><c r="B1" {cell_attributes}/>'
+            '</row></sheetData></worksheet>'
+        ).encode()
+        output, indexes = XlsxPackage._highlighted_styles_xml(
+            self.styles, sheet, {"B1": "FFFFFF00"}
+        )
+        original_xfs = ET.fromstring(self.styles).find(qn(MAIN_NS, "cellXfs"))
+        root = ET.fromstring(output)
+        xfs = root.find(qn(MAIN_NS, "cellXfs"))
+        for index in range(4):
+            self.assertEqual(ET.tostring(original_xfs[index]), ET.tostring(xfs[index]))
+        highlighted = xfs[indexes["B1"]]
+        expected_attributes = dict(original_xfs[expected].attrib, fillId="1", applyFill="1")
+        self.assertEqual(highlighted.attrib, expected_attributes)
+        self.assertEqual(
+            [ET.tostring(child) for child in highlighted],
+            [ET.tostring(child) for child in original_xfs[expected]],
+        )
+        self.assertEqual(
+            root.find(f".//{qn(MAIN_NS, 'fgColor')}").attrib["rgb"], "FFFFFF00"
+        )
+        written = XlsxPackage._updated_sheet_xml(sheet, {"B1": "Skip"}, indexes)
+        cell = ET.fromstring(written).find(f".//{qn(MAIN_NS, 'c')}")
+        self.assertEqual(cell.attrib["s"], str(indexes["B1"]))
+
+    def test_explicit_cell_style_wins_even_when_zero(self) -> None:
+        for style in (0, 3):
+            with self.subTest(style=style):
+                self.assert_highlight_uses_style(
+                    's="1" customFormat="1"', f's="{style}"',
+                    '<col min="1" max="3" style="2"/>', style,
+                )
+
+    def test_custom_row_style_wins_over_column(self) -> None:
+        for flag in ("1", "true"):
+            with self.subTest(flag=flag):
+                self.assert_highlight_uses_style(
+                    f's="1" customFormat="{flag}"', "",
+                    '<col min="1" max="3" style="2"/>', 1,
+                )
+
+    def test_column_style_applies_without_custom_row_format(self) -> None:
+        for attributes in ('', 's="1"', 's="1" customFormat="0"', 's="1" customFormat="false"'):
+            with self.subTest(attributes=attributes):
+                self.assert_highlight_uses_style(
+                    attributes, "", '<col min="1" max="3" style="2"/>', 2
+                )
+
+    def test_default_style_applies_outside_formatted_column_range(self) -> None:
+        self.assert_highlight_uses_style("", "", '<col min="3" max="4" style="2"/>', 0)
+        self.assert_highlight_uses_style("", "", "", 0)
+
+    def test_invalid_or_ambiguous_inherited_style_is_rejected(self) -> None:
+        for row, cell, columns in (
+            ('s="-1" customFormat="1"', "", ""),
+            ('s="4" customFormat="1"', "", ""),
+            ('s="invalid" customFormat="1"', "", ""),
+            ("", 's="-1"', ""),
+            ("", "", '<col min="1" max="3" style="4"/>'),
+            ("", "", '<col min="1" max="3" style="1"/><col min="2" max="2" style="2"/>'),
+        ):
+            with self.subTest(row=row, cell=cell, columns=columns):
+                with self.assertRaisesRegex(WorkbookError, "Target cell B1 has an invalid style"):
+                    self.assert_highlight_uses_style(row, cell, columns, 0)
