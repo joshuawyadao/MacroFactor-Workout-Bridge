@@ -9,7 +9,14 @@ from pathlib import Path
 from .config import normalize_name, source_rule_index
 from .formatting import format_sets, format_superset
 from .importers import load_exercise_log, load_exercise_notes
-from .models import BridgeConfig, BridgeReport, ExerciseRule, ProposedWrite, SetRecord
+from .models import (
+    BridgeConfig,
+    BridgeReport,
+    EmptyDayMarker,
+    ExerciseRule,
+    ProposedWrite,
+    SetRecord,
+)
 from .ooxml import WorkbookError, file_sha256, split_cell_reference, validate_copy_integrity
 from .workbook import ProgramDay, TargetRow, program_days, select_sheet_options, target_rows
 
@@ -72,6 +79,46 @@ def _empty_day_marker_target(day: ProgramDay) -> TargetRow | None:
             row for row in day.rows if row.result is not None and row.result.is_empty
         ]
     return candidates[0] if candidates else None
+
+
+def _append_empty_day_markers(
+    report: BridgeReport,
+    marker: EmptyDayMarker,
+    days: tuple[ProgramDay, ...],
+    matched_cells: set[str],
+) -> None:
+    for day in days:
+        if any(row.result_cell in matched_cells for row in day.rows):
+            continue
+        target = _empty_day_marker_target(day)
+        if target is None:
+            continue
+        review_note = (
+            f"{day.label} has no matched MacroFactor session in the selected dates; "
+            "review this yellow marker before sharing"
+        )
+        report.proposed_writes.append(
+            ProposedWrite(
+                sheet=report.sheet,
+                week=report.week,
+                cell=target.result_cell,
+                value=marker.text,
+                source_exercises=(),
+                kind="empty_day_marker",
+                fill_color=marker.fill_color,
+                review_note=review_note,
+            )
+        )
+        report.empty_day_markers.append(
+            {
+                "day": day.label,
+                "cell": target.result_cell,
+                "value": marker.text,
+                "fill_color": marker.fill_color,
+                "reason": review_note,
+            }
+        )
+    report.proposed_writes.sort(key=lambda proposal: split_cell_reference(proposal.cell))
 
 
 def build_preview(
@@ -292,39 +339,12 @@ def build_preview(
         )
     )
     if marker is not None and valid and not uncertain_absence:
-        matched_cells = set(by_target)
-        for day in program_days(package, sheet, options, week):
-            if any(row.result_cell in matched_cells for row in day.rows):
-                continue
-            target = _empty_day_marker_target(day)
-            if target is None:
-                continue
-            review_note = (
-                f"{day.label} has no matched MacroFactor session in the selected dates; "
-                "review this yellow marker before sharing"
-            )
-            report.proposed_writes.append(
-                ProposedWrite(
-                    sheet=sheet_name,
-                    week=week.label,
-                    cell=target.result_cell,
-                    value=marker.text,
-                    source_exercises=(),
-                    kind="empty_day_marker",
-                    fill_color=marker.fill_color,
-                    review_note=review_note,
-                )
-            )
-            report.empty_day_markers.append(
-                {
-                    "day": day.label,
-                    "cell": target.result_cell,
-                    "value": marker.text,
-                    "fill_color": marker.fill_color,
-                    "reason": review_note,
-                }
-            )
-        report.proposed_writes.sort(key=lambda proposal: split_cell_reference(proposal.cell))
+        _append_empty_day_markers(
+            report,
+            marker,
+            program_days(package, sheet, options, week),
+            set(by_target),
+        )
     return report
 
 

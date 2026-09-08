@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-09-08",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "branch changes vs origin/main (19 files, sampled highest-risk production and test paths after fixes)"
+  }
+]
