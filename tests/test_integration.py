@@ -5,14 +5,16 @@ import json
 import tempfile
 import unittest
 import zipfile
+from copy import copy
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from macrofactor_bridge.cli import main
-from macrofactor_bridge.config import load_config
+from macrofactor_bridge.config import ConfigError, load_config
 from macrofactor_bridge.importers import load_exercise_log
-from macrofactor_bridge.ooxml import XlsxPackage, file_sha256
+from macrofactor_bridge.ooxml import MAIN_NS, XlsxPackage, file_sha256, qn, split_cell_reference
 from macrofactor_bridge.service import apply_changes, build_preview
 from macrofactor_bridge.workbook import discover_workbook
 
@@ -33,6 +35,124 @@ def copy_xlsx_with_singular_weight_header(source: Path, destination: Path) -> No
         for item in source_zip.infolist():
             content = source_zip.read(item.filename).replace(b"Weight (lbs)", b"Weight (lb)")
             output_zip.writestr(item, content)
+
+
+def copy_coach_with_second_day(
+    source: Path, destination: Path, *, occupied_value: str | None = None
+) -> None:
+    package = XlsxPackage(source)
+    sheet = package.sheet_by_name("Training Block")
+    snapshot = package.sheet_snapshot(sheet)
+    styles = {
+        "B15": snapshot.cells["B3"].style,
+        "C15": snapshot.cells["C3"].style,
+        "D15": snapshot.cells["D3"].style,
+        "D16": snapshot.cells["D5"].style,
+        "J16": snapshot.cells["J5"].style,
+    }
+    with zipfile.ZipFile(source, "r") as source_zip:
+        root = ET.fromstring(source_zip.read(sheet.path))
+        sheet_data = root.find(qn(MAIN_NS, "sheetData"))
+        assert sheet_data is not None
+        rows = {int(row.attrib["r"]): row for row in sheet_data.findall(qn(MAIN_NS, "row"))}
+
+        def add_cell(reference: str, value: str | None) -> None:
+            row_number, _ = split_cell_reference(reference)
+            row = rows[row_number]
+            cell = ET.Element(qn(MAIN_NS, "c"), {"r": reference})
+            if styles[reference] is not None:
+                cell.attrib["s"] = styles[reference]
+            if value is not None:
+                cell.attrib["t"] = "inlineStr"
+                inline = ET.SubElement(cell, qn(MAIN_NS, "is"))
+                ET.SubElement(inline, qn(MAIN_NS, "t")).text = value
+            row.append(cell)
+            row[:] = sorted(
+                row,
+                key=lambda element: split_cell_reference(element.attrib.get("r", "A1"))[1],
+            )
+
+        add_cell("B15", "Day 2")
+        add_cell("C15", "Style")
+        add_cell("D15", "Variation")
+        add_cell("D16", "Day Two Exercise")
+        add_cell("J16", occupied_value)
+        changed_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        with zipfile.ZipFile(destination, "w") as output_zip:
+            output_zip.comment = source_zip.comment
+            for item in source_zip.infolist():
+                content = changed_xml if item.filename == sheet.path else source_zip.read(item.filename)
+                output_zip.writestr(copy(item), content)
+
+
+def write_marker_config(destination: Path) -> None:
+    payload = json.loads(CONFIG.read_text(encoding="utf-8"))
+    payload["exercises"].append(
+        {
+            "canonical": "Day Two Exercise",
+            "source_aliases": ["Day Two Exercise"],
+            "coach_aliases": ["Day Two Exercise"],
+        }
+    )
+    destination.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def write_clean_log(destination: Path, *, include_day_two: bool = False, uncertain: bool = False) -> None:
+    rows = [
+        {
+            "Date": "2026-08-03",
+            "Workout": "Day One",
+            "Exercise": "Tempo Back Squat",
+            "Set Type": "Standard Set",
+            "Weight (lbs)": "200",
+            "Reps": "8",
+        }
+    ]
+    if include_day_two:
+        rows.append(
+            {
+                "Date": "2026-08-04",
+                "Workout": "Day Two",
+                "Exercise": "Day Two Exercise",
+                "Set Type": "Standard Set",
+                "Weight (lbs)": "50",
+                "Reps": "10",
+            }
+        )
+    if uncertain:
+        rows.append(
+            {
+                "Date": "2026-08-04",
+                "Workout": "Unknown Day",
+                "Exercise": "Unknown Exercise",
+                "Set Type": "Standard Set",
+                "Weight (lbs)": "25",
+                "Reps": "10",
+            }
+        )
+    with destination.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["Date", "Workout", "Exercise", "Set Type", "Weight (lbs)", "Reps"],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def cell_style_details(path: Path, sheet_name: str, reference: str) -> tuple[dict[str, str], bytes, str | None]:
+    package = XlsxPackage(path)
+    style_index = int(package.sheet_snapshot(sheet_name).cells[reference].style or "0")
+    with zipfile.ZipFile(path) as archive:
+        styles = ET.fromstring(archive.read("xl/styles.xml"))
+    cell_xfs = styles.find(qn(MAIN_NS, "cellXfs"))
+    fills = styles.find(qn(MAIN_NS, "fills"))
+    assert cell_xfs is not None and fills is not None
+    cell_xf = list(cell_xfs)[style_index]
+    fill = list(fills)[int(cell_xf.attrib.get("fillId", "0"))]
+    foreground = fill.find(f"{qn(MAIN_NS, 'patternFill')}/{qn(MAIN_NS, 'fgColor')}")
+    color = foreground.attrib.get("rgb") if foreground is not None else None
+    alignment = cell_xf.find(qn(MAIN_NS, "alignment"))
+    return dict(cell_xf.attrib), ET.tostring(alignment) if alignment is not None else b"", color
 
 
 class IntegrationTests(unittest.TestCase):
@@ -166,6 +286,83 @@ class IntegrationTests(unittest.TestCase):
             xlsx_records = load_exercise_log(xlsx_path)
             self.assertGreater(len(xlsx_records), 10)
             self.assertEqual(xlsx_records[0].weight, load_exercise_log(LOG)[0].weight)
+
+    def test_empty_day_marker_is_proposed_and_highlighted_yellow(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            coach = root / "two-days.xlsx"
+            log = root / "clean.csv"
+            config_path = root / "config.json"
+            output = root / "output.xlsx"
+            copy_coach_with_second_day(COACH, coach)
+            write_clean_log(log)
+            write_marker_config(config_path)
+            config = load_config(config_path)
+            report = build_preview(
+                log, coach, config, "Training Block", "Week 1", date(2026, 8, 3), date(2026, 8, 9)
+            )
+            marker = next(proposal for proposal in report.proposed_writes if proposal.kind == "empty_day_marker")
+            self.assertEqual((marker.cell, marker.value, marker.fill_color), ("J16", "Skip", "FFFFFF00"))
+            self.assertEqual(report.empty_day_markers[0]["day"], "Day 2")
+
+            before_hash = file_sha256(coach)
+            result = apply_changes(report, config, output)
+            self.assertEqual(file_sha256(coach), before_hash)
+            self.assertEqual(XlsxPackage(output).sheet_snapshot("Training Block").cells["J16"].value, "Skip")
+            before_style, before_alignment, _ = cell_style_details(coach, "Training Block", "J16")
+            after_style, after_alignment, fill_color = cell_style_details(output, "Training Block", "J16")
+            for attribute in ("fontId", "borderId", "numFmtId", "xfId"):
+                self.assertEqual(after_style.get(attribute), before_style.get(attribute))
+            self.assertEqual(after_alignment, before_alignment)
+            self.assertEqual(fill_color, "FFFFFF00")
+            self.assertEqual(
+                result.validation["changed_members"],
+                ["xl/styles.xml", "xl/worksheets/sheet1.xml"],
+            )
+            self.assertEqual(result.validation["unrelated_members_changed"], [])
+
+    def test_empty_day_marker_is_not_added_for_present_occupied_or_uncertain_days(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config_path = root / "config.json"
+            write_marker_config(config_path)
+            config = load_config(config_path)
+            cases = (
+                ("present", True, False, None),
+                ("occupied", False, False, "Reviewed"),
+                ("uncertain", False, True, None),
+            )
+            for name, include_day_two, uncertain, occupied in cases:
+                with self.subTest(name=name):
+                    coach = root / f"{name}.xlsx"
+                    log = root / f"{name}.csv"
+                    copy_coach_with_second_day(COACH, coach, occupied_value=occupied)
+                    write_clean_log(log, include_day_two=include_day_two, uncertain=uncertain)
+                    report = build_preview(
+                        log,
+                        coach,
+                        config,
+                        "Training Block",
+                        "Week 1",
+                        date(2026, 8, 3),
+                        date(2026, 8, 9),
+                    )
+                    self.assertFalse(
+                        any(proposal.kind == "empty_day_marker" for proposal in report.proposed_writes)
+                    )
+
+    def test_empty_day_marker_configuration_is_validated(self) -> None:
+        marker = self.config.empty_day_marker
+        self.assertIsNotNone(marker)
+        assert marker is not None
+        self.assertEqual((marker.text, marker.fill_color), ("Skip", "FFFFFF00"))
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "invalid.json"
+            payload = json.loads(CONFIG.read_text(encoding="utf-8"))
+            payload["workbook"]["empty_day_marker"]["fill_color"] = "yellow"
+            config_path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "hex color"):
+                load_config(config_path)
 
     def test_cli_writes_machine_readable_preview_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

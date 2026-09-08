@@ -19,10 +19,17 @@ class ExerciseRule:
 
 
 @dataclass(frozen=True)
+class EmptyDayMarker:
+    text: str
+    fill_color: str
+
+
+@dataclass(frozen=True)
 class BridgeConfig:
     exercise_header_labels: tuple[str, ...]
     week_header_pattern: str
     rules: tuple[ExerciseRule, ...]
+    empty_day_marker: EmptyDayMarker | None = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +96,9 @@ class ProposedWrite:
     cell: str
     value: str
     source_exercises: tuple[str, ...]
+    kind: str = "workout_result"
+    fill_color: str | None = None
+    review_note: str | None = None
 
 
 @dataclass
@@ -108,6 +118,7 @@ class BridgeReport:
     skipped_rows: list[dict[str, Any]] = field(default_factory=list)
     occupied_cells: list[dict[str, Any]] = field(default_factory=list)
     exercise_notes: list[dict[str, Any]] = field(default_factory=list)
+    empty_day_markers: list[dict[str, Any]] = field(default_factory=list)
     source_hash_before: str | None = None
     source_hash_after: str | None = None
     export_hash_before: str | None = None

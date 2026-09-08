@@ -101,6 +101,7 @@ def review_sections(report: BridgeReport) -> tuple[ReviewSection, ...]:
         ("Occupied cells", report.occupied_cells),
         ("Other skipped data", report.skipped_rows),
         ("MacroFactor exercise notes", report.exercise_notes),
+        ("Empty-day review markers", report.empty_day_markers),
     )
     sections: list[ReviewSection] = []
     for title, entries in categories:
@@ -122,5 +123,8 @@ def review_text(report: BridgeReport) -> str:
         lines.append(f"{section.title}: {section.count}")
         lines.extend(f"  • {detail}" for detail in section.details)
         lines.append("")
-    lines.append("A missing workout is never interpreted as skipped.")
+    lines.append(
+        "A yellow Skip value is a review marker for a programmed day with no matched "
+        "MacroFactor session; confirm it before sharing."
+    )
     return "\n".join(lines)

@@ -61,7 +61,8 @@ def _print_report(report, mode: str) -> None:
     print(f"Rows read: {report.rows_read}; rows in range: {report.rows_in_range}")
     print(f"Proposed writes: {len(report.proposed_writes)}")
     for proposal in report.proposed_writes:
-        print(f"  {proposal.cell}: {proposal.value} ({', '.join(proposal.source_exercises)})")
+        source = ", ".join(proposal.source_exercises) or proposal.review_note or proposal.kind
+        print(f"  {proposal.cell}: {proposal.value} ({source})")
     print(
         "Reported: "
         f"{len(report.unmatched_exercises)} unmatched, "
@@ -69,7 +70,8 @@ def _print_report(report, mode: str) -> None:
         f"{len(report.zero_rep_rows)} zero-rep, "
         f"{len(report.occupied_cells)} occupied, "
         f"{len(report.skipped_rows)} other skipped, "
-        f"{len(report.exercise_notes)} exercise notes"
+        f"{len(report.exercise_notes)} exercise notes, "
+        f"{len(report.empty_day_markers)} empty-day review markers"
     )
     if report.output_file:
         print(f"Output: {report.output_file}")

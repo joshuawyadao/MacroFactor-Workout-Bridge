@@ -66,7 +66,7 @@ See the [Security Policy](SECURITY.md) to report a vulnerability privately. Neve
 - The output keeps the same ZIP member list, and every workbook part except the selected worksheet XML must remain byte-identical.
 - Updates retain the target cell's style and leave formulas, merged cells, relationships, drawings, and workbook structure intact.
 - Exercise matching is exact after case and whitespace normalization plus configured aliases. There is no fuzzy matching.
-- Missing workouts are never labeled as skipped. Only rows present in the export can be reported.
+- When enabled in the mapping, a programmed day with no matched session receives a yellow `Skip` review marker. It is a visual prompt to confirm the absence, not proof that MacroFactor recorded a skip.
 - Zero-rep rows are ignored and reported.
 
 The application never changes the MacroFactor export.
@@ -108,7 +108,7 @@ The app guides one workflow:
 3. Use the bundled exercise mapping, or save an editable JSON copy and select it.
 4. Click **Discover**, then select the worksheet and coach week.
 5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that an absent workout was skipped.
-6. Click **Preview workbook changes** and inspect the proposed-change table and **Review needed** panel.
+6. Click **Preview workbook changes** and inspect the proposed-change table and **Review needed** panel. Yellow `Skip` rows call out programmed days with no matched session and must be confirmed before sharing.
 7. Click **Create safe workbook copy…** and choose a new `.xlsx` filename.
 8. Optionally save the full review and validation report as JSON.
 
@@ -172,6 +172,19 @@ Each mapping rule follows this shape:
 }
 ```
 
+The workbook section can optionally enable an empty-day review marker:
+
+```json
+{
+  "empty_day_marker": {
+    "text": "Skip",
+    "fill_color": "FFFF00"
+  }
+}
+```
+
+The marker is proposed only when the selected dates contain usable workout data, the programmed day has no matched result, the target cell is empty, and no unmatched, ambiguous, zero-rep, or otherwise unusable rows make the absence uncertain. The yellow fill is preserved in the generated workbook while the cell's existing font, border, alignment, and number format remain intact.
+
 - `source_aliases` are exact names accepted from the MacroFactor export.
 - `coach_aliases` are exact names accepted in the workbook's exercise column.
 - `coach_context_aliases` optionally disambiguate repeated exercise-column labels by requiring an exact match in another text cell on the same row. For example, `Abs` can be paired with the exact variation `hanging leg raises (3ct tempo eccentric)` without selecting a separate GHD sit-up row.
@@ -219,6 +232,7 @@ Preview reports:
 - occupied result cells;
 - missing or unsupported data;
 - relevant exercise-level notes found in MacroFactor's `Active Program` table. Notes are review-only and are not appended to result cells.
+- yellow empty-day `Skip` markers that require confirmation before the workbook is shared.
 
 ### Create an output workbook
 

@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from PySide6.QtCore import QDate, Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtGui import QColor, QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -339,6 +339,7 @@ class BridgeWindow(QMainWindow):
                 report.occupied_cells,
                 report.skipped_rows,
                 report.exercise_notes,
+                report.empty_day_markers,
             )
         )
         self._set_status(
@@ -349,9 +350,13 @@ class BridgeWindow(QMainWindow):
     def _display_report(self, report: BridgeReport) -> None:
         self.preview_table.setRowCount(len(report.proposed_writes))
         for row, proposal in enumerate(report.proposed_writes):
-            values = (proposal.cell, proposal.value, ", ".join(proposal.source_exercises))
+            source = ", ".join(proposal.source_exercises) or proposal.review_note or proposal.kind
+            values = (proposal.cell, proposal.value, source)
             for column, value in enumerate(values):
-                self.preview_table.setItem(row, column, QTableWidgetItem(value))
+                item = QTableWidgetItem(value)
+                if proposal.fill_color:
+                    item.setBackground(QColor(f"#{proposal.fill_color[-6:]}"))
+                self.preview_table.setItem(row, column, item)
         self.review_panel.setPlainText(review_text(report))
 
     def _create_output(self) -> None:

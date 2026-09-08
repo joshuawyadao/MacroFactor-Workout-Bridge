@@ -1,7 +1,11 @@
 {
   "workbook": {
     "exercise_header_labels": ["Variation", "Exercise"],
-    "week_header_pattern": "^week\\s*\\d+(?:\\s*\\([^)]*\\))?$"
+    "week_header_pattern": "^week\\s*\\d+(?:\\s*\\([^)]*\\))?$",
+    "empty_day_marker": {
+      "text": "Skip",
+      "fill_color": "FFFF00"
+    }
   },
   "exercises": [
     {

@@ -59,7 +59,7 @@ The archive command copies files; it never moves, changes, or deletes inbox file
 
 An exercise-log export must contain at least one usable completed set: a non-empty exercise and set type, with a positive finite rep count. Mixed exports can still be archived when some rows are incomplete; preview continues to report and skip those rows. Archival validation does not guarantee a matching, writable coach result cell.
 
-Current and legacy MacroFactor pound exports are accepted through the exact `Weight (lb)` and `Weight (lbs)` header spellings. A weekly export can legitimately omit a workout because of its date window; the bridge processes only rows actually present and never fills results from the coach workbook or infers that an absent workout was skipped.
+Current and legacy MacroFactor pound exports are accepted through the exact `Weight (lb)` and `Weight (lbs)` header spellings. A weekly export can legitimately omit a workout because of its date window. When `workbook.empty_day_marker` is enabled, the bridge can place a yellow `Skip` review marker in the first available result cell of a programmed day with no matched session. The marker is not a MacroFactor skip record and must be confirmed during preview. It is withheld when unmatched, ambiguous, zero-rep, or otherwise unusable rows make the absence uncertain, and it never overwrites an existing result.
 
 ## Version and validation history
 
@@ -97,4 +97,5 @@ This is local version history, not a backup service. Back up `local-data/` separ
 - Personal exports, manifests, generated workbooks, and reports must not be force-added to Git.
 - Only MacroFactor exercise-log exports belong in the MacroFactor inbox. Program exports do not contain the required exercise-log table and will fail validation.
 - Keep using Preview before creating output. Archival validation does not authorize or perform workbook writes.
+- Treat every yellow `Skip` value as a review prompt. MacroFactor exercise-log exports do not distinguish a skipped day from an unlogged or out-of-range workout.
 - The coach workbook and MacroFactor export selected by the app remain unchanged; output always uses a separate filename.

@@ -4,7 +4,8 @@ import hashlib
 import posixpath
 import re
 import zipfile
-from copy import copy
+from collections.abc import Iterable
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -195,6 +196,7 @@ class XlsxPackage:
         output_path: str | Path,
         sheet: SheetRef,
         changes: dict[str, str],
+        highlight_fills: dict[str, str] | None = None,
     ) -> None:
         output = Path(output_path)
         if output.resolve() == self.path.resolve():
@@ -204,17 +206,36 @@ class XlsxPackage:
         if output.exists():
             raise WorkbookError(f"Output already exists; choose a new path: {output}")
         output.parent.mkdir(parents=True, exist_ok=True)
+        highlights = highlight_fills or {}
         with zipfile.ZipFile(self.path, "r") as source:
             original_xml = source.read(sheet.path)
-            changed_xml = self._updated_sheet_xml(original_xml, changes)
+            changed_styles: bytes | None = None
+            highlight_styles: dict[str, int] = {}
+            if highlights:
+                styles_path = "xl/styles.xml"
+                if styles_path not in source.namelist():
+                    raise WorkbookError("Workbook has no styles.xml for highlighted review markers")
+                changed_styles, highlight_styles = self._highlighted_styles_xml(
+                    source.read(styles_path), original_xml, highlights
+                )
+            changed_xml = self._updated_sheet_xml(original_xml, changes, highlight_styles)
             with zipfile.ZipFile(output, "w") as destination:
                 destination.comment = source.comment
                 for info in source.infolist():
-                    data = changed_xml if info.filename == sheet.path else source.read(info.filename)
+                    if info.filename == sheet.path:
+                        data = changed_xml
+                    elif changed_styles is not None and info.filename == "xl/styles.xml":
+                        data = changed_styles
+                    else:
+                        data = source.read(info.filename)
                     destination.writestr(copy(info), data)
 
     @staticmethod
-    def _updated_sheet_xml(xml: bytes, changes: dict[str, str]) -> bytes:
+    def _updated_sheet_xml(
+        xml: bytes,
+        changes: dict[str, str],
+        highlight_styles: dict[str, int] | None = None,
+    ) -> bytes:
         root = ET.fromstring(xml)
         sheet_data = root.find(qn(MAIN_NS, "sheetData"))
         if sheet_data is None:
@@ -247,27 +268,89 @@ class XlsxPackage:
             if value != value.strip():
                 text.attrib[qn(XML_NS, "space")] = "preserve"
             text.text = value
+            if highlight_styles and reference in highlight_styles:
+                cell.attrib["s"] = str(highlight_styles[reference])
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    @staticmethod
+    def _highlighted_styles_xml(
+        styles_xml: bytes,
+        sheet_xml: bytes,
+        highlight_fills: dict[str, str],
+    ) -> tuple[bytes, dict[str, int]]:
+        styles_root = ET.fromstring(styles_xml)
+        sheet_root = ET.fromstring(sheet_xml)
+        fills = styles_root.find(qn(MAIN_NS, "fills"))
+        cell_xfs = styles_root.find(qn(MAIN_NS, "cellXfs"))
+        if fills is None or cell_xfs is None:
+            raise WorkbookError("Workbook styles are missing fills or cell formats")
+        cells = {
+            cell.attrib.get("r"): cell
+            for cell in sheet_root.iter(qn(MAIN_NS, "c"))
+            if cell.attrib.get("r")
+        }
+        fill_indexes: dict[str, int] = {}
+        style_indexes: dict[tuple[int, str], int] = {}
+        reference_styles: dict[str, int] = {}
+        for reference, color in highlight_fills.items():
+            cell = cells.get(reference)
+            if cell is None:
+                raise WorkbookError(
+                    f"Target cell {reference} does not exist; refusing to create an unstyled cell"
+                )
+            fill_index = fill_indexes.get(color)
+            if fill_index is None:
+                fill_index = len(fills)
+                fill = ET.SubElement(fills, qn(MAIN_NS, "fill"))
+                pattern = ET.SubElement(
+                    fill, qn(MAIN_NS, "patternFill"), {"patternType": "solid"}
+                )
+                ET.SubElement(pattern, qn(MAIN_NS, "fgColor"), {"rgb": color})
+                ET.SubElement(pattern, qn(MAIN_NS, "bgColor"), {"indexed": "64"})
+                fill_indexes[color] = fill_index
+            try:
+                base_style = int(cell.attrib.get("s", "0"))
+                base_xf = list(cell_xfs)[base_style]
+            except (ValueError, IndexError) as exc:
+                raise WorkbookError(f"Target cell {reference} has an invalid style") from exc
+            style_key = (base_style, color)
+            style_index = style_indexes.get(style_key)
+            if style_index is None:
+                style_index = len(cell_xfs)
+                highlighted_xf = deepcopy(base_xf)
+                highlighted_xf.attrib["fillId"] = str(fill_index)
+                highlighted_xf.attrib["applyFill"] = "1"
+                cell_xfs.append(highlighted_xf)
+                style_indexes[style_key] = style_index
+            reference_styles[reference] = style_index
+        fills.attrib["count"] = str(len(fills))
+        cell_xfs.attrib["count"] = str(len(cell_xfs))
+        return (
+            ET.tostring(styles_root, encoding="utf-8", xml_declaration=True),
+            reference_styles,
+        )
 
 
 def validate_copy_integrity(
     source_path: str | Path,
     output_path: str | Path,
-    changed_member: str,
+    changed_members: str | Iterable[str],
 ) -> dict[str, object]:
     source = Path(source_path)
     output = Path(output_path)
+    allowed = {changed_members} if isinstance(changed_members, str) else set(changed_members)
     with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
         before_names = before.namelist()
         after_names = after.namelist()
         unchanged_differences = [
             name
             for name in before_names
-            if name != changed_member and before.read(name) != after.read(name)
+            if name not in allowed and before.read(name) != after.read(name)
         ]
         return {
             "zip_members_identical": before_names == after_names,
-            "changed_member": changed_member,
+            "changed_member": next(iter(allowed)) if len(allowed) == 1 else None,
+            "changed_members": sorted(allowed),
             "unrelated_members_changed": unchanged_differences,
             "source_size": source.stat().st_size,
             "output_size": output.stat().st_size,
