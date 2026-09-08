@@ -36,7 +36,7 @@ By participating, you agree to follow the [Contributor Covenant Code of Conduct]
    git diff --check
    ```
 
-   The dependency audit requires `pip-audit` 2.10.1 or newer. CI runs the same known-vulnerability check. Dependency lock changes must retain exact versions, reviewed wheel SHA-256 hashes, and binary-only installation unless a separately reviewed source-build requirement is documented.
+   The dependency audit requires `pip-audit`; CI installs an exact reviewed version before running the same known-vulnerability check. Dependency lock changes must retain exact versions, reviewed wheel SHA-256 hashes, and binary-only installation unless a separately reviewed source-build requirement is documented.
 
 5. Describe the user-visible behavior, privacy and workbook-safety implications, verification performed, and any manual macOS checks in the pull request.
 

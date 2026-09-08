@@ -138,21 +138,22 @@ class BuildDependencyTests(unittest.TestCase):
                 self.assertIn("--require-hashes", text)
 
         workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
-        audit_action_lines = [
+        audit_install_lines = [
             line.strip()
             for line in workflow.splitlines()
-            if "uses: pypa/gh-action-pip-audit@" in line
+            if "pip install" in line and "pip-audit==" in line
         ]
-        self.assertEqual(len(audit_action_lines), 1)
-        action_reference = audit_action_lines[0].split("@", 1)[1].split()[0]
+        self.assertEqual(len(audit_install_lines), 1)
         self.assertRegex(
-            action_reference,
-            r"^[0-9a-f]{40}$",
-            "The dependency audit action must use an immutable commit SHA",
+            audit_install_lines[0],
+            r'"pip-audit==\d+\.\d+\.\d+"$',
+            "CI must install one exact dependency-auditor version",
         )
-        self.assertIn("inputs: requirements/app-build.lock requirements/test.lock", workflow)
-        self.assertIn("disable-pip: true", workflow)
-        self.assertIn("require-hashes: true", workflow)
+        self.assertIn("python -m pip_audit", workflow)
+        self.assertIn("--disable-pip", workflow)
+        self.assertIn("--require-hashes", workflow)
+        self.assertIn("--requirement requirements/app-build.lock", workflow)
+        self.assertIn("--requirement requirements/test.lock", workflow)
 
     def test_test_runner_uses_a_fingerprinted_shared_virtualenv(self) -> None:
         common_dir = Path(

@@ -259,7 +259,7 @@ python3 -m compileall -q src tests packaging
 git diff --check
 ```
 
-CI also audits both reviewed dependency closures for known Python-package vulnerabilities. To run the same check locally with `pip-audit` 2.10.1 or newer installed:
+CI also audits both reviewed dependency closures for known Python-package vulnerabilities. To run the same check locally with `pip-audit` installed:
 
 ```sh
 python3 -m pip_audit \

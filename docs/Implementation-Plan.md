@@ -1,18 +1,18 @@
 # Plan
 
-Address the Brooks review finding without changing the selected audit action or dependency behavior. Preserve the security invariant that the GitHub Action is pinned to an immutable commit while removing the test's duplicate copy of that commit SHA.
+Fix the observed `CI Verify` startup failure without widening the repository's GitHub Actions allowlist. Run the exact-version dependency auditor through the existing Python environment, preserve hash-enforced lock auditing, and keep the change isolated from application behavior.
 
 ## Scope
-- In: the CI audit-action pin contract, its focused test, Brooks review history, validation, commit, and push.
-- Out: changing the selected action version, dependency versions or hashes, application behavior, and unrelated packaging issues.
+- In: CI audit execution, its dependency contract test, local audit documentation, focused validation, commit, and push.
+- Out: GitHub Actions permission changes, dependency version or hash changes, application behavior, and unrelated packaging issues.
 
 ## Action items
-[x] Replace the duplicated audit-action SHA assertion with a structural immutable-commit assertion in `tests/test_build_dependencies.py`.
-[x] Preserve coverage for exactly one configured audit action and its required inputs and hash-checking settings.
-[x] Record the Brooks PR Review result and score in the project review history.
-[x] Run the focused dependency test module and `git diff --check`.
-[x] Commit the focused Brooks remedy and updated implementation plan.
-[x] Push `codex/dependency-integrity-audit` and re-check PR review, CI, and mergeability state.
+[x] Replace the disallowed third-party audit action with an exact-version `pip-audit` install and CLI audit step.
+[x] Keep the audit read-only and enforce hash validation against both complete dependency closures.
+[x] Update the CI contract test to verify the package version is exact without duplicating the chosen version.
+[x] Remove unnecessary local documentation coupling to one auditor release.
+[x] Run focused dependency tests, workflow syntax checks, and `git diff --check`.
+[x] Commit and push the CI fix, then watch the replacement `CI Verify` run to completion.
 
 ## Open questions
 - None.
