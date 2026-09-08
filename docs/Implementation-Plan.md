@@ -1,19 +1,18 @@
 # Plan
 
-Address all four actionable Codex review threads on PR #7 while preserving the canonical test command and fingerprinted environment layout. Handle each concern as an independently validated commit, push, and acknowledgment, then leave the pull request open for maintainer review.
+Make the canonical GUI-enabled suite pass when its shared virtual-environment root is overridden for isolated validation. Keep the production runner behavior unchanged and make the default-root test independent of caller environment variables.
 
 ## Scope
-- In: owner-aware provisioning locks, incomplete-environment recovery, isolated `PYTHONPATH`, signal-safe lock cleanup, regression coverage, CI, and Codex comment acknowledgment.
-- Out: dependency-version changes, application behavior, maintainer-name changes, resolving GitHub threads, explanatory GitHub replies, and merging PR #7.
+- In: test environment isolation in `tests/test_build_dependencies.py`, focused and complete GUI-enabled validation, and the implementation record.
+- Out: dependency changes, application behavior, runner path semantics, and user-facing documentation changes.
 
 ## Action items
-[x] Replace the fixed 30-second wait with an atomic owner-aware lock that waits while provisioning is alive and safely recovers stale locks.
-[x] Recreate any not-ready fingerprinted environment before installing dependencies so interrupted virtual environments recover automatically.
-[x] Set `PYTHONPATH` exclusively to the launching worktree's `src/` directory so caller dependencies cannot affect readiness or GUI tests.
-[x] Make `HUP`, `INT`, and `TERM` handlers release only the current runner's lock and exit with the conventional signal status.
-[x] Add focused regression coverage for lock ownership, stale locks, incomplete environments, inherited path isolation, and provisioning signals.
-[ ] Validate each feedback item before its separate commit, push, and thumbs-up reaction; then run the complete GUI-enabled suite, compilation, dependency, shell, and diff checks.
-[ ] Re-read PR #7 threads, CI, and mergeability, leaving the PR open and unmerged for maintainer review.
+[x] Capture the isolated GUI-suite failure and confirm it is limited to the default-root assertion inheriting `MACROFACTOR_TEST_VENV_ROOT`.
+[x] Update the default-root test to remove the override from the subprocess environment without weakening its path and fingerprint assertions.
+[x] Run the focused build-dependency test module with an outer virtual-environment root override.
+[x] Run the complete GUI-enabled suite against the isolated pinned environment.
+[x] Run source compilation and diff checks, and confirm the worktree contains only scoped changes.
+[x] Save the verified fix on a dedicated branch with this implementation plan.
 
 ## Open questions
 - None.
