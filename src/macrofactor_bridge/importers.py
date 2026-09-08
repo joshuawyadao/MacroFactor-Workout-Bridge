@@ -10,10 +10,22 @@ from .ooxml import WorkbookError, XlsxPackage, split_cell_reference
 
 
 REQUIRED_HEADERS = {"Date", "Workout", "Exercise", "Set Type", "Weight (lbs)", "Reps"}
+HEADER_ALIASES = {
+    "Weight (lb)": "Weight (lbs)",
+}
 
 
 class ImportError(ValueError):
     """Raised when a MacroFactor export is missing required data."""
+
+
+def _canonical_header(value: object) -> str:
+    header = str(value).strip()
+    return HEADER_ALIASES.get(header, header)
+
+
+def _canonicalize_mapping(row: dict[str, object]) -> dict[str, object]:
+    return {_canonical_header(header): value for header, value in row.items()}
 
 
 def _parse_decimal(value: object) -> Decimal | None:
@@ -121,11 +133,14 @@ def _load_csv(path: Path) -> list[SetRecord]:
     try:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
-            headers = set(reader.fieldnames or [])
+            headers = {_canonical_header(header) for header in (reader.fieldnames or [])}
             missing = REQUIRED_HEADERS - headers
             if missing:
                 raise ImportError(f"CSV is missing required columns: {', '.join(sorted(missing))}")
-            return [_record_from_mapping(index, row) for index, row in enumerate(reader, start=2)]
+            return [
+                _record_from_mapping(index, _canonicalize_mapping(row))
+                for index, row in enumerate(reader, start=2)
+            ]
     except OSError as exc:
         raise ImportError(f"Could not read MacroFactor CSV {path}: {exc}") from exc
 
@@ -144,7 +159,7 @@ def _load_xlsx(path: Path) -> list[SetRecord]:
             by_row.setdefault(row, {})[column] = cell.value
         for row_number, values in by_row.items():
             headers = {
-                column: str(value).strip()
+                column: _canonical_header(value)
                 for column, value in values.items()
                 if isinstance(value, str) and str(value).strip()
             }

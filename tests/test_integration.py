@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import zipfile
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 from macrofactor_bridge.cli import main
@@ -21,6 +22,17 @@ FIXTURES = ROOT / "tests" / "fixtures"
 CONFIG = ROOT / "config" / "exercises.example.json"
 COACH = FIXTURES / "coach-template.xlsx"
 LOG = FIXTURES / "macrofactor-log.xlsx"
+
+
+def copy_xlsx_with_singular_weight_header(source: Path, destination: Path) -> None:
+    """Create an anonymized current-header fixture without committing another binary."""
+    with (
+        zipfile.ZipFile(source, "r") as source_zip,
+        zipfile.ZipFile(destination, "w") as output_zip,
+    ):
+        for item in source_zip.infolist():
+            content = source_zip.read(item.filename).replace(b"Weight (lbs)", b"Weight (lb)")
+            output_zip.writestr(item, content)
 
 
 class IntegrationTests(unittest.TestCase):
@@ -125,6 +137,35 @@ class IntegrationTests(unittest.TestCase):
             csv_records = load_exercise_log(csv_path)
             self.assertEqual(len(csv_records), 1)
             self.assertEqual(csv_records[0].exercise, "Tempo Back Squat")
+
+    def test_accepts_current_singular_pound_header_in_csv_and_xlsx(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            csv_path = directory_path / "current-export.csv"
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=["Date", "Workout", "Exercise", "Set Type", "Weight (lb)", "Reps"],
+                )
+                writer.writeheader()
+                writer.writerow(
+                    {
+                        "Date": "2026-08-03",
+                        "Workout": "Example",
+                        "Exercise": "Tempo Back Squat",
+                        "Set Type": "Standard Set",
+                        "Weight (lb)": "205",
+                        "Reps": "7",
+                    }
+                )
+            csv_records = load_exercise_log(csv_path)
+            self.assertEqual(csv_records[0].weight, Decimal("205"))
+
+            xlsx_path = directory_path / "current-export.xlsx"
+            copy_xlsx_with_singular_weight_header(LOG, xlsx_path)
+            xlsx_records = load_exercise_log(xlsx_path)
+            self.assertGreater(len(xlsx_records), 10)
+            self.assertEqual(xlsx_records[0].weight, load_exercise_log(LOG)[0].weight)
 
     def test_cli_writes_machine_readable_preview_report(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

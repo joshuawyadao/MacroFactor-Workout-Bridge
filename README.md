@@ -121,6 +121,8 @@ The bundled mapping is an example, not a promise that every personal exercise na
 - A MacroFactor exercise-log export in `.csv` or `.xlsx` format
 - A coach workbook in `.xlsx` format
 
+The importer accepts MacroFactor's exact pound-weight headers `Weight (lb)` and `Weight (lbs)`. Other unit labels remain unsupported so a unit change cannot silently alter workout results.
+
 ### Build locally
 
 The first build requires internet access so the isolated environment can install the reviewed PySide6 and PyInstaller dependency closure:
