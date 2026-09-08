@@ -18,10 +18,11 @@ Address every actionable Codex review thread on PR #10 while preserving the cons
 
 ## Verification
 - Focused integration and desktop-model suite: 19 tests passed.
-- Canonical GUI-enabled suite: 65 tests passed.
+- Canonical GUI-enabled suite after merging the latest `main`: 68 tests passed.
 - `python3 -m compileall -q src tests packaging` passed.
 - `git diff --check` passed.
 - The rebuilt macOS app is ad-hoc signed, verifies with `codesign --verify --deep --strict`, and reports version 0.3.0 build 4.
+- The latest `main` was merged after review fixes, preserving its fresh hash-locked app-build environment hardening.
 
 ## Open questions
 - None.
