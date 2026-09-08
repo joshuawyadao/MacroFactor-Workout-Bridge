@@ -36,6 +36,13 @@ jobs:
       - name: Install Qt runtime libraries
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends libegl1
 
+      - name: Audit locked Python dependencies
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          inputs: requirements/app-build.lock requirements/test.lock
+          disable-pip: true
+          require-hashes: true
+
       - name: Run complete test suite
         run: ./scripts/test.sh
 

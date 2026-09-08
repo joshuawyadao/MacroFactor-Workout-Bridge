@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,37 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+HASH_PATTERN = re.compile(r"--hash=sha256:([0-9a-f]{64})(?: \\)?$")
+
+
+def read_locked_requirements(relative_path: str) -> dict[str, list[str]]:
+    requirements: dict[str, list[str]] = {}
+    current_requirement: str | None = None
+
+    for raw_line in (PROJECT_ROOT / relative_path).read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line.startswith("--only-binary") or line == "--require-hashes":
+            continue
+        if "==" in line:
+            if not line.endswith("\\"):
+                raise AssertionError(f"Locked requirement has no hashes: {line}")
+            name, version = line[:-1].strip().split("==", 1)
+            current_requirement = f"{name.lower().replace('_', '-')}=={version}"
+            requirements[current_requirement] = []
+            continue
+
+        if current_requirement is None:
+            raise AssertionError(f"Unexpected lock line: {line}")
+        match = HASH_PATTERN.fullmatch(line)
+        if match is None:
+            raise AssertionError(f"Invalid hash line: {line}")
+        requirements[current_requirement].append(match.group(1))
+        if not line.endswith("\\"):
+            current_requirement = None
+
+    if current_requirement is not None:
+        raise AssertionError(f"Unterminated requirement: {current_requirement}")
+    return requirements
 
 FAKE_PYTHON_ADAPTER = """#!/usr/bin/env python3
 import os
@@ -60,11 +92,7 @@ def wait_for_file(path: Path, timeout_seconds: float = 5.0) -> None:
 class BuildDependencyTests(unittest.TestCase):
     def test_optional_dependencies_match_the_reviewed_app_build_lock(self) -> None:
         project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
-        lock_lines = {
-            line.strip()
-            for line in (PROJECT_ROOT / "requirements" / "app-build.lock").read_text().splitlines()
-            if line and not line.startswith("#")
-        }
+        locked = read_locked_requirements("requirements/app-build.lock")
 
         optional = project["project"]["optional-dependencies"]
         self.assertEqual(optional["desktop"], ["PySide6-Essentials==6.11.2"])
@@ -72,27 +100,51 @@ class BuildDependencyTests(unittest.TestCase):
             optional["app-build"],
             ["PySide6-Essentials==6.11.2", "pyinstaller==6.22.2"],
         )
-        self.assertIn("PySide6_Essentials==6.11.2", lock_lines)
-        self.assertIn("pyinstaller==6.22.2", lock_lines)
-        self.assertIn("shiboken6==6.11.2", lock_lines)
+        self.assertIn("pyside6-essentials==6.11.2", locked)
+        self.assertIn("pyinstaller==6.22.2", locked)
+        self.assertIn("shiboken6==6.11.2", locked)
 
     def test_test_lock_matches_the_desktop_dependency(self) -> None:
         project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
-        test_lock = PROJECT_ROOT / "requirements" / "test.lock"
-        lock_lines = {
-            line.strip()
-            for line in test_lock.read_text().splitlines()
-            if line and not line.startswith("#")
-        }
+        locked = read_locked_requirements("requirements/test.lock")
 
         self.assertEqual(
             project["project"]["optional-dependencies"]["desktop"],
             ["PySide6-Essentials==6.11.2"],
         )
         self.assertEqual(
-            lock_lines,
-            {"PySide6_Essentials==6.11.2", "shiboken6==6.11.2"},
+            set(locked),
+            {"pyside6-essentials==6.11.2", "shiboken6==6.11.2"},
         )
+
+    def test_dependency_locks_require_binary_artifacts_and_sha256_hashes(self) -> None:
+        for relative_path in (
+            "requirements/app-build.lock",
+            "requirements/test.lock",
+        ):
+            with self.subTest(relative_path=relative_path):
+                text = (PROJECT_ROOT / relative_path).read_text()
+                self.assertIn("--only-binary=:all:", text)
+                self.assertIn("--require-hashes", text)
+                locked = read_locked_requirements(relative_path)
+                self.assertTrue(locked)
+                self.assertTrue(all(hashes for hashes in locked.values()))
+
+    def test_installers_and_ci_enforce_locked_dependency_integrity(self) -> None:
+        for relative_path in ("scripts/build_macos_app.sh", "scripts/test.sh"):
+            with self.subTest(relative_path=relative_path):
+                text = (PROJECT_ROOT / relative_path).read_text()
+                self.assertIn("--only-binary=:all:", text)
+                self.assertIn("--require-hashes", text)
+
+        workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
+        self.assertIn(
+            "pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266",
+            workflow,
+        )
+        self.assertIn("inputs: requirements/app-build.lock requirements/test.lock", workflow)
+        self.assertIn("disable-pip: true", workflow)
+        self.assertIn("require-hashes: true", workflow)
 
     def test_test_runner_uses_a_fingerprinted_shared_virtualenv(self) -> None:
         common_dir = Path(
@@ -115,11 +167,14 @@ class BuildDependencyTests(unittest.TestCase):
         requirements = PROJECT_ROOT / "requirements" / "test.lock"
         fingerprint = hashlib.sha256(requirements.read_bytes()).hexdigest()
         python_key = f"py{sys.version_info.major}.{sys.version_info.minor}"
+        environment = os.environ.copy()
+        environment.pop("MACROFACTOR_TEST_VENV_ROOT", None)
         result = subprocess.run(
             [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
             check=True,
             capture_output=True,
             text=True,
+            env=environment,
         )
 
         self.assertEqual(
@@ -365,5 +420,5 @@ class BuildDependencyTests(unittest.TestCase):
     def test_packaging_script_installs_the_lock_without_reresolving_dependencies(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
 
-        self.assertIn('pip install --requirement "$APP_ROOT/requirements/app-build.lock"', script)
+        self.assertIn('--requirement "$APP_ROOT/requirements/app-build.lock"', script)
         self.assertIn('pip install --no-build-isolation --no-deps -e "$APP_ROOT"', script)

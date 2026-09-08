@@ -1,19 +1,19 @@
 # Plan
 
-Address all four actionable Codex review threads on PR #7 while preserving the canonical test command and fingerprinted environment layout. Handle each concern as an independently validated commit, push, and acknowledgment, then leave the pull request open for maintainer review.
+Harden the reviewed Python dependency closures without changing package versions. Add cryptographic artifact verification to every locked install and make known-vulnerability auditing a repeatable CI gate over the same exact closures.
 
 ## Scope
-- In: owner-aware provisioning locks, incomplete-environment recovery, isolated `PYTHONPATH`, signal-safe lock cleanup, regression coverage, CI, and Codex comment acknowledgment.
-- Out: dependency-version changes, application behavior, maintainer-name changes, resolving GitHub threads, explanatory GitHub replies, and merging PR #7.
+- In: SHA-256 hashes for both requirements locks, enforced hash checking in build/test installers, a pinned GitHub dependency-audit action, dependency contract tests, and contributor/build documentation.
+- Out: dependency-version upgrades, application runtime behavior, Apple signing/notarization, automatic vulnerability remediation, and lockfile regeneration tooling.
 
 ## Action items
-[x] Replace the fixed 30-second wait with an atomic owner-aware lock that waits while provisioning is alive and safely recovers stale locks.
-[x] Recreate any not-ready fingerprinted environment before installing dependencies so interrupted virtual environments recover automatically.
-[x] Set `PYTHONPATH` exclusively to the launching worktree's `src/` directory so caller dependencies cannot affect readiness or GUI tests.
-[x] Make `HUP`, `INT`, and `TERM` handlers release only the current runner's lock and exit with the conventional signal status.
-[x] Add focused regression coverage for lock ownership, stale locks, incomplete environments, inherited path isolation, and provisioning signals.
-[ ] Validate each feedback item before its separate commit, push, and thumbs-up reaction; then run the complete GUI-enabled suite, compilation, dependency, shell, and diff checks.
-[ ] Re-read PR #7 threads, CI, and mergeability, leaving the PR open and unmerged for maintainer review.
+[x] Collect authoritative PyPI SHA-256 digests for every locked release and add the compatible artifact hashes to both requirements files.
+[x] Require pip hash verification in the macOS build and shared test-environment installers.
+[x] Add a pinned CI dependency-audit step that checks both complete closures without modifying dependencies.
+[x] Extend dependency contract tests to reject unpinned, unhashed, or non-hash-enforced installation paths.
+[x] Document the integrity and advisory-audit workflow in the README and contributor guide.
+[x] Run focused dependency tests, the complete test suite, compilation, workflow/lock consistency checks, and `git diff --check`.
+[x] Commit the completed plan and implementation, then push `codex/dependency-integrity-audit`.
 
 ## Open questions
 - None.

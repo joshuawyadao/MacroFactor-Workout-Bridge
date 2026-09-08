@@ -1,4 +1,11 @@
 # Reviewed desktop test dependency closure for Python 3.11 and newer.
 # Keep this aligned with the desktop optional dependency in pyproject.toml.
-PySide6_Essentials==6.11.2
-shiboken6==6.11.2
+--only-binary=:all:
+--require-hashes
+
+PySide6_Essentials==6.11.2 \
+    --hash=sha256:77795c145202e65a78d88f7cd409d186e3ba23d159bdb3ba2dcd159ae5e5f0d9 \
+    --hash=sha256:aaf9f25f0f324874085fa5b26a610318db8a8e243cf85bb3e5400595191c7778
+shiboken6==6.11.2 \
+    --hash=sha256:53659683b1f7a08e9f87eff9b1065f1ceb7110cd7a4bc09fdf5efe43d286604d \
+    --hash=sha256:7a7a0a72a9ed26c9bf77d42246b1c736486befb8f31aa2fb29957ea4cdd1c1c2
