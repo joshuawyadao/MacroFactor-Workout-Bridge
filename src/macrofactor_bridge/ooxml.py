@@ -5,12 +5,11 @@ import posixpath
 import re
 import zipfile
 from collections.abc import Iterable
-from copy import copy, deepcopy
+from copy import copy
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
+from xml.dom import Node, minidom
 from xml.etree import ElementTree as ET
-from xml.sax.saxutils import quoteattr
 
 from .models import CellData, SheetRef
 
@@ -39,35 +38,28 @@ def qn(namespace: str, tag: str) -> str:
     return f"{{{namespace}}}{tag}"
 
 
-def _serialize_preserving_namespaces(root: ET.Element, original_xml: bytes) -> bytes:
-    """Reserialize edited OOXML without breaking markup-compatibility prefixes."""
-    declarations: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    for _, (prefix, uri) in ET.iterparse(BytesIO(original_xml), events=("start-ns",)):
-        declaration = (prefix or "", uri)
-        if declaration in seen:
-            continue
-        seen.add(declaration)
-        declarations.append(declaration)
-        if not re.fullmatch(r"ns\d+", declaration[0]):
-            ET.register_namespace(*declaration)
+def _dom_children(parent: minidom.Element, tag: str) -> list[minidom.Element]:
+    return [
+        child for child in parent.childNodes
+        if child.nodeType == Node.ELEMENT_NODE
+        and child.namespaceURI == MAIN_NS and child.localName == tag
+    ]
 
-    serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-    declaration_end = serialized.find(b"?>")
-    root_start = serialized.find(b"<", declaration_end + 2)
-    root_end = serialized.find(b">", root_start)
-    if root_start < 0 or root_end < 0:
-        raise WorkbookError("Could not serialize OOXML document root")
-    opening_tag = serialized[root_start:root_end]
-    missing: list[bytes] = []
-    for prefix, uri in declarations:
-        attribute = "xmlns" if not prefix else f"xmlns:{prefix}"
-        if re.search(rb"\s" + re.escape(attribute.encode("utf-8")) + rb"=", opening_tag):
-            continue
-        missing.append(f" {attribute}={quoteattr(uri)}".encode("utf-8"))
-    if not missing:
-        return serialized
-    return serialized[:root_end] + b"".join(missing) + serialized[root_end:]
+
+def _dom_child(parent: minidom.Element, tag: str) -> minidom.Element | None:
+    return next(iter(_dom_children(parent, tag)), None)
+
+
+def _dom_append(
+    parent: minidom.Element, tag: str, attributes: dict[str, str] | None = None
+) -> minidom.Element:
+    # Reuse the parent's spreadsheet prefix in its existing local namespace scope.
+    qualified_name = f"{parent.prefix}:{tag}" if parent.prefix else tag
+    child = parent.ownerDocument.createElementNS(MAIN_NS, qualified_name)
+    for key, value in (attributes or {}).items():
+        child.setAttribute(key, value)
+    parent.appendChild(child)
+    return child
 
 
 def file_sha256(path: str | Path) -> str:
@@ -269,41 +261,43 @@ class XlsxPackage:
         changes: dict[str, str],
         highlight_styles: dict[str, int] | None = None,
     ) -> bytes:
-        root = ET.fromstring(xml)
-        sheet_data = root.find(qn(MAIN_NS, "sheetData"))
-        if sheet_data is None:
-            raise WorkbookError("Worksheet has no sheetData")
-        cell_elements = {
-            cell.attrib.get("r"): cell
-            for cell in root.iter(qn(MAIN_NS, "c"))
-            if cell.attrib.get("r")
-        }
-        for reference, value in changes.items():
-            cell = cell_elements.get(reference)
-            if cell is None:
-                raise WorkbookError(
-                    f"Target cell {reference} does not exist; refusing to create an unstyled cell"
+        # DOM retains namespace declarations in their original scopes, including
+        # prefixes referenced only by compatibility attributes such as Ignorable.
+        with minidom.parseString(xml) as document:
+            root = document.documentElement
+            if _dom_child(root, "sheetData") is None:
+                raise WorkbookError("Worksheet has no sheetData")
+            cell_elements = {
+                cell.getAttribute("r"): cell
+                for cell in root.getElementsByTagNameNS(MAIN_NS, "c")
+                if cell.hasAttribute("r")
+            }
+            for reference, value in changes.items():
+                cell = cell_elements.get(reference)
+                if cell is None:
+                    raise WorkbookError(
+                        f"Target cell {reference} does not exist; refusing to create an unstyled cell"
+                    )
+                formula = _dom_child(cell, "f")
+                existing_value = _dom_child(cell, "v")
+                inline = _dom_child(cell, "is")
+                has_value = existing_value is not None and any(
+                    node.nodeType in (Node.TEXT_NODE, Node.CDATA_SECTION_NODE) and node.data
+                    for node in existing_value.childNodes
                 )
-            formula = cell.find(qn(MAIN_NS, "f"))
-            existing_value = cell.find(qn(MAIN_NS, "v"))
-            inline = cell.find(qn(MAIN_NS, "is"))
-            if (
-                formula is not None
-                or (existing_value is not None and existing_value.text not in (None, ""))
-                or inline is not None
-            ):
-                raise WorkbookError(f"Target cell {reference} is no longer empty")
-            if existing_value is not None:
-                cell.remove(existing_value)
-            cell.attrib["t"] = "inlineStr"
-            inline = ET.SubElement(cell, qn(MAIN_NS, "is"))
-            text = ET.SubElement(inline, qn(MAIN_NS, "t"))
-            if value != value.strip():
-                text.attrib[qn(XML_NS, "space")] = "preserve"
-            text.text = value
-            if highlight_styles and reference in highlight_styles:
-                cell.attrib["s"] = str(highlight_styles[reference])
-        return _serialize_preserving_namespaces(root, xml)
+                if formula is not None or has_value or inline is not None:
+                    raise WorkbookError(f"Target cell {reference} is no longer empty")
+                if existing_value is not None:
+                    cell.removeChild(existing_value)
+                cell.setAttribute("t", "inlineStr")
+                inline = _dom_append(cell, "is")
+                text = _dom_append(inline, "t")
+                if value != value.strip():
+                    text.setAttributeNS(XML_NS, "xml:space", "preserve")
+                text.appendChild(document.createTextNode(value))
+                if highlight_styles and reference in highlight_styles:
+                    cell.setAttribute("s", str(highlight_styles[reference]))
+            return document.toxml(encoding="utf-8")
 
     @staticmethod
     def _highlighted_styles_xml(
@@ -311,57 +305,56 @@ class XlsxPackage:
         sheet_xml: bytes,
         highlight_fills: dict[str, str],
     ) -> tuple[bytes, dict[str, int]]:
-        styles_root = ET.fromstring(styles_xml)
         sheet_root = ET.fromstring(sheet_xml)
-        fills = styles_root.find(qn(MAIN_NS, "fills"))
-        cell_xfs = styles_root.find(qn(MAIN_NS, "cellXfs"))
-        if fills is None or cell_xfs is None:
-            raise WorkbookError("Workbook styles are missing fills or cell formats")
         cells = {
             cell.attrib.get("r"): cell
             for cell in sheet_root.iter(qn(MAIN_NS, "c"))
             if cell.attrib.get("r")
         }
-        fill_indexes: dict[str, int] = {}
-        style_indexes: dict[tuple[int, str], int] = {}
-        reference_styles: dict[str, int] = {}
-        for reference, color in highlight_fills.items():
-            cell = cells.get(reference)
-            if cell is None:
-                raise WorkbookError(
-                    f"Target cell {reference} does not exist; refusing to create an unstyled cell"
-                )
-            fill_index = fill_indexes.get(color)
-            if fill_index is None:
-                fill_index = len(fills)
-                fill = ET.SubElement(fills, qn(MAIN_NS, "fill"))
-                pattern = ET.SubElement(
-                    fill, qn(MAIN_NS, "patternFill"), {"patternType": "solid"}
-                )
-                ET.SubElement(pattern, qn(MAIN_NS, "fgColor"), {"rgb": color})
-                ET.SubElement(pattern, qn(MAIN_NS, "bgColor"), {"indexed": "64"})
-                fill_indexes[color] = fill_index
-            try:
-                base_style = int(cell.attrib.get("s", "0"))
-                base_xf = list(cell_xfs)[base_style]
-            except (ValueError, IndexError) as exc:
-                raise WorkbookError(f"Target cell {reference} has an invalid style") from exc
-            style_key = (base_style, color)
-            style_index = style_indexes.get(style_key)
-            if style_index is None:
-                style_index = len(cell_xfs)
-                highlighted_xf = deepcopy(base_xf)
-                highlighted_xf.attrib["fillId"] = str(fill_index)
-                highlighted_xf.attrib["applyFill"] = "1"
-                cell_xfs.append(highlighted_xf)
-                style_indexes[style_key] = style_index
-            reference_styles[reference] = style_index
-        fills.attrib["count"] = str(len(fills))
-        cell_xfs.attrib["count"] = str(len(cell_xfs))
-        return (
-            _serialize_preserving_namespaces(styles_root, styles_xml),
-            reference_styles,
-        )
+        with minidom.parseString(styles_xml) as document:
+            styles_root = document.documentElement
+            fills = _dom_child(styles_root, "fills")
+            cell_xfs = _dom_child(styles_root, "cellXfs")
+            if fills is None or cell_xfs is None:
+                raise WorkbookError("Workbook styles are missing fills or cell formats")
+            original_xfs = _dom_children(cell_xfs, "xf")
+            fill_indexes: dict[str, int] = {}
+            style_indexes: dict[tuple[int, str], int] = {}
+            reference_styles: dict[str, int] = {}
+            for reference, color in highlight_fills.items():
+                cell = cells.get(reference)
+                if cell is None:
+                    raise WorkbookError(
+                        f"Target cell {reference} does not exist; refusing to create an unstyled cell"
+                    )
+                fill_index = fill_indexes.get(color)
+                if fill_index is None:
+                    fill_index = len(_dom_children(fills, "fill"))
+                    fill = _dom_append(fills, "fill")
+                    pattern = _dom_append(fill, "patternFill", {"patternType": "solid"})
+                    _dom_append(pattern, "fgColor", {"rgb": color})
+                    _dom_append(pattern, "bgColor", {"indexed": "64"})
+                    fill_indexes[color] = fill_index
+                try:
+                    base_style = int(cell.attrib.get("s", "0"))
+                    if base_style < 0:
+                        raise ValueError("Negative style index")
+                    base_xf = original_xfs[base_style]
+                except (ValueError, IndexError) as exc:
+                    raise WorkbookError(f"Target cell {reference} has an invalid style") from exc
+                style_key = (base_style, color)
+                style_index = style_indexes.get(style_key)
+                if style_index is None:
+                    style_index = len(_dom_children(cell_xfs, "xf"))
+                    highlighted_xf = base_xf.cloneNode(deep=True)
+                    highlighted_xf.setAttribute("fillId", str(fill_index))
+                    highlighted_xf.setAttribute("applyFill", "1")
+                    cell_xfs.appendChild(highlighted_xf)
+                    style_indexes[style_key] = style_index
+                reference_styles[reference] = style_index
+            fills.setAttribute("count", str(len(_dom_children(fills, "fill"))))
+            cell_xfs.setAttribute("count", str(len(_dom_children(cell_xfs, "xf"))))
+            return document.toxml(encoding="utf-8"), reference_styles
 
 
 def validate_copy_integrity(
