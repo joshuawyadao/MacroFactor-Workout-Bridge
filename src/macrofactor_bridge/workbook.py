@@ -25,6 +25,13 @@ class TargetRow:
     context_values: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class ProgramDay:
+    label: str
+    header_row: int
+    rows: tuple[TargetRow, ...]
+
+
 def discover_workbook(path: str | Path, config: BridgeConfig) -> tuple[SheetOptions, ...]:
     package = XlsxPackage(path)
     return tuple(_discover_sheet(package, sheet, config) for sheet in package.sheets)
@@ -168,3 +175,53 @@ def target_rows(
             )
         )
     return tuple(sorted(rows, key=lambda item: item.row))
+
+
+def program_days(
+    package: XlsxPackage,
+    sheet: SheetRef,
+    options: SheetOptions,
+    week: WeekOption,
+) -> tuple[ProgramDay, ...]:
+    """Discover repeated ``Day N`` sections from the workbook's existing headers."""
+    if options.exercise_column is None or options.exercise_header_cell is None:
+        return ()
+    snapshot = package.sheet_snapshot(sheet)
+    header_cell = snapshot.cells.get(options.exercise_header_cell)
+    if header_cell is None or not isinstance(header_cell.value, str):
+        return ()
+    header_name = normalize_name(header_cell.value)
+    header_rows: list[tuple[int, str]] = []
+    for reference, cell in snapshot.cells.items():
+        row, column = split_cell_reference(reference)
+        if column != options.exercise_column or not isinstance(cell.value, str):
+            continue
+        if normalize_name(cell.value) != header_name:
+            continue
+        labels = [
+            candidate.value.strip()
+            for candidate_reference, candidate in snapshot.cells.items()
+            if (
+                (candidate_row := split_cell_reference(candidate_reference)[0]) == row
+                and split_cell_reference(candidate_reference)[1] < options.exercise_column
+                and isinstance(candidate.value, str)
+                and re.fullmatch(r"day\s*\d+(?:\.\d+)?", candidate.value.strip(), re.IGNORECASE)
+            )
+        ]
+        if labels:
+            header_rows.append((row, labels[-1]))
+    discovered_rows = target_rows(package, sheet, options, week)
+    sorted_headers = sorted(header_rows)
+    days: list[ProgramDay] = []
+    for index, (header_row, label) in enumerate(sorted_headers):
+        next_header = (
+            sorted_headers[index + 1][0] if index + 1 < len(sorted_headers) else None
+        )
+        rows = tuple(
+            target
+            for target in discovered_rows
+            if target.row > header_row and (next_header is None or target.row < next_header)
+        )
+        if rows:
+            days.append(ProgramDay(label=label, header_row=header_row, rows=rows))
+    return tuple(days)

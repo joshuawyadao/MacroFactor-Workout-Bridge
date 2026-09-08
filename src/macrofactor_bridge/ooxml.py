@@ -4,9 +4,11 @@ import hashlib
 import posixpath
 import re
 import zipfile
+from collections.abc import Iterable
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
+from xml.dom import Node, minidom
 from xml.etree import ElementTree as ET
 
 from .models import CellData, SheetRef
@@ -34,6 +36,30 @@ class SheetSnapshot:
 
 def qn(namespace: str, tag: str) -> str:
     return f"{{{namespace}}}{tag}"
+
+
+def _dom_children(parent: minidom.Element, tag: str) -> list[minidom.Element]:
+    return [
+        child for child in parent.childNodes
+        if child.nodeType == Node.ELEMENT_NODE
+        and child.namespaceURI == MAIN_NS and child.localName == tag
+    ]
+
+
+def _dom_child(parent: minidom.Element, tag: str) -> minidom.Element | None:
+    return next(iter(_dom_children(parent, tag)), None)
+
+
+def _dom_append(
+    parent: minidom.Element, tag: str, attributes: dict[str, str] | None = None
+) -> minidom.Element:
+    # Reuse the parent's spreadsheet prefix in its existing local namespace scope.
+    qualified_name = f"{parent.prefix}:{tag}" if parent.prefix else tag
+    child = parent.ownerDocument.createElementNS(MAIN_NS, qualified_name)
+    for key, value in (attributes or {}).items():
+        child.setAttribute(key, value)
+    parent.appendChild(child)
+    return child
 
 
 def file_sha256(path: str | Path) -> str:
@@ -81,6 +107,26 @@ def split_range(reference: str) -> tuple[int, int, int, int]:
     start_row, start_col = split_cell_reference(start)
     end_row, end_col = split_cell_reference(end)
     return start_row, start_col, end_row, end_col
+
+
+def _effective_style(
+    cell: ET.Element, row: ET.Element | None, columns: list[ET.Element]
+) -> int:
+    """Resolve cell, custom row, column, then default formatting for a fill clone."""
+    if "s" in cell.attrib:
+        return int(cell.attrib["s"])
+    if row is not None and row.attrib.get("customFormat") in {"1", "true"}:
+        return int(row.attrib.get("s", "0"))
+    _, column_number = split_cell_reference(cell.attrib["r"])
+    styles = {
+        int(column.attrib["style"])
+        for column in columns
+        if "style" in column.attrib
+        and int(column.attrib["min"]) <= column_number <= int(column.attrib["max"])
+    }
+    if len(styles) > 1:
+        raise ValueError("Conflicting column styles")
+    return next(iter(styles), 0)
 
 
 class XlsxPackage:
@@ -195,6 +241,7 @@ class XlsxPackage:
         output_path: str | Path,
         sheet: SheetRef,
         changes: dict[str, str],
+        highlight_fills: dict[str, str] | None = None,
     ) -> None:
         output = Path(output_path)
         if output.resolve() == self.path.resolve():
@@ -204,70 +251,158 @@ class XlsxPackage:
         if output.exists():
             raise WorkbookError(f"Output already exists; choose a new path: {output}")
         output.parent.mkdir(parents=True, exist_ok=True)
+        highlights = highlight_fills or {}
         with zipfile.ZipFile(self.path, "r") as source:
             original_xml = source.read(sheet.path)
-            changed_xml = self._updated_sheet_xml(original_xml, changes)
+            changed_styles: bytes | None = None
+            highlight_styles: dict[str, int] = {}
+            if highlights:
+                styles_path = "xl/styles.xml"
+                if styles_path not in source.namelist():
+                    raise WorkbookError("Workbook has no styles.xml for highlighted review markers")
+                changed_styles, highlight_styles = self._highlighted_styles_xml(
+                    source.read(styles_path), original_xml, highlights
+                )
+            changed_xml = self._updated_sheet_xml(original_xml, changes, highlight_styles)
             with zipfile.ZipFile(output, "w") as destination:
                 destination.comment = source.comment
                 for info in source.infolist():
-                    data = changed_xml if info.filename == sheet.path else source.read(info.filename)
+                    if info.filename == sheet.path:
+                        data = changed_xml
+                    elif changed_styles is not None and info.filename == "xl/styles.xml":
+                        data = changed_styles
+                    else:
+                        data = source.read(info.filename)
                     destination.writestr(copy(info), data)
 
     @staticmethod
-    def _updated_sheet_xml(xml: bytes, changes: dict[str, str]) -> bytes:
-        root = ET.fromstring(xml)
-        sheet_data = root.find(qn(MAIN_NS, "sheetData"))
-        if sheet_data is None:
-            raise WorkbookError("Worksheet has no sheetData")
-        cell_elements = {
+    def _updated_sheet_xml(
+        xml: bytes,
+        changes: dict[str, str],
+        highlight_styles: dict[str, int] | None = None,
+    ) -> bytes:
+        # DOM retains namespace declarations in their original scopes, including
+        # prefixes referenced only by compatibility attributes such as Ignorable.
+        with minidom.parseString(xml) as document:
+            root = document.documentElement
+            if _dom_child(root, "sheetData") is None:
+                raise WorkbookError("Worksheet has no sheetData")
+            cell_elements = {
+                cell.getAttribute("r"): cell
+                for cell in root.getElementsByTagNameNS(MAIN_NS, "c")
+                if cell.hasAttribute("r")
+            }
+            for reference, value in changes.items():
+                cell = cell_elements.get(reference)
+                if cell is None:
+                    raise WorkbookError(
+                        f"Target cell {reference} does not exist; refusing to create an unstyled cell"
+                    )
+                formula = _dom_child(cell, "f")
+                existing_value = _dom_child(cell, "v")
+                inline = _dom_child(cell, "is")
+                has_value = existing_value is not None and any(
+                    node.nodeType in (Node.TEXT_NODE, Node.CDATA_SECTION_NODE) and node.data
+                    for node in existing_value.childNodes
+                )
+                if formula is not None or has_value or inline is not None:
+                    raise WorkbookError(f"Target cell {reference} is no longer empty")
+                if existing_value is not None:
+                    cell.removeChild(existing_value)
+                cell.setAttribute("t", "inlineStr")
+                inline = _dom_append(cell, "is")
+                text = _dom_append(inline, "t")
+                if value != value.strip():
+                    text.setAttributeNS(XML_NS, "xml:space", "preserve")
+                text.appendChild(document.createTextNode(value))
+                if highlight_styles and reference in highlight_styles:
+                    cell.setAttribute("s", str(highlight_styles[reference]))
+            return document.toxml(encoding="utf-8")
+
+    @staticmethod
+    def _highlighted_styles_xml(
+        styles_xml: bytes,
+        sheet_xml: bytes,
+        highlight_fills: dict[str, str],
+    ) -> tuple[bytes, dict[str, int]]:
+        sheet_root = ET.fromstring(sheet_xml)
+        cells = {
             cell.attrib.get("r"): cell
-            for cell in root.iter(qn(MAIN_NS, "c"))
+            for cell in sheet_root.iter(qn(MAIN_NS, "c"))
             if cell.attrib.get("r")
         }
-        for reference, value in changes.items():
-            cell = cell_elements.get(reference)
-            if cell is None:
-                raise WorkbookError(
-                    f"Target cell {reference} does not exist; refusing to create an unstyled cell"
-                )
-            formula = cell.find(qn(MAIN_NS, "f"))
-            existing_value = cell.find(qn(MAIN_NS, "v"))
-            inline = cell.find(qn(MAIN_NS, "is"))
-            if (
-                formula is not None
-                or (existing_value is not None and existing_value.text not in (None, ""))
-                or inline is not None
-            ):
-                raise WorkbookError(f"Target cell {reference} is no longer empty")
-            if existing_value is not None:
-                cell.remove(existing_value)
-            cell.attrib["t"] = "inlineStr"
-            inline = ET.SubElement(cell, qn(MAIN_NS, "is"))
-            text = ET.SubElement(inline, qn(MAIN_NS, "t"))
-            if value != value.strip():
-                text.attrib[qn(XML_NS, "space")] = "preserve"
-            text.text = value
-        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        rows_by_cell = {
+            cell.attrib.get("r"): row
+            for row in sheet_root.findall(f"{qn(MAIN_NS, 'sheetData')}/{qn(MAIN_NS, 'row')}")
+            for cell in row.findall(qn(MAIN_NS, "c"))
+        }
+        columns = sheet_root.findall(f"{qn(MAIN_NS, 'cols')}/{qn(MAIN_NS, 'col')}")
+        with minidom.parseString(styles_xml) as document:
+            styles_root = document.documentElement
+            fills = _dom_child(styles_root, "fills")
+            cell_xfs = _dom_child(styles_root, "cellXfs")
+            if fills is None or cell_xfs is None:
+                raise WorkbookError("Workbook styles are missing fills or cell formats")
+            original_xfs = _dom_children(cell_xfs, "xf")
+            fill_indexes: dict[str, int] = {}
+            style_indexes: dict[tuple[int, str], int] = {}
+            reference_styles: dict[str, int] = {}
+            for reference, color in highlight_fills.items():
+                cell = cells.get(reference)
+                if cell is None:
+                    raise WorkbookError(
+                        f"Target cell {reference} does not exist; refusing to create an unstyled cell"
+                    )
+                fill_index = fill_indexes.get(color)
+                if fill_index is None:
+                    fill_index = len(_dom_children(fills, "fill"))
+                    fill = _dom_append(fills, "fill")
+                    pattern = _dom_append(fill, "patternFill", {"patternType": "solid"})
+                    _dom_append(pattern, "fgColor", {"rgb": color})
+                    _dom_append(pattern, "bgColor", {"indexed": "64"})
+                    fill_indexes[color] = fill_index
+                try:
+                    base_style = _effective_style(cell, rows_by_cell.get(reference), columns)
+                    if base_style < 0:
+                        raise ValueError("Negative style index")
+                    base_xf = original_xfs[base_style]
+                except (ValueError, IndexError, KeyError) as exc:
+                    raise WorkbookError(f"Target cell {reference} has an invalid style") from exc
+                style_key = (base_style, color)
+                style_index = style_indexes.get(style_key)
+                if style_index is None:
+                    style_index = len(_dom_children(cell_xfs, "xf"))
+                    highlighted_xf = base_xf.cloneNode(deep=True)
+                    highlighted_xf.setAttribute("fillId", str(fill_index))
+                    highlighted_xf.setAttribute("applyFill", "1")
+                    cell_xfs.appendChild(highlighted_xf)
+                    style_indexes[style_key] = style_index
+                reference_styles[reference] = style_index
+            fills.setAttribute("count", str(len(_dom_children(fills, "fill"))))
+            cell_xfs.setAttribute("count", str(len(_dom_children(cell_xfs, "xf"))))
+            return document.toxml(encoding="utf-8"), reference_styles
 
 
 def validate_copy_integrity(
     source_path: str | Path,
     output_path: str | Path,
-    changed_member: str,
+    changed_members: str | Iterable[str],
 ) -> dict[str, object]:
     source = Path(source_path)
     output = Path(output_path)
+    allowed = {changed_members} if isinstance(changed_members, str) else set(changed_members)
     with zipfile.ZipFile(source) as before, zipfile.ZipFile(output) as after:
         before_names = before.namelist()
         after_names = after.namelist()
         unchanged_differences = [
             name
             for name in before_names
-            if name != changed_member and before.read(name) != after.read(name)
+            if name not in allowed and before.read(name) != after.read(name)
         ]
         return {
             "zip_members_identical": before_names == after_names,
-            "changed_member": changed_member,
+            "changed_member": next(iter(allowed)) if len(allowed) == 1 else None,
+            "changed_members": sorted(allowed),
             "unrelated_members_changed": unchanged_differences,
             "source_size": source.stat().st_size,
             "output_size": output.stat().st_size,

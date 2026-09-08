@@ -70,12 +70,13 @@ class DesktopModelTests(unittest.TestCase):
         report.unmatched_exercises.append({"exercise": "Unknown"})
         report.zero_rep_rows.append({"row": 4, "reps": "0"})
         report.exercise_notes.append({"exercise": "Example", "note": "Use the blue rack"})
+        report.empty_day_markers.append({"day": "Day 3.5", "cell": "J35"})
         sections = review_sections(report)
-        self.assertEqual([section.count for section in sections], [1, 0, 1, 0, 0, 1])
+        self.assertEqual([section.count for section in sections], [1, 0, 1, 0, 0, 1, 1])
         text = review_text(report)
         self.assertIn("Unmatched exercises: 1", text)
         self.assertIn("MacroFactor exercise notes: 1", text)
-        self.assertIn("missing workout is never interpreted as skipped", text)
+        self.assertIn("highlighted marker indicates a programmed day", text)
 
 
 if __name__ == "__main__":
