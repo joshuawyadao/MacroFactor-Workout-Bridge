@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import normalize_name, source_rule_index
 from .formatting import format_sets, format_superset
-from .importers import load_exercise_log, load_exercise_notes
+from .importers import load_exercise_log_with_diagnostics, load_exercise_notes
 from .models import (
     BridgeConfig,
     BridgeReport,
@@ -95,7 +95,7 @@ def _append_empty_day_markers(
             continue
         review_note = (
             f"{day.label} has no matched MacroFactor session in the selected dates; "
-            "review this yellow marker before sharing"
+            "review this highlighted marker before sharing"
         )
         report.proposed_writes.append(
             ProposedWrite(
@@ -132,7 +132,8 @@ def build_preview(
 ) -> BridgeReport:
     if to_date < from_date:
         raise ValueError("to-date must be on or after from-date")
-    records = load_exercise_log(export_path)
+    imported_log = load_exercise_log_with_diagnostics(export_path)
+    records = imported_log.records
     exercise_notes = load_exercise_notes(export_path)
     package, sheet, options, week = select_sheet_options(
         workbook_path, config, sheet_name, week_label
@@ -144,8 +145,9 @@ def build_preview(
         week=week.label,
         from_date=from_date.isoformat(),
         to_date=to_date.isoformat(),
-        rows_read=len(records),
+        rows_read=len(records) + len(imported_log.skipped_rows),
     )
+    report.skipped_rows.extend(imported_log.skipped_rows)
     valid: list[SetRecord] = []
     for record in records:
         if not from_date <= record.workout_date <= to_date:

@@ -124,7 +124,7 @@ def review_text(report: BridgeReport) -> str:
         lines.extend(f"  • {detail}" for detail in section.details)
         lines.append("")
     lines.append(
-        "A yellow Skip value is a review marker for a programmed day with no matched "
+        "A highlighted Skip value is a review marker for a programmed day with no matched "
         "MacroFactor session; confirm it before sharing."
     )
     return "\n".join(lines)

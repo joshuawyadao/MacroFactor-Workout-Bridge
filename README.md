@@ -19,7 +19,7 @@ It does not create or import MacroFactor programs.
 
 - **Preview before write:** every proposed workbook change is shown before an output can be created.
 - **Immutable inputs:** source hashes are checked around apply, and output must use a distinct path that does not already exist.
-- **Surgical OOXML edits:** only the selected worksheet XML may change; unrelated workbook parts must remain byte-identical.
+- **Surgical OOXML edits:** only the selected worksheet XML and, for highlighted review markers, `xl/styles.xml` may change; every other workbook part must remain byte-identical.
 - **Conservative matching:** exercise names use exact normalized aliases, with no fuzzy or inferred matches.
 - **Reviewable ambiguity:** duplicates, occupied cells, zero-rep rows, unsupported data, and unmatched exercises are reported instead of guessed.
 - **Local-first privacy:** the app and CLI do not upload workout or workbook data and have no runtime network dependency.
@@ -63,8 +63,8 @@ See the [Security Policy](SECURITY.md) to report a vulnerability privately. Neve
 - Apply refuses to overwrite an existing output file.
 - Only existing, empty result cells are eligible. Existing values and formulas are always skipped.
 - The source workbook and MacroFactor export are hashed before and after apply; a hash mismatch fails the operation.
-- The output keeps the same ZIP member list, and every workbook part except the selected worksheet XML must remain byte-identical.
-- Updates retain the target cell's style and leave formulas, merged cells, relationships, drawings, and workbook structure intact.
+- The output keeps the same ZIP member list. Every workbook part except the selected worksheet XML and, when highlighted review markers are written, `xl/styles.xml` must remain byte-identical.
+- Normal result updates retain the target cell's style. Highlighted review markers change only the fill while retaining the font, border, alignment, and number format. Formulas, merged cells, relationships, drawings, and workbook structure remain intact.
 - Exercise matching is exact after case and whitespace normalization plus configured aliases. There is no fuzzy matching.
 - When enabled in the mapping, a programmed day with no matched session receives a yellow `Skip` review marker. It is a visual prompt to confirm the absence, not proof that MacroFactor recorded a skip.
 - Zero-rep rows are ignored and reported.

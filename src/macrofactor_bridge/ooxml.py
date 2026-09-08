@@ -7,8 +7,10 @@ import zipfile
 from collections.abc import Iterable
 from copy import copy, deepcopy
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from xml.etree import ElementTree as ET
+from xml.sax.saxutils import quoteattr
 
 from .models import CellData, SheetRef
 
@@ -35,6 +37,37 @@ class SheetSnapshot:
 
 def qn(namespace: str, tag: str) -> str:
     return f"{{{namespace}}}{tag}"
+
+
+def _serialize_preserving_namespaces(root: ET.Element, original_xml: bytes) -> bytes:
+    """Reserialize edited OOXML without breaking markup-compatibility prefixes."""
+    declarations: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for _, (prefix, uri) in ET.iterparse(BytesIO(original_xml), events=("start-ns",)):
+        declaration = (prefix or "", uri)
+        if declaration in seen:
+            continue
+        seen.add(declaration)
+        declarations.append(declaration)
+        if not re.fullmatch(r"ns\d+", declaration[0]):
+            ET.register_namespace(*declaration)
+
+    serialized = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    declaration_end = serialized.find(b"?>")
+    root_start = serialized.find(b"<", declaration_end + 2)
+    root_end = serialized.find(b">", root_start)
+    if root_start < 0 or root_end < 0:
+        raise WorkbookError("Could not serialize OOXML document root")
+    opening_tag = serialized[root_start:root_end]
+    missing: list[bytes] = []
+    for prefix, uri in declarations:
+        attribute = "xmlns" if not prefix else f"xmlns:{prefix}"
+        if re.search(rb"\s" + re.escape(attribute.encode("utf-8")) + rb"=", opening_tag):
+            continue
+        missing.append(f" {attribute}={quoteattr(uri)}".encode("utf-8"))
+    if not missing:
+        return serialized
+    return serialized[:root_end] + b"".join(missing) + serialized[root_end:]
 
 
 def file_sha256(path: str | Path) -> str:
@@ -270,7 +303,7 @@ class XlsxPackage:
             text.text = value
             if highlight_styles and reference in highlight_styles:
                 cell.attrib["s"] = str(highlight_styles[reference])
-        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        return _serialize_preserving_namespaces(root, xml)
 
     @staticmethod
     def _highlighted_styles_xml(
@@ -326,7 +359,7 @@ class XlsxPackage:
         fills.attrib["count"] = str(len(fills))
         cell_xfs.attrib["count"] = str(len(cell_xfs))
         return (
-            ET.tostring(styles_root, encoding="utf-8", xml_declaration=True),
+            _serialize_preserving_namespaces(styles_root, styles_xml),
             reference_styles,
         )
 

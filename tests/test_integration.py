@@ -13,7 +13,11 @@ from xml.etree import ElementTree as ET
 
 from macrofactor_bridge.cli import main
 from macrofactor_bridge.config import ConfigError, load_config
-from macrofactor_bridge.importers import load_exercise_log
+from macrofactor_bridge.importers import (
+    ImportError,
+    load_exercise_log,
+    load_exercise_log_with_diagnostics,
+)
 from macrofactor_bridge.ooxml import MAIN_NS, XlsxPackage, file_sha256, qn, split_cell_reference
 from macrofactor_bridge.service import apply_changes, build_preview
 from macrofactor_bridge.workbook import discover_workbook
@@ -35,6 +39,121 @@ def copy_xlsx_with_singular_weight_header(source: Path, destination: Path) -> No
         for item in source_zip.infolist():
             content = source_zip.read(item.filename).replace(b"Weight (lbs)", b"Weight (lb)")
             output_zip.writestr(item, content)
+
+
+def copy_xlsx_with_extra_cells(
+    source: Path, destination: Path, cells: dict[str, str]
+) -> None:
+    package = XlsxPackage(source)
+    sheet = package.sheet_by_name("Workout Log")
+    with zipfile.ZipFile(source, "r") as source_zip:
+        root = ET.fromstring(source_zip.read(sheet.path))
+        sheet_data = root.find(qn(MAIN_NS, "sheetData"))
+        assert sheet_data is not None
+        rows = {
+            int(row.attrib["r"]): row
+            for row in sheet_data.findall(qn(MAIN_NS, "row"))
+        }
+        for reference, value in cells.items():
+            row_number, _ = split_cell_reference(reference)
+            row = rows.get(row_number)
+            if row is None:
+                row = ET.SubElement(
+                    sheet_data, qn(MAIN_NS, "row"), {"r": str(row_number)}
+                )
+                rows[row_number] = row
+            cell = ET.SubElement(
+                row, qn(MAIN_NS, "c"), {"r": reference, "t": "inlineStr"}
+            )
+            inline = ET.SubElement(cell, qn(MAIN_NS, "is"))
+            ET.SubElement(inline, qn(MAIN_NS, "t")).text = value
+            row[:] = sorted(
+                row,
+                key=lambda element: split_cell_reference(
+                    element.attrib.get("r", "A1")
+                )[1],
+            )
+        sheet_data[:] = sorted(
+            sheet_data,
+            key=lambda element: int(element.attrib.get("r", "0")),
+        )
+        changed_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        with zipfile.ZipFile(destination, "w") as output_zip:
+            output_zip.comment = source_zip.comment
+            for item in source_zip.infolist():
+                content = (
+                    changed_xml
+                    if item.filename == sheet.path
+                    else source_zip.read(item.filename)
+                )
+                output_zip.writestr(copy(item), content)
+
+
+def copy_minimal_log_xlsx(source: Path, destination: Path) -> None:
+    package = XlsxPackage(source)
+    sheet = package.sheet_by_name("Workout Log")
+    with zipfile.ZipFile(source, "r") as source_zip:
+        root = ET.fromstring(source_zip.read(sheet.path))
+        sheet_data = root.find(qn(MAIN_NS, "sheetData"))
+        assert sheet_data is not None
+        for row in list(sheet_data):
+            if int(row.attrib.get("r", "0")) > 1:
+                sheet_data.remove(row)
+        changed_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        with zipfile.ZipFile(destination, "w") as output_zip:
+            output_zip.comment = source_zip.comment
+            for item in source_zip.infolist():
+                content = (
+                    changed_xml
+                    if item.filename == sheet.path
+                    else source_zip.read(item.filename)
+                )
+                output_zip.writestr(copy(item), content)
+    populated = destination.with_name(f"{destination.stem}-populated.xlsx")
+    copy_xlsx_with_extra_cells(
+        destination,
+        populated,
+        {
+            "A2": "2026-08-03",
+            "C2": "Day One",
+            "D2": "Tempo Back Squat",
+            "F2": "Standard Set",
+            "G2": "200",
+            "H2": "8",
+            "C3": "Day Two",
+            "D3": "Day Two Exercise",
+            "F3": "Standard Set",
+            "G3": "50",
+            "H3": "10",
+        },
+    )
+    destination.unlink()
+    populated.rename(destination)
+
+
+def copy_with_markup_compatibility_styles(source: Path, destination: Path) -> None:
+    declarations = (
+        b' xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"'
+        b' xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac"'
+        b' mc:Ignorable="x14ac"'
+    )
+    with (
+        zipfile.ZipFile(source, "r") as source_zip,
+        zipfile.ZipFile(destination, "w") as output_zip,
+    ):
+        output_zip.comment = source_zip.comment
+        for item in source_zip.infolist():
+            content = source_zip.read(item.filename)
+            if item.filename == "xl/styles.xml":
+                declaration_end = content.find(b"?>")
+                root_start = content.find(b"<", declaration_end + 2)
+                root_name_end = content.find(b" ", root_start)
+                content = (
+                    content[:root_name_end]
+                    + declarations
+                    + content[root_name_end:]
+                )
+            output_zip.writestr(copy(item), content)
 
 
 def copy_coach_with_second_day(
@@ -287,6 +406,23 @@ class IntegrationTests(unittest.TestCase):
             self.assertGreater(len(xlsx_records), 10)
             self.assertEqual(xlsx_records[0].weight, load_exercise_log(LOG)[0].weight)
 
+    def test_rejects_duplicate_canonical_weight_headers_in_csv_and_xlsx(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            csv_path = root / "duplicate.csv"
+            csv_path.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lb),Weight (lbs),Reps\n"
+                "2026-08-03,Example,Tempo Back Squat,Standard Set,205,999,7\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ImportError, "duplicate logical columns: Weight"):
+                load_exercise_log(csv_path)
+
+            xlsx_path = root / "duplicate.xlsx"
+            copy_xlsx_with_extra_cells(LOG, xlsx_path, {"I1": "Weight (lb)"})
+            with self.assertRaisesRegex(ImportError, "duplicate logical columns: Weight"):
+                load_exercise_log(xlsx_path)
+
     def test_empty_day_marker_is_proposed_and_highlighted_yellow(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -321,6 +457,43 @@ class IntegrationTests(unittest.TestCase):
             )
             self.assertEqual(result.validation["unrelated_members_changed"], [])
 
+    def test_highlighted_output_preserves_markup_compatibility_prefixes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            coach = root / "two-days.xlsx"
+            extended_coach = root / "extended-two-days.xlsx"
+            log = root / "clean.csv"
+            config_path = root / "config.json"
+            output = root / "output.xlsx"
+            copy_coach_with_second_day(COACH, coach)
+            copy_with_markup_compatibility_styles(coach, extended_coach)
+            write_clean_log(log)
+            write_marker_config(config_path)
+            config = load_config(config_path)
+            report = build_preview(
+                log,
+                extended_coach,
+                config,
+                "Training Block",
+                "Week 1",
+                date(2026, 8, 3),
+                date(2026, 8, 9),
+            )
+            apply_changes(report, config, output)
+
+            with zipfile.ZipFile(output) as archive:
+                styles = archive.read("xl/styles.xml")
+            self.assertIn(b"xmlns:mc=", styles)
+            self.assertIn(b"xmlns:x14ac=", styles)
+            self.assertIn(b'mc:Ignorable="x14ac"', styles)
+            root_element = ET.fromstring(styles)
+            compatibility_ns = (
+                "http://schemas.openxmlformats.org/markup-compatibility/2006"
+            )
+            self.assertEqual(
+                root_element.attrib[qn(compatibility_ns, "Ignorable")], "x14ac"
+            )
+
     def test_empty_day_marker_is_not_added_for_present_occupied_or_uncertain_days(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -350,6 +523,44 @@ class IntegrationTests(unittest.TestCase):
                     self.assertFalse(
                         any(proposal.kind == "empty_day_marker" for proposal in report.proposed_writes)
                     )
+
+    def test_malformed_xlsx_rows_are_reported_and_withhold_empty_day_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            coach = root / "two-days.xlsx"
+            log = root / "malformed.xlsx"
+            config_path = root / "config.json"
+            copy_coach_with_second_day(COACH, coach)
+            copy_minimal_log_xlsx(LOG, log)
+            write_marker_config(config_path)
+            imported = load_exercise_log_with_diagnostics(log)
+            self.assertEqual(len(imported.records), 1)
+            self.assertEqual(
+                imported.skipped_rows,
+                (
+                    {
+                        "row": 3,
+                        "reason": "missing date in non-empty XLSX workout row",
+                        "exercise": "Day Two Exercise",
+                    },
+                ),
+            )
+            report = build_preview(
+                log,
+                coach,
+                load_config(config_path),
+                "Training Block",
+                "Week 1",
+                date(2026, 8, 3),
+                date(2026, 8, 9),
+            )
+            self.assertEqual(report.skipped_rows, list(imported.skipped_rows))
+            self.assertFalse(
+                any(
+                    proposal.kind == "empty_day_marker"
+                    for proposal in report.proposed_writes
+                )
+            )
 
     def test_empty_day_marker_configuration_is_validated(self) -> None:
         marker = self.config.empty_day_marker

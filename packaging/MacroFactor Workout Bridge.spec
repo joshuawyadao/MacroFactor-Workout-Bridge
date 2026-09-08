@@ -50,7 +50,7 @@ app = BUNDLE(
     info_plist={
         "CFBundleDisplayName": "MacroFactor Workout Bridge",
         "CFBundleShortVersionString": "0.3.0",
-        "CFBundleVersion": "3",
+        "CFBundleVersion": "4",
         "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
         "NSHumanReadableCopyright": "Copyright © 2026 Joshua Wyadao",
