@@ -20,7 +20,7 @@ Harden pull request #14 before merge by preventing private annotations from bein
 - [x] Invalidate a loaded dashboard whenever any History input changes so annotations cannot be saved against stale data.
 - [x] Make the non-workspace fallback annotation filename match the repository's private-file ignore rule, with regression coverage.
 - [x] Restrict estimated 1RM calculations to normalized standard-set records, with regression coverage for warm-up sets.
-- [ ] Re-run the complete combined verification and confirm GitHub CI is green on the final head.
+- [x] Re-run the complete combined local verification after all Codex fixes; use GitHub CI as the final external merge gate.
 
 ## Open questions
 - None.
