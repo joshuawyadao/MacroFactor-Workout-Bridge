@@ -182,6 +182,23 @@ class HistoryTests(unittest.TestCase):
         self.assertTrue(all(trend.block_name is None for trend in dashboard.weekly_trends))
         self.assertTrue(any("no confirmed start date" in item for item in dashboard.warnings))
 
+    def test_estimated_1rm_uses_only_standard_sets(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            export = Path(directory) / "history.csv"
+            export.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2026-08-03,Day One,Tempo Back Squat,Warm Up Set,315,1\n"
+                "2026-08-03,Day One,Tempo Back Squat,Standard Set,200,5\n",
+                encoding="utf-8",
+            )
+
+            dashboard = build_history_dashboard(
+                export, COACH, load_config(CONFIG), DashboardAnnotations()
+            )
+
+        trend = dashboard.trends_for("Tempo Back Squat")[0]
+        self.assertEqual(trend.estimated_1rm, Decimal("233.3"))
+
     def test_annotations_round_trip_and_keep_vacation_separate_from_injury(self) -> None:
         annotations = update_block_annotation(
             DashboardAnnotations(),

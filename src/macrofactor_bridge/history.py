@@ -414,8 +414,8 @@ def _estimated_1rm(record: SetRecord) -> Decimal | None:
         or not Decimal("1") <= record.reps <= Decimal("12")
     ):
         return None
-    set_kind = record.set_type.casefold().replace("-", " ")
-    if any(marker in set_kind for marker in ("drop", "mini", "myo")):
+    set_kind = " ".join(record.set_type.casefold().replace("-", " ").split())
+    if set_kind != "standard set":
         return None
     return (record.weight * (Decimal("1") + record.reps / Decimal("30"))).quantize(
         Decimal("0.1")
