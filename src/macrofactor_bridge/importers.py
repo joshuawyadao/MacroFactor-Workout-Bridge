@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -10,10 +11,44 @@ from .ooxml import WorkbookError, XlsxPackage, split_cell_reference
 
 
 REQUIRED_HEADERS = {"Date", "Workout", "Exercise", "Set Type", "Weight (lbs)", "Reps"}
+HEADER_ALIASES = {
+    "Weight (lb)": "Weight (lbs)",
+}
 
 
 class ImportError(ValueError):
     """Raised when a MacroFactor export is missing required data."""
+
+
+@dataclass(frozen=True)
+class ExerciseLogImport:
+    records: tuple[SetRecord, ...]
+    skipped_rows: tuple[dict[str, object], ...]
+
+
+def _canonical_header(value: object) -> str:
+    header = str(value).strip()
+    return HEADER_ALIASES.get(header, header)
+
+
+def _canonicalize_mapping(row: dict[str, object]) -> dict[str, object]:
+    return {_canonical_header(header): value for header, value in row.items()}
+
+
+def _validate_log_headers(headers: list[object], source_label: str) -> None:
+    canonical = [_canonical_header(header) for header in headers]
+    duplicates = sorted(
+        header for header in set(canonical) if canonical.count(header) > 1
+    )
+    if duplicates:
+        raise ImportError(
+            f"{source_label} contains duplicate logical columns: {', '.join(duplicates)}"
+        )
+    missing = REQUIRED_HEADERS - set(canonical)
+    if missing:
+        raise ImportError(
+            f"{source_label} is missing required columns: {', '.join(sorted(missing))}"
+        )
 
 
 def _parse_decimal(value: object) -> Decimal | None:
@@ -53,6 +88,10 @@ def _record_from_mapping(row_number: int, row: dict[str, object]) -> SetRecord:
 
 
 def load_exercise_log(path: str | Path) -> list[SetRecord]:
+    return list(load_exercise_log_with_diagnostics(path).records)
+
+
+def load_exercise_log_with_diagnostics(path: str | Path) -> ExerciseLogImport:
     source = Path(path)
     suffix = source.suffix.lower()
     if suffix == ".csv":
@@ -117,20 +156,23 @@ def load_exercise_notes(path: str | Path) -> list[ExerciseNote]:
     return notes
 
 
-def _load_csv(path: Path) -> list[SetRecord]:
+def _load_csv(path: Path) -> ExerciseLogImport:
     try:
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
-            headers = set(reader.fieldnames or [])
-            missing = REQUIRED_HEADERS - headers
-            if missing:
-                raise ImportError(f"CSV is missing required columns: {', '.join(sorted(missing))}")
-            return [_record_from_mapping(index, row) for index, row in enumerate(reader, start=2)]
+            _validate_log_headers(list(reader.fieldnames or []), "CSV")
+            return ExerciseLogImport(
+                records=tuple(
+                    _record_from_mapping(index, _canonicalize_mapping(row))
+                    for index, row in enumerate(reader, start=2)
+                ),
+                skipped_rows=(),
+            )
     except OSError as exc:
         raise ImportError(f"Could not read MacroFactor CSV {path}: {exc}") from exc
 
 
-def _load_xlsx(path: Path) -> list[SetRecord]:
+def _load_xlsx(path: Path) -> ExerciseLogImport:
     try:
         package = XlsxPackage(path)
     except WorkbookError as exc:
@@ -144,12 +186,22 @@ def _load_xlsx(path: Path) -> list[SetRecord]:
             by_row.setdefault(row, {})[column] = cell.value
         for row_number, values in by_row.items():
             headers = {
-                column: str(value).strip()
+                column: _canonical_header(value)
                 for column, value in values.items()
                 if isinstance(value, str) and str(value).strip()
             }
             if REQUIRED_HEADERS.issubset(set(headers.values())):
-                candidate_rows.append((sheet.name, row_number, headers, {"snapshot": snapshot, "by_row": by_row}))
+                _validate_log_headers(
+                    list(headers.values()), f"XLSX table {sheet.name}!{row_number}"
+                )
+                candidate_rows.append(
+                    (
+                        sheet.name,
+                        row_number,
+                        headers,
+                        {"snapshot": snapshot, "by_row": by_row},
+                    )
+                )
     if not candidate_rows:
         raise ImportError("No worksheet contains the required MacroFactor exercise-log columns")
     if len(candidate_rows) > 1:
@@ -159,12 +211,21 @@ def _load_xlsx(path: Path) -> list[SetRecord]:
     by_row = context["by_row"]
     column_by_header = {header: column for column, header in header_by_column.items()}
     records: list[SetRecord] = []
+    skipped_rows: list[dict[str, object]] = []
     for row_number in sorted(row for row in by_row if row > header_row):
         values = by_row[row_number]
         row = {header: values.get(column) for header, column in column_by_header.items()}
         if not any(row.get(header) not in (None, "") for header in REQUIRED_HEADERS):
             continue
-        if not row.get("Exercise") or row.get("Date") in (None, ""):
+        if row.get("Date") in (None, ""):
+            diagnostic: dict[str, object] = {
+                "row": row_number,
+                "reason": "missing date in non-empty XLSX workout row",
+            }
+            exercise = str(row.get("Exercise") or "").strip()
+            if exercise:
+                diagnostic["exercise"] = exercise
+            skipped_rows.append(diagnostic)
             continue
         records.append(_record_from_mapping(row_number, row))
-    return records
+    return ExerciseLogImport(records=tuple(records), skipped_rows=tuple(skipped_rows))

@@ -8,10 +8,17 @@ from pathlib import Path
 
 from .config import normalize_name, source_rule_index
 from .formatting import format_sets, format_superset
-from .importers import load_exercise_log, load_exercise_notes
-from .models import BridgeConfig, BridgeReport, ExerciseRule, ProposedWrite, SetRecord
+from .importers import load_exercise_log_with_diagnostics, load_exercise_notes
+from .models import (
+    BridgeConfig,
+    BridgeReport,
+    EmptyDayMarker,
+    ExerciseRule,
+    ProposedWrite,
+    SetRecord,
+)
 from .ooxml import WorkbookError, file_sha256, split_cell_reference, validate_copy_integrity
-from .workbook import TargetRow, select_sheet_options, target_rows
+from .workbook import ProgramDay, TargetRow, program_days, select_sheet_options, target_rows
 
 
 SUPERSET_MARKER = re.compile(r"\s*∈\s*(SS\d+)\s*$", re.IGNORECASE)
@@ -53,6 +60,67 @@ def _matching_coach_rows(
     }
 
 
+def _empty_day_marker_target(day: ProgramDay) -> TargetRow | None:
+    substantive_rows = [
+        row
+        for row in day.rows
+        if normalize_name(row.exercise_name) not in {"general warm up", "general warmup"}
+    ]
+    if any(
+        row.result is not None and not row.result.is_empty
+        for row in substantive_rows
+    ):
+        return None
+    candidates = [
+        row for row in substantive_rows if row.result is not None and row.result.is_empty
+    ]
+    if not candidates:
+        candidates = [
+            row for row in day.rows if row.result is not None and row.result.is_empty
+        ]
+    return candidates[0] if candidates else None
+
+
+def _append_empty_day_markers(
+    report: BridgeReport,
+    marker: EmptyDayMarker,
+    days: tuple[ProgramDay, ...],
+    matched_cells: set[str],
+) -> None:
+    for day in days:
+        if any(row.result_cell in matched_cells for row in day.rows):
+            continue
+        target = _empty_day_marker_target(day)
+        if target is None:
+            continue
+        review_note = (
+            f"{day.label} has no matched MacroFactor session in the selected dates; "
+            "review this highlighted marker before sharing"
+        )
+        report.proposed_writes.append(
+            ProposedWrite(
+                sheet=report.sheet,
+                week=report.week,
+                cell=target.result_cell,
+                value=marker.text,
+                source_exercises=(),
+                kind="empty_day_marker",
+                fill_color=marker.fill_color,
+                review_note=review_note,
+            )
+        )
+        report.empty_day_markers.append(
+            {
+                "day": day.label,
+                "cell": target.result_cell,
+                "value": marker.text,
+                "fill_color": marker.fill_color,
+                "reason": review_note,
+            }
+        )
+    report.proposed_writes.sort(key=lambda proposal: split_cell_reference(proposal.cell))
+
+
 def build_preview(
     export_path: str | Path,
     workbook_path: str | Path,
@@ -64,7 +132,8 @@ def build_preview(
 ) -> BridgeReport:
     if to_date < from_date:
         raise ValueError("to-date must be on or after from-date")
-    records = load_exercise_log(export_path)
+    imported_log = load_exercise_log_with_diagnostics(export_path)
+    records = imported_log.records
     exercise_notes = load_exercise_notes(export_path)
     package, sheet, options, week = select_sheet_options(
         workbook_path, config, sheet_name, week_label
@@ -76,8 +145,9 @@ def build_preview(
         week=week.label,
         from_date=from_date.isoformat(),
         to_date=to_date.isoformat(),
-        rows_read=len(records),
+        rows_read=len(records) + len(imported_log.skipped_rows),
     )
+    report.skipped_rows.extend(imported_log.skipped_rows)
     valid: list[SetRecord] = []
     for record in records:
         if not from_date <= record.workout_date <= to_date:
@@ -261,6 +331,22 @@ def build_preview(
                 source_exercises=tuple(piece.source_name for piece in pieces),
             )
         )
+    marker = config.empty_day_marker
+    uncertain_absence = any(
+        (
+            report.unmatched_exercises,
+            report.ambiguous_matches,
+            report.zero_rep_rows,
+            report.skipped_rows,
+        )
+    )
+    if marker is not None and valid and not uncertain_absence:
+        _append_empty_day_markers(
+            report,
+            marker,
+            program_days(package, sheet, options, week),
+            set(by_target),
+        )
     return report
 
 
@@ -277,7 +363,12 @@ def apply_changes(
     source_hash = file_sha256(report.input_workbook)
     export_hash = file_sha256(report.input_export)
     changes = {proposal.cell: proposal.value for proposal in report.proposed_writes}
-    package.write_copy(output_path, sheet, changes)
+    highlight_fills = {
+        proposal.cell: proposal.fill_color
+        for proposal in report.proposed_writes
+        if proposal.fill_color is not None
+    }
+    package.write_copy(output_path, sheet, changes, highlight_fills)
     after_hash = file_sha256(report.input_workbook)
     export_after_hash = file_sha256(report.input_export)
     if after_hash != source_hash:
@@ -290,8 +381,11 @@ def apply_changes(
     report.export_hash_after = export_after_hash
     report.output_file = str(Path(output_path))
     report.output_hash = file_sha256(output_path)
+    changed_members = {sheet.path}
+    if highlight_fills:
+        changed_members.add("xl/styles.xml")
     report.validation = validate_copy_integrity(
-        report.input_workbook, output_path, sheet.path
+        report.input_workbook, output_path, changed_members
     )
     if report.validation["unrelated_members_changed"]:
         raise WorkbookError("Workbook integrity check found unrelated changed ZIP members")

@@ -6,7 +6,7 @@ import unicodedata
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from .models import BridgeConfig, ExerciseRule
+from .models import BridgeConfig, EmptyDayMarker, ExerciseRule
 
 
 class ConfigError(ValueError):
@@ -34,6 +34,29 @@ def load_config(path: str | Path) -> BridgeConfig:
         re.compile(pattern, re.IGNORECASE)
     except re.error as exc:
         raise ConfigError(f"Invalid workbook.week_header_pattern: {exc}") from exc
+
+    marker_payload = workbook.get("empty_day_marker")
+    empty_day_marker: EmptyDayMarker | None = None
+    if marker_payload is not None:
+        if not isinstance(marker_payload, dict):
+            raise ConfigError("workbook.empty_day_marker must be an object")
+        marker_text = marker_payload.get("text")
+        marker_fill = marker_payload.get("fill_color")
+        if not isinstance(marker_text, str) or not marker_text.strip():
+            raise ConfigError("workbook.empty_day_marker.text must be a non-empty string")
+        if not isinstance(marker_fill, str) or not re.fullmatch(
+            r"(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})", marker_fill
+        ):
+            raise ConfigError(
+                "workbook.empty_day_marker.fill_color must be a 6- or 8-digit hex color"
+            )
+        normalized_fill = marker_fill.upper()
+        if len(normalized_fill) == 6:
+            normalized_fill = f"FF{normalized_fill}"
+        empty_day_marker = EmptyDayMarker(
+            text=marker_text.strip(),
+            fill_color=normalized_fill,
+        )
 
     raw_rules = payload.get("exercises")
     if not isinstance(raw_rules, list) or not raw_rules:
@@ -106,6 +129,7 @@ def load_config(path: str | Path) -> BridgeConfig:
         exercise_header_labels=tuple(header_labels),
         week_header_pattern=pattern,
         rules=tuple(rules),
+        empty_day_marker=empty_day_marker,
     )
 
 

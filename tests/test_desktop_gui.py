@@ -14,6 +14,8 @@ if HAS_QT:
 
     from macrofactor_bridge.desktop import BridgeWindow
 
+from macrofactor_bridge.models import BridgeReport, ProposedWrite
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,6 +39,44 @@ class DesktopGuiTests(unittest.TestCase):
         self.assertEqual(window.week_combo.currentText(), "Week 1")
         self.assertIn("Unmatched exercises: 1", window.review_panel.toPlainText())
         self.assertTrue(window.create_button.isEnabled())
+        window.close()
+
+    def test_empty_day_marker_is_highlighted_yellow_in_preview(self) -> None:
+        report = BridgeReport(
+            "export.xlsx",
+            "coach.xlsx",
+            "Training Block",
+            "Week 1",
+            "2026-08-03",
+            "2026-08-09",
+        )
+        review_note = "Day 3.5 has no matched MacroFactor session; review before sharing"
+        report.proposed_writes.append(
+            ProposedWrite(
+                sheet="Training Block",
+                week="Week 1",
+                cell="J16",
+                value="Skip",
+                source_exercises=(),
+                kind="empty_day_marker",
+                fill_color="FFFFFF00",
+                review_note=review_note,
+            )
+        )
+        report.empty_day_markers.append(
+            {"day": "Day 3.5", "cell": "J16", "reason": review_note}
+        )
+
+        window = BridgeWindow()
+        window._display_report(report)
+
+        self.assertEqual(window.preview_table.rowCount(), 1)
+        for column in range(window.preview_table.columnCount()):
+            item = window.preview_table.item(0, column)
+            self.assertIsNotNone(item)
+            assert item is not None
+            self.assertEqual(item.background().color().name(), "#ffff00")
+        self.assertIn("Empty-day review markers: 1", window.review_panel.toPlainText())
         window.close()
 
 
