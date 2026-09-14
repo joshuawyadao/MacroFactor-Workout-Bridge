@@ -48,5 +48,6 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 ## Checkpoints
 - `7c13560`: implemented and documented the gated Part 2 parser, neutral model, exact mapping/default review, CLI preview, and anonymized tests.
 - `4bc8aba`: recorded validation evidence, reconciled tracking, and opened the reviewable draft.
-- Final review checkpoint: tightened result-column isolation, report non-overwrite behavior, superset completeness, mapping status, selected-cycle labels, and exercise ordering.
-- Draft PR #13 contains the reviewable Part 2 checkpoint and remains blocked by issue #12 plus manual import validation.
+- `f7c1682`: tightened result-column isolation, report non-overwrite behavior, superset completeness, mapping status, selected-cycle labels, and exercise ordering.
+- `ca68a77`: added verified template inspection, conservative homogeneous-cycle generation, OOXML integrity checks, synthetic fixtures, tests, and documentation.
+- Draft PR #13 contains the reviewable parser and generator checkpoints and remains blocked by the periodized-template and manual-import gaps recorded on issue #12.
