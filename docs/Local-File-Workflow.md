@@ -16,6 +16,7 @@ local-data/
 ├── generated/
 │   ├── workbooks/          # Save completed coach workbook copies here
 │   └── reports/            # Save preview/apply JSON reports here
+├── annotations/            # Private workout-history block and week context
 └── manifests/              # One validation manifest per archive run
 ```
 
@@ -31,7 +32,7 @@ After an editable install, the shorter equivalent is:
 macrofactor-workspace setup
 ```
 
-Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom location, and pass the same `--root` to `archive` and `status`. Setup and archive append managed-directory rules to the workspace's own `.gitignore` before creating data directories. Existing ignore content is preserved, and repeated setup is idempotent. This protects inboxes, archives, current links, generated files, and manifests even when the custom directory is inside a Git checkout. A symlinked `.gitignore` is refused rather than modified.
+Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom location, and pass the same `--root` to `archive` and `status`. Setup and archive append managed-directory rules to the workspace's own `.gitignore` before creating data directories. Existing ignore content is preserved, and repeated setup is idempotent. This protects inboxes, archives, current links, generated files, annotations, and manifests even when the custom directory is inside a Git checkout. A symlinked `.gitignore` is refused rather than modified.
 
 ## Recurring workflow
 
@@ -52,6 +53,18 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
 
 5. Open MacroFactor Workout Bridge and select `current/Coach Program - Current.xlsx` plus `current/MacroFactor Exercise Log - Current.csv` or `.xlsx`. These stable shortcuts are updated by the archive command. Preview the selected worksheet, week, and explicit workout dates.
 6. Save the generated workbook under `local-data/generated/workbooks/` and its JSON report under `local-data/generated/reports/`.
+
+## Workout History workflow
+
+1. Keep an all-time MacroFactor exercise-log export in the private MacroFactor inbox. The archive can retain it alongside narrower weekly exports.
+2. In the app's **Workout History** tab, choose that all-time export directly, plus the newest coach workbook and local exercise mapping.
+3. Use `local-data/annotations/workout-history.json` for the suggested private annotation file.
+4. Load the dashboard to review calendar-week exercise trends and workbook worksheets as blocks. This step is read-only for both source files.
+5. Add block types, confirmed start dates, and optional week context gradually. A block without a confirmed date remains an ordered workbook summary and is not assigned dated MacroFactor workouts.
+
+The stable MacroFactor file under `current/` is selected for the weekly bridge: when exports end on the same workout date, the narrower later-starting export wins. It therefore may not be the all-time file needed for History. Choose the all-time inbox or archive file explicitly rather than assuming the current link contains the longest range.
+
+The annotation file stores worksheet names, optional block dates/types/notes, and optional week status, reason, affected movements, and notes. It does not copy set-by-set workout history. Vacation and injury are stored separately from accumulated fatigue so future analysis cannot silently reinterpret every reduced week as a recovery-driven deload. The file is replaced atomically, and a symlinked annotation destination is refused.
 
 When an `.xlsx` export contains MacroFactor's `Active Program` table, the preview reports non-empty exercise-level notes for exercises performed in the selected dates. This can carry context such as equipment choice or a misload explanation when entered in the exercise note. The current export's `Workout Log` table does not include program-level or session-level note columns, so those note types cannot be recovered. Reported notes remain review-only and are never inserted into coach result cells automatically.
 
@@ -94,7 +107,7 @@ This is local version history, not a backup service. Back up `local-data/` separ
 
 - The whole `local-data/` tree is ignored by Git.
 - Custom roots also receive workspace-local ignore rules for every managed data directory. Ignore rules do not remove files already tracked or prevent force-adding files; audit existing Git history separately if private data was previously committed.
-- Personal exports, manifests, generated workbooks, and reports must not be force-added to Git.
+- Personal exports, manifests, dashboard annotations, generated workbooks, and reports must not be force-added to Git.
 - Only MacroFactor exercise-log exports belong in the MacroFactor inbox. Program exports do not contain the required exercise-log table and will fail validation.
 - Keep using Preview before creating output. Archival validation does not authorize or perform workbook writes.
 - Treat every yellow `Skip` value as a review prompt. MacroFactor exercise-log exports do not distinguish a skipped day from an unlogged or out-of-range workout.

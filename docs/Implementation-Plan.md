@@ -1,48 +1,20 @@
 # Plan
 
-Address every actionable Codex review thread on PR #10 while preserving the conservative workbook workflow. Protect namespace-qualified OOXML extensions, reject duplicate logical export headers, propagate malformed XLSX-row diagnostics into empty-day marker eligibility, align configurable marker messaging, correct the README safety guarantees, and advance the macOS build number. Re-run focused and complete verification, then save and push the review fixes.
+Build the first read-only workout-history milestone inside the macOS app, using coach worksheets as blocks and MacroFactor exercise-log exports for dated exercise trends. Add optional RIR and workout-duration ingestion plus private local annotations for block dates/types and deload, vacation, injury, or modified weeks, while deliberately withholding predictive recovery or deload claims.
 
 ## Scope
-- In: all six Codex review findings, focused regression tests for each behavior, implementation-plan traceability, full tests, compilation, diff checks, commit, and push.
-- Out: reverse program import, fuzzy exercise matching, live MacroFactor integration, personal configuration or files, merging PR #10, and unrelated refactoring.
+- In: a desktop History dashboard, workbook block/week discovery, calendar-week exercise summaries, conservative estimated-1RM trends, optional RIR and duration metrics, local JSON annotations, block/date linking when a start date is known, synthetic tests, user documentation, and app version metadata.
+- Out: automatic deload prediction, medical or injury advice, wearable/health integrations, nutrition or bodyweight overlays, automatic inference of undated block starts, modification of source exports or coach workbooks, and committing personal workout data.
 
 ## Action items
-[x] Preserve original namespace prefixes and markup-compatibility declarations when edited worksheet and stylesheet XML are reserialized.
-[x] Reject CSV and XLSX exercise-log tables that contain duplicate headers after alias canonicalization.
-[x] Report non-empty XLSX workout rows without a date and withhold empty-day markers when those rows make absence uncertain.
-[x] Describe configurable marker colors generically in review text while keeping the bundled default yellow.
-[x] Correct the README's highlighted-marker safety guarantees and increment the macOS bundle build number.
-[x] Add focused regression tests for each review fix.
-[x] Run the focused tests, complete suite, source compilation, diff checks, and rebuilt-app signature and metadata validation.
-[x] Prepare the completed review fixes for commit and push; resolve the GitHub review threads after the new commit is published.
-
-## Verification
-- Focused integration and desktop-model suite: 19 tests passed.
-- Canonical GUI-enabled suite after the second review fixes: 75 tests passed.
-- `python3 -m compileall -q src tests packaging` passed.
-- `git diff --check` passed.
-- The rebuilt macOS app is ad-hoc signed, verifies with `codesign --verify --deep --strict`, and reports version 0.3.0 build 4.
-- The latest `main` was merged after review fixes, preserving its fresh hash-locked app-build environment hardening.
+[x] Extend the MacroFactor import model and CSV/XLSX readers to preserve optional workout duration and actual RIR values without requiring either field.
+[x] Add a history-analysis module that discovers workbook sheets as ordered blocks, summarizes completed workbook weeks, groups dated MacroFactor sets into exercise/week trends, reports RIR coverage, and maps workouts into annotated block dates without guessing missing dates.
+[x] Add a validated, atomically written local annotation store for block type/start date and week status/reason/affected movements/notes, with vacation and injury represented distinctly from fatigue-driven deloads.
+[x] Add a read-only Workout History tab to the PySide app with source selection, overview metrics, block summaries, exercise trends, explicit confidence/limitations, and controls for saving private block/week annotations.
+[x] Add focused synthetic importer, analytics, annotation-storage, and offscreen GUI tests, including missing RIR, repeated session duration, unknown block dates, mapped block weeks, and vacation/injury annotations.
+[x] Update the README and local-file workflow for the dashboard, annotation privacy, RIR limitations, block-date behavior, and non-predictive recovery boundary; advance the app to version 0.4.0 build 5.
+[x] Run targeted tests, the complete `./scripts/test.sh` suite, source compilation, `git diff --check`, source-GUI smoke testing, real-data read-only verification, and default-size visual inspection. Rebuilding reached the macOS bundling step but could not run Apple's `lipo` tool until the machine owner accepts the installed Xcode license, so signed-app verification remains an environment follow-up rather than an untested code path.
+[x] Review and save the scoped milestone on `codex/workout-dashboard-mvp` with no private exports, workbooks, reports, annotations, virtual environments, build directories, or generated app artifacts included.
 
 ## Open questions
 - None.
-
-## Second Codex review
-
-Finish the three findings from the review of `c136f43`, keeping each fix in its own checkpoint. The README safety model remains the contract: preserve namespace meaning and non-fill formatting, including styles inherited from rows and columns.
-
-- [x] Make desktop review guidance independent of configured marker text; update the existing review-panel assertion.
-- [x] Replace global namespace registration during writes with namespace-aware DOM edits that preserve declaration scopes; cover rebound prefixes in both worksheets and stylesheets (15 focused OOXML/integration tests passed).
-- [x] Resolve explicit-cell, row, and column style precedence before cloning a highlight style; cover inherited fonts, borders, alignment, and number formats with synthetic XML. Reject invalid or conflicting inherited styles.
-- [x] Run focused tests for each checkpoint (20 OOXML/integration tests after the final fix), then the complete 75-test suite, compilation, and diff checks; rebuild and verify the app after the final code change.
-- [x] Push each checkpoint, acknowledge the addressed feedback, and verify the final PR checks and review state. All fixes are published and all nine Codex comments have thumbs-up reactions; the second-round threads also have fix/validation replies.
-
-## Review checkpoint ledger
-
-- `76f4754`: addressed the Brooks concerns by extracting marker generation and directly testing GUI highlight rendering.
-- `751f229`: addressed the first six Codex findings listed above; focused regressions, full tests, and packaging validation passed.
-- `c2bed20` and `c136f43`: resolved implementation-plan and review-history conflicts while bringing the latest main changes into the feature branch. Preserved the isolated GUI test runner and locked dependency hardening, and retained both review-history entries. Local main was not changed.
-- `e1b0d91`: removed fixed marker text from desktop guidance; six desktop-model tests passed.
-- `721be1d`: preserved scoped namespace declarations; 15 focused OOXML/integration tests passed; CI Verify passed.
-- `bd5bb46`: preserved inherited non-fill styles; 20 focused tests and all 75 GUI-enabled tests passed. Compilation, diff checks, app rebuild, and signature verification passed. CI Verify run 34264039294 passed.
-- Codex review completed twice. All nine actionable findings are fixed; none are deferred. The three second-round conversations remain open pending explicit permission to mark them resolved. GitHub reports no merge conflicts, but conversation resolution is required before merging. PR #10 remains unmerged.
