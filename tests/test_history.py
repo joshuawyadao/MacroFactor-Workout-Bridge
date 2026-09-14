@@ -232,6 +232,15 @@ class HistoryTests(unittest.TestCase):
             with self.assertRaisesRegex(HistoryError, "symlinked"):
                 save_dashboard_annotations(expected, DashboardAnnotations())
 
+    def test_annotation_path_fallback_uses_ignored_private_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workbook = Path(directory) / "coach.xlsx"
+
+            fallback = default_dashboard_annotations_path(workbook)
+
+        self.assertEqual(fallback.name, "coach-workout-history.private.json")
+        self.assertIn("*.private.json", (ROOT / ".gitignore").read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

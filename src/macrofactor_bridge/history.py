@@ -338,7 +338,7 @@ def default_dashboard_annotations_path(workbook_path: str | Path) -> Path:
     for parent in (workbook.parent, *workbook.parent.parents):
         if parent.name == "local-data":
             return parent / "annotations" / "workout-history.json"
-    return workbook.with_name(f"{workbook.stem}-workout-history.json")
+    return workbook.with_name(f"{workbook.stem}-workout-history.private.json")
 
 
 def update_block_annotation(

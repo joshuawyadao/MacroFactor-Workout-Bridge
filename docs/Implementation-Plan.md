@@ -16,5 +16,11 @@ Harden pull request #14 before merge by preventing private annotations from bein
 [x] Commit and push only the review-remediation files; keep private data and ignored build artifacts out of Git.
 [x] Integrate the completed dependency-audit tooling changes from `main` and re-run the combined branch verification.
 
+## Codex review follow-up
+- [x] Invalidate a loaded dashboard whenever any History input changes so annotations cannot be saved against stale data.
+- [x] Make the non-workspace fallback annotation filename match the repository's private-file ignore rule, with regression coverage.
+- [ ] Restrict estimated 1RM calculations to normalized standard-set records, with regression coverage for warm-up sets.
+- [ ] Re-run the complete combined verification and confirm GitHub CI is green on the final head.
+
 ## Open questions
 - None.
