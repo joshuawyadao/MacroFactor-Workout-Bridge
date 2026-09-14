@@ -25,3 +25,7 @@ Make the CI vulnerability-audit bootstrap reproducible by reviewing and hash-loc
 
 ## Open questions
 - None.
+
+## Brooks review follow-up
+- [x] Remove the duplicated `pip-audit` version literal from `tests/test_build_dependencies.py` while retaining the invariant that exactly one exact `pip-audit` requirement is present in the audit lock.
+- [x] Re-run the focused dependency tests and diff checks before saving the review fix.

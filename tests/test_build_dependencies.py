@@ -140,7 +140,10 @@ class BuildDependencyTests(unittest.TestCase):
 
         workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
         audit_locked = read_locked_requirements("requirements/audit.lock")
-        self.assertIn("pip-audit==2.10.1", audit_locked)
+        audit_requirements = [
+            requirement for requirement in audit_locked if requirement.startswith("pip-audit==")
+        ]
+        self.assertEqual(len(audit_requirements), 1)
         self.assertNotIn('"pip-audit==', workflow)
         self.assertIn("cache-dependency-path: |\n            requirements/audit.lock", workflow)
 
