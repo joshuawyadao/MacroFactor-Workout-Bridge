@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from .config import normalize_name, source_rule_index
-from .importers import load_exercise_log_with_diagnostics
-from .models import BridgeConfig, ExerciseRule, SetRecord
+from .importers import ExerciseLogImport, load_exercise_log_with_diagnostics
+from .models import BridgeConfig, ExerciseRule, SetRecord, SheetOptions
 from .ooxml import XlsxPackage
 from .workbook import discover_workbook, target_rows
 
@@ -133,6 +133,46 @@ class HistoryDashboard:
         return tuple(
             trend for trend in self.weekly_trends if trend.exercise == exercise
         )
+
+
+@dataclass(frozen=True)
+class _BlockInterval:
+    name: str
+    start: date
+    end: date
+    week_labels: tuple[str, ...]
+
+
+@dataclass
+class _TrendAccumulator:
+    dates: set[date] = field(default_factory=set)
+    set_count: int = 0
+    total_reps: Decimal = Decimal("0")
+    volume_load: Decimal = Decimal("0")
+    weights: list[Decimal] = field(default_factory=list)
+    estimated_1rms: list[Decimal] = field(default_factory=list)
+    rirs: list[Decimal] = field(default_factory=list)
+    block_locations: set[tuple[str, str]] = field(default_factory=set)
+
+
+@dataclass
+class _HistoryAggregation:
+    trend_data: dict[tuple[str, date], _TrendAccumulator] = field(
+        default_factory=dict
+    )
+    block_sets: dict[str, int] = field(default_factory=dict)
+    block_days: dict[str, set[date]] = field(default_factory=dict)
+    sessions: dict[tuple[date, str], list[Decimal]] = field(default_factory=dict)
+    training_days: set[date] = field(default_factory=set)
+    rir_set_count: int = 0
+
+
+@dataclass(frozen=True)
+class _HistorySources:
+    imported: ExerciseLogImport
+    records: tuple[SetRecord, ...]
+    workbook: XlsxPackage
+    blocks: tuple[SheetOptions, ...]
 
 
 def _validated_text(value: object, label: str) -> str:
@@ -420,176 +460,191 @@ def _ordered_week_labels(labels: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(label for _, label in sorted(numbered))
 
 
-def build_history_dashboard(
+def _load_history_sources(
     export_path: str | Path,
     workbook_path: str | Path,
     config: BridgeConfig,
-    annotations: DashboardAnnotations | None = None,
-) -> HistoryDashboard:
-    annotation_state = annotations or DashboardAnnotations()
+) -> _HistorySources:
     imported = load_exercise_log_with_diagnostics(export_path)
     records = tuple(record for record in imported.records if _record_is_usable(record))
     if not records:
         raise HistoryError("The MacroFactor export contains no usable completed sets")
-
     workbook = XlsxPackage(workbook_path)
-    discovered = tuple(
+    blocks = tuple(
         sheet
         for sheet in discover_workbook(workbook_path, config)
         if sheet.exercise_column is not None and sheet.weeks
     )
-    if not discovered:
+    if not blocks:
         raise HistoryError("The coach workbook contains no usable block worksheets")
+    return _HistorySources(imported, records, workbook, blocks)
 
-    marker_text = (
-        normalize_name(config.empty_day_marker.text)
-        if config.empty_day_marker is not None
-        else ""
-    )
-    block_counts: dict[str, tuple[int, int]] = {}
-    for sheet in discovered:
-        sheet_ref = workbook.sheet_by_name(sheet.name)
+
+def _block_result_counts(
+    workbook: XlsxPackage,
+    blocks: tuple[SheetOptions, ...],
+    marker_text: str,
+) -> dict[str, tuple[int, int]]:
+    counts: dict[str, tuple[int, int]] = {}
+    for block in blocks:
+        sheet_ref = workbook.sheet_by_name(block.name)
         programmed = 0
         completed = 0
-        for week in sheet.weeks:
-            rows = target_rows(workbook, sheet_ref, sheet, week)
+        for week in block.weeks:
+            rows = target_rows(workbook, sheet_ref, block, week)
             programmed += len(rows)
-            for row in rows:
-                result = row.result
-                if result is None or result.is_empty:
-                    continue
-                if marker_text and normalize_name(str(result.value or "")) == marker_text:
-                    continue
-                completed += 1
-        block_counts[sheet.name] = (completed, programmed)
+            completed += sum(
+                row.result is not None
+                and not row.result.is_empty
+                and (
+                    not marker_text
+                    or normalize_name(str(row.result.value or "")) != marker_text
+                )
+                for row in rows
+            )
+        counts[block.name] = (completed, programmed)
+    return counts
 
-    warnings: list[str] = []
-    if imported.skipped_rows:
-        warnings.append(
-            f"{len(imported.skipped_rows)} malformed export row(s) were excluded."
-        )
 
-    intervals: list[tuple[str, date, date, tuple[str, ...]]] = []
-    for sheet in discovered:
-        annotation = annotation_state.blocks.get(sheet.name, BlockAnnotation())
+def _dated_block_intervals(
+    blocks: tuple[SheetOptions, ...],
+    annotations: DashboardAnnotations,
+    warnings: list[str],
+) -> tuple[tuple[_BlockInterval, ...], frozenset[str]]:
+    intervals: list[_BlockInterval] = []
+    for block in blocks:
+        annotation = annotations.blocks.get(block.name, BlockAnnotation())
         if annotation.start_date is None:
             continue
-        labels = _ordered_week_labels(tuple(week.label for week in sheet.weeks))
-        end = annotation.start_date + timedelta(days=len(labels) * 7 - 1)
+        labels = _ordered_week_labels(tuple(week.label for week in block.weeks))
         intervals.append(
-            (
-                sheet.name,
-                annotation.start_date,
-                end,
-                labels,
+            _BlockInterval(
+                name=block.name,
+                start=annotation.start_date,
+                end=annotation.start_date + timedelta(days=len(labels) * 7 - 1),
+                week_labels=labels,
             )
         )
-    overlapping_blocks: set[str] = set()
+    overlapping: set[str] = set()
     for index, first in enumerate(intervals):
         for second in intervals[index + 1 :]:
-            if first[1] <= second[2] and second[1] <= first[2]:
-                overlapping_blocks.update((first[0], second[0]))
-    if overlapping_blocks:
+            if first.start <= second.end and second.start <= first.end:
+                overlapping.update((first.name, second.name))
+    if overlapping:
         warnings.append(
             "Overlapping block date ranges were not used for mapping: "
-            + ", ".join(sorted(overlapping_blocks))
+            + ", ".join(sorted(overlapping))
             + "."
         )
+    return tuple(intervals), frozenset(overlapping)
 
-    def locate_block(workout_date: date) -> tuple[str, str] | None:
-        matches = [
-            interval
-            for interval in intervals
-            if interval[0] not in overlapping_blocks
-            and interval[1] <= workout_date <= interval[2]
-        ]
-        if len(matches) != 1:
-            return None
-        name, start, _end, labels = matches[0]
-        week_index = (workout_date - start).days // 7
-        return name, labels[week_index]
 
-    trend_data: dict[tuple[str, date], dict[str, Any]] = {}
-    block_sets: defaultdict[str, int] = defaultdict(int)
-    block_days: defaultdict[str, set[date]] = defaultdict(set)
-    sessions: defaultdict[tuple[date, str], list[Decimal]] = defaultdict(list)
-    all_training_days: set[date] = set()
-    rir_set_count = 0
-    rules_by_source = source_rule_index(config)
+def _locate_block(
+    workout_date: date,
+    intervals: tuple[_BlockInterval, ...],
+    overlapping: frozenset[str],
+) -> tuple[str, str] | None:
+    matches = tuple(
+        interval
+        for interval in intervals
+        if interval.name not in overlapping
+        and interval.start <= workout_date <= interval.end
+    )
+    if len(matches) != 1:
+        return None
+    match = matches[0]
+    week_index = (workout_date - match.start).days // 7
+    return match.name, match.week_labels[week_index]
 
+
+def _aggregate_history(
+    records: tuple[SetRecord, ...],
+    source_index: dict[str, ExerciseRule],
+    intervals: tuple[_BlockInterval, ...],
+    overlapping: frozenset[str],
+) -> _HistoryAggregation:
+    aggregation = _HistoryAggregation()
     for record in records:
-        exercise = _canonical_exercise(record, rules_by_source)
+        exercise = _canonical_exercise(record, source_index)
         monday = record.workout_date - timedelta(days=record.workout_date.weekday())
-        key = (exercise, monday)
-        values = trend_data.setdefault(
-            key,
-            {
-                "dates": set(),
-                "set_count": 0,
-                "total_reps": Decimal("0"),
-                "volume_load": Decimal("0"),
-                "weights": [],
-                "estimated_1rms": [],
-                "rirs": [],
-                "block_locations": set(),
-            },
+        values = aggregation.trend_data.setdefault(
+            (exercise, monday), _TrendAccumulator()
         )
-        values["dates"].add(record.workout_date)
-        values["set_count"] += 1
-        values["total_reps"] += record.reps
+        values.dates.add(record.workout_date)
+        values.set_count += 1
+        assert record.reps is not None
+        values.total_reps += record.reps
         if record.weight is not None and record.weight.is_finite():
-            values["weights"].append(record.weight)
-            values["volume_load"] += record.weight * record.reps
+            values.weights.append(record.weight)
+            values.volume_load += record.weight * record.reps
         estimate = _estimated_1rm(record)
         if estimate is not None:
-            values["estimated_1rms"].append(estimate)
+            values.estimated_1rms.append(estimate)
         if record.rir is not None:
-            values["rirs"].append(record.rir)
-            rir_set_count += 1
-        location = locate_block(record.workout_date)
+            values.rirs.append(record.rir)
+            aggregation.rir_set_count += 1
+        location = _locate_block(record.workout_date, intervals, overlapping)
         if location is not None:
-            values["block_locations"].add(location)
-            block_sets[location[0]] += 1
-            block_days[location[0]].add(record.workout_date)
-        session_key = (record.workout_date, record.workout)
+            values.block_locations.add(location)
+            aggregation.block_sets[location[0]] = (
+                aggregation.block_sets.get(location[0], 0) + 1
+            )
+            aggregation.block_days.setdefault(location[0], set()).add(
+                record.workout_date
+            )
+        session = aggregation.sessions.setdefault(
+            (record.workout_date, record.workout), []
+        )
         if record.workout_duration_seconds is not None:
-            sessions[session_key].append(record.workout_duration_seconds)
-        else:
-            sessions.setdefault(session_key, [])
-        all_training_days.add(record.workout_date)
+            session.append(record.workout_duration_seconds)
+        aggregation.training_days.add(record.workout_date)
+    return aggregation
 
-    weekly_trends: list[WeeklyExerciseTrend] = []
+
+def _weekly_trends(
+    trend_data: dict[tuple[str, date], _TrendAccumulator],
+) -> tuple[WeeklyExerciseTrend, ...]:
+    trends: list[WeeklyExerciseTrend] = []
     for (exercise, monday), values in sorted(
         trend_data.items(), key=lambda item: (item[0][0].casefold(), item[0][1])
     ):
-        locations = values["block_locations"]
-        location = next(iter(locations)) if len(locations) == 1 else None
-        rirs = values["rirs"]
-        weekly_trends.append(
+        location = (
+            next(iter(values.block_locations))
+            if len(values.block_locations) == 1
+            else None
+        )
+        trends.append(
             WeeklyExerciseTrend(
                 exercise=exercise,
                 week_start=monday,
-                training_days=len(values["dates"]),
-                set_count=values["set_count"],
-                total_reps=values["total_reps"],
-                volume_load=values["volume_load"],
-                top_weight=max(values["weights"]) if values["weights"] else None,
+                training_days=len(values.dates),
+                set_count=values.set_count,
+                total_reps=values.total_reps,
+                volume_load=values.volume_load,
+                top_weight=max(values.weights) if values.weights else None,
                 estimated_1rm=(
-                    max(values["estimated_1rms"])
-                    if values["estimated_1rms"]
+                    max(values.estimated_1rms) if values.estimated_1rms else None
+                ),
+                average_rir=(
+                    sum(values.rirs, Decimal("0")) / len(values.rirs)
+                    if values.rirs
                     else None
                 ),
-                average_rir=(sum(rirs, Decimal("0")) / len(rirs) if rirs else None),
-                rir_set_count=len(rirs),
+                rir_set_count=len(values.rirs),
                 block_name=location[0] if location else None,
                 block_week=location[1] if location else None,
             )
         )
+    return tuple(trends)
 
+
+def _exercise_summaries(
+    weekly_trends: tuple[WeeklyExerciseTrend, ...],
+) -> tuple[ExerciseSummary, ...]:
     by_exercise: defaultdict[str, list[WeeklyExerciseTrend]] = defaultdict(list)
     for trend in weekly_trends:
         by_exercise[trend.exercise].append(trend)
-    exercises: list[ExerciseSummary] = []
+    summaries: list[ExerciseSummary] = []
     for exercise, trends in sorted(
         by_exercise.items(), key=lambda item: item[0].casefold()
     ):
@@ -599,7 +654,7 @@ def build_history_dashboard(
         estimates = [
             trend.estimated_1rm for trend in trends if trend.estimated_1rm is not None
         ]
-        exercises.append(
+        summaries.append(
             ExerciseSummary(
                 exercise=exercise,
                 trained_week_count=len(trends),
@@ -610,27 +665,40 @@ def build_history_dashboard(
                 trend=_sparkline(tuple(trend.estimated_1rm for trend in trends)),
             )
         )
+    return tuple(summaries)
 
-    duration_session_count = 0
+
+def _duration_summary(
+    sessions: dict[tuple[date, str], list[Decimal]], warnings: list[str]
+) -> tuple[int, Decimal]:
+    sessions_with_duration = 0
     total_duration = Decimal("0")
     conflicting_durations = 0
     for durations in sessions.values():
         if not durations:
             continue
         unique = set(durations)
-        if len(unique) > 1:
-            conflicting_durations += 1
-        duration_session_count += 1
+        conflicting_durations += len(unique) > 1
+        sessions_with_duration += 1
         total_duration += max(unique)
     if conflicting_durations:
         warnings.append(
             f"{conflicting_durations} workout session(s) had conflicting duration values; "
             "the longest value was used once per session."
         )
+    return sessions_with_duration, total_duration
 
+
+def _append_coverage_warnings(
+    warnings: list[str],
+    blocks: tuple[SheetOptions, ...],
+    annotations: DashboardAnnotations,
+    record_count: int,
+    rir_set_count: int,
+) -> None:
     undated_blocks = sum(
-        annotation_state.blocks.get(sheet.name, BlockAnnotation()).start_date is None
-        for sheet in discovered
+        annotations.blocks.get(block.name, BlockAnnotation()).start_date is None
+        for block in blocks
     )
     if undated_blocks:
         warnings.append(
@@ -641,16 +709,23 @@ def build_history_dashboard(
         warnings.append(
             "No completed sets include RIR; history summaries use performance and workload only."
         )
-    elif rir_set_count < len(records):
+    elif rir_set_count < record_count:
         warnings.append(
-            f"RIR is recorded for {rir_set_count} of {len(records)} completed sets; "
+            f"RIR is recorded for {rir_set_count} of {record_count} completed sets; "
             "it remains descriptive and does not adjust estimated 1RM."
         )
 
-    block_summaries: list[BlockSummary] = []
-    for position, sheet in enumerate(discovered):
-        annotation = annotation_state.blocks.get(sheet.name, BlockAnnotation())
-        completed, programmed = block_counts[sheet.name]
+
+def _block_summaries(
+    blocks: tuple[SheetOptions, ...],
+    annotations: DashboardAnnotations,
+    result_counts: dict[str, tuple[int, int]],
+    aggregation: _HistoryAggregation,
+) -> tuple[BlockSummary, ...]:
+    summaries: list[BlockSummary] = []
+    for position, block in enumerate(blocks):
+        annotation = annotations.blocks.get(block.name, BlockAnnotation())
+        completed, programmed = result_counts[block.name]
         annotated_week_count = sum(
             week.status != "normal"
             or week.reason != "unspecified"
@@ -658,35 +733,77 @@ def build_history_dashboard(
             or bool(week.notes)
             for week in annotation.weeks.values()
         )
-        block_summaries.append(
+        summaries.append(
             BlockSummary(
-                name=sheet.name,
+                name=block.name,
                 position=position,
                 week_labels=_ordered_week_labels(
-                    tuple(week.label for week in sheet.weeks)
+                    tuple(week.label for week in block.weeks)
                 ),
                 completed_results=completed,
                 programmed_results=programmed,
                 block_type=annotation.block_type,
                 start_date=annotation.start_date,
                 annotated_week_count=annotated_week_count,
-                mapped_set_count=block_sets[sheet.name],
-                mapped_training_days=len(block_days[sheet.name]),
+                mapped_set_count=aggregation.block_sets.get(block.name, 0),
+                mapped_training_days=len(aggregation.block_days.get(block.name, set())),
             )
         )
+    return tuple(summaries)
 
+
+def build_history_dashboard(
+    export_path: str | Path,
+    workbook_path: str | Path,
+    config: BridgeConfig,
+    annotations: DashboardAnnotations | None = None,
+) -> HistoryDashboard:
+    annotation_state = annotations or DashboardAnnotations()
+    sources = _load_history_sources(export_path, workbook_path, config)
+    warnings = (
+        [f"{len(sources.imported.skipped_rows)} malformed export row(s) were excluded."]
+        if sources.imported.skipped_rows
+        else []
+    )
+    marker_text = (
+        normalize_name(config.empty_day_marker.text)
+        if config.empty_day_marker is not None
+        else ""
+    )
+    result_counts = _block_result_counts(
+        sources.workbook, sources.blocks, marker_text
+    )
+    intervals, overlapping = _dated_block_intervals(
+        sources.blocks, annotation_state, warnings
+    )
+    aggregation = _aggregate_history(
+        sources.records, source_rule_index(config), intervals, overlapping
+    )
+    weekly_trends = _weekly_trends(aggregation.trend_data)
+    duration_session_count, total_duration = _duration_summary(
+        aggregation.sessions, warnings
+    )
+    _append_coverage_warnings(
+        warnings,
+        sources.blocks,
+        annotation_state,
+        len(sources.records),
+        aggregation.rir_set_count,
+    )
     return HistoryDashboard(
-        first_workout=min(record.workout_date for record in records),
-        last_workout=max(record.workout_date for record in records),
-        set_count=len(records),
-        workout_count=len(sessions),
-        training_day_count=len(all_training_days),
-        rir_set_count=rir_set_count,
+        first_workout=min(record.workout_date for record in sources.records),
+        last_workout=max(record.workout_date for record in sources.records),
+        set_count=len(sources.records),
+        workout_count=len(aggregation.sessions),
+        training_day_count=len(aggregation.training_days),
+        rir_set_count=aggregation.rir_set_count,
         duration_session_count=duration_session_count,
         total_duration_seconds=total_duration,
-        blocks=tuple(block_summaries),
-        exercises=tuple(exercises),
-        weekly_trends=tuple(weekly_trends),
+        blocks=_block_summaries(
+            sources.blocks, annotation_state, result_counts, aggregation
+        ),
+        exercises=_exercise_summaries(weekly_trends),
+        weekly_trends=weekly_trends,
         warnings=tuple(warnings),
     )
 

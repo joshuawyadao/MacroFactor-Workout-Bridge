@@ -474,6 +474,13 @@ class BridgeWindow(QMainWindow):
         self.history_start_known.toggled.connect(
             self.history_start_date.setEnabled
         )
+        for field in (
+            self.history_export_path,
+            self.history_workbook_path,
+            self.history_config_path,
+            self.history_annotations_path,
+        ):
+            field.textChanged.connect(self._invalidate_history)
         return tab
 
     def _choose_export(self) -> None:
@@ -545,10 +552,31 @@ class BridgeWindow(QMainWindow):
         index = combo.findData(value)
         combo.setCurrentIndex(index if index >= 0 else 0)
 
+    def _clear_history_dashboard(self, status: str) -> None:
+        self._history_dashboard = None
+        self._history_annotations = DashboardAnnotations()
+        self.history_save_annotation_button.setEnabled(False)
+        self.history_overview.setText("Load the selected files to summarize your history.")
+        self.history_block_table.setRowCount(0)
+        self.history_trend_table.setRowCount(0)
+        self.history_block_combo.clear()
+        self.history_week_combo.clear()
+        self.history_exercise_combo.clear()
+        self.history_trend.setText("Estimated 1RM trend: —")
+        self.history_status.setText(status)
+
+    def _invalidate_history(self, *_args: object) -> None:
+        if self._history_dashboard is None:
+            return
+        self._clear_history_dashboard(
+            "History inputs changed. Load the dashboard again before saving context."
+        )
+
     def _load_history(self, *_args: object) -> None:
         selected_block = self.history_block_combo.currentText()
         selected_week = self.history_week_combo.currentText()
         selected_exercise = self.history_exercise_combo.currentText()
+        self._clear_history_dashboard("Loading the selected History inputs…")
         try:
             required = {
                 "MacroFactor all-time export": self.history_export_path.text().strip(),

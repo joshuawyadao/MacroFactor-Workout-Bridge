@@ -123,6 +123,42 @@ class DesktopGuiTests(unittest.TestCase):
             self.assertIn("Saved private context", window.history_status.text())
             window.close()
 
+    def test_history_input_changes_invalidate_loaded_dashboard(self) -> None:
+        fields = (
+            "history_export_path",
+            "history_workbook_path",
+            "history_config_path",
+            "history_annotations_path",
+        )
+        for field_name in fields:
+            with self.subTest(field=field_name), tempfile.TemporaryDirectory() as directory:
+                window = BridgeWindow()
+                window.history_export_path.setText(
+                    str(ROOT / "tests" / "fixtures" / "macrofactor-log.xlsx")
+                )
+                window.history_workbook_path.setText(
+                    str(ROOT / "tests" / "fixtures" / "coach-template.xlsx")
+                )
+                window.history_config_path.setText(
+                    str(ROOT / "config" / "exercises.example.json")
+                )
+                window.history_annotations_path.setText(
+                    str(Path(directory) / "history.json")
+                )
+                window._load_history()
+                self.assertIsNotNone(window._history_dashboard)
+                self.assertTrue(window.history_save_annotation_button.isEnabled())
+
+                field = getattr(window, field_name)
+                field.setText(f"{field.text()} ")
+
+                self.assertIsNone(window._history_dashboard)
+                self.assertFalse(window.history_save_annotation_button.isEnabled())
+                self.assertEqual(window.history_block_table.rowCount(), 0)
+                self.assertEqual(window.history_trend_table.rowCount(), 0)
+                self.assertIn("inputs changed", window.history_status.text())
+                window.close()
+
 
 if __name__ == "__main__":
     unittest.main()
