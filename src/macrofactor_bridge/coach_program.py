@@ -1,0 +1,875 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from .config import normalize_name
+from .models import BridgeConfig, CellData, ExerciseRule
+from .ooxml import (
+    WorkbookError,
+    XlsxPackage,
+    make_cell_reference,
+    split_cell_reference,
+    split_range,
+)
+from .program_models import (
+    CyclePrescription,
+    OrderedExercise,
+    PrescriptionField,
+    Program,
+    ProgramBlockOption,
+    ProgramCycle,
+    ProgramIssue,
+    ProgramParseResult,
+    SupersetMembership,
+    WorkoutDay,
+)
+
+
+@dataclass(frozen=True)
+class _WeekLayout:
+    label: str
+    header_cell: str
+    plan_column: int
+    completed_columns: tuple[int, ...]
+    safe: bool
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class _DayLayout:
+    label: str
+    number: float
+    optional: bool
+    header_row: int
+    end_row: int
+    columns: dict[str, int]
+    weeks: tuple[_WeekLayout, ...]
+
+
+@dataclass(frozen=True)
+class _BlockLayout:
+    option: ProgramBlockOption
+    days: tuple[_DayLayout, ...]
+
+
+@dataclass(frozen=True)
+class _ParsedWeek:
+    set_count: int | None = None
+    rep_min: int | None = None
+    rep_max: int | None = None
+    rir: int | None = None
+    rest_seconds: int | None = None
+
+
+SET_TYPE_ALIASES = {
+    "standard": "standard",
+    "standard set": "standard",
+    "standard sets": "standard",
+    "straight set": "standard",
+    "straight sets": "standard",
+    "superset": "superset",
+    "super set": "superset",
+    "warmup": "warmup",
+    "warm up": "warmup",
+    "warm-up": "warmup",
+    "myo set": "myo",
+    "myo sets": "myo",
+    "drop set": "drop",
+    "drop sets": "drop",
+}
+
+
+def _raw(cell: CellData | None) -> str | None:
+    if cell is None or cell.value is None:
+        return None
+    value = str(cell.value).strip()
+    return value or None
+
+
+def _header_column(values: dict[int, object], labels: tuple[str, ...]) -> int | None:
+    aliases = {normalize_name(label) for label in labels}
+    matches = [
+        column
+        for column, value in values.items()
+        if isinstance(value, str) and normalize_name(value) in aliases
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _week_layouts(
+    snapshot,
+    header_row: int,
+    end_row: int,
+    pattern: re.Pattern[str],
+) -> tuple[_WeekLayout, ...]:
+    candidates: list[tuple[int, int, str, str]] = []
+    for reference, cell in snapshot.cells.items():
+        row, column = split_cell_reference(reference)
+        if row not in {max(1, header_row - 1), header_row}:
+            continue
+        if isinstance(cell.value, str) and pattern.fullmatch(cell.value.strip()):
+            candidates.append((row, column, reference, cell.value.strip()))
+    by_identity: dict[str, tuple[int, int, str, str]] = {}
+    for candidate in sorted(candidates, key=lambda item: (-item[0], item[1])):
+        by_identity.setdefault(normalize_name(candidate[3]), candidate)
+    ordered = sorted(by_identity.values(), key=lambda item: item[1])
+
+    layouts: list[_WeekLayout] = []
+    for index, (_, column, reference, label) in enumerate(ordered):
+        first_column = column
+        last_column = column
+        for merged in snapshot.merges:
+            start_row, start_col, merge_end_row, end_col = split_range(merged)
+            row, _ = split_cell_reference(reference)
+            if start_row <= row <= merge_end_row and start_col <= column <= end_col:
+                first_column = start_col
+                last_column = end_col
+                break
+        width = last_column - first_column + 1
+        if width == 2:
+            layouts.append(
+                _WeekLayout(
+                    label=label,
+                    header_cell=reference,
+                    plan_column=first_column,
+                    completed_columns=(last_column,),
+                    safe=True,
+                )
+            )
+            continue
+        if width > 2:
+            layouts.append(
+                _WeekLayout(
+                    label=label,
+                    header_cell=reference,
+                    plan_column=first_column,
+                    completed_columns=tuple(range(first_column + 1, last_column + 1)),
+                    safe=False,
+                    reason="week header spans more than one plan/result pair",
+                )
+            )
+            continue
+
+        next_column = ordered[index + 1][1] if index + 1 < len(ordered) else None
+        adjacent_pair = next_column == column + 2
+        if next_column is None:
+            adjacent_pair = any(
+                make_cell_reference(row, column) in snapshot.cells
+                and make_cell_reference(row, column + 1) in snapshot.cells
+                for row in range(header_row + 1, end_row + 1)
+            )
+        layouts.append(
+            _WeekLayout(
+                label=label,
+                header_cell=reference,
+                plan_column=column,
+                completed_columns=(column + 1,),
+                safe=adjacent_pair,
+                reason=(
+                    None
+                    if adjacent_pair
+                    else "unmerged week header has no structurally proven adjacent result column"
+                ),
+            )
+        )
+    return tuple(layouts)
+
+
+def _discover_sheet_layouts(package: XlsxPackage, sheet, config: BridgeConfig) -> tuple[_BlockLayout, ...]:
+    snapshot = package.sheet_snapshot(sheet)
+    by_row: dict[int, dict[int, object]] = {}
+    for reference, cell in snapshot.cells.items():
+        row, column = split_cell_reference(reference)
+        by_row.setdefault(row, {})[column] = cell.value
+
+    day_pattern = re.compile(config.program.day_label_pattern, re.IGNORECASE)
+    week_pattern = re.compile(config.program.week_header_pattern, re.IGNORECASE)
+    candidates: list[tuple[int, str, float, bool, dict[str, int]]] = []
+    for row, values in sorted(by_row.items()):
+        day_matches = [
+            (str(value).strip(), day_pattern.fullmatch(str(value).strip()))
+            for value in values.values()
+            if isinstance(value, str)
+        ]
+        day_matches = [(label, match) for label, match in day_matches if match]
+        if len(day_matches) != 1:
+            continue
+        columns = {
+            "style": _header_column(values, config.program.style_header_labels),
+            "exercise": _header_column(values, config.program.exercise_header_labels),
+            "sets": _header_column(values, config.program.sets_header_labels),
+            "reps": _header_column(values, config.program.reps_header_labels),
+            "rest": _header_column(values, config.program.rest_header_labels),
+        }
+        if any(column is None for column in columns.values()):
+            continue
+        label, match = day_matches[0]
+        assert match is not None
+        candidates.append(
+            (
+                row,
+                label,
+                float(match.group(1)),
+                "optional" in normalize_name(label),
+                {key: int(value) for key, value in columns.items() if value is not None},
+            )
+        )
+    if not candidates:
+        return ()
+
+    max_row = max(by_row)
+    provisional: list[_DayLayout] = []
+    for index, (row, label, number, optional, columns) in enumerate(candidates):
+        end_row = candidates[index + 1][0] - 1 if index + 1 < len(candidates) else max_row
+        provisional.append(
+            _DayLayout(
+                label=label,
+                number=number,
+                optional=optional,
+                header_row=row,
+                end_row=end_row,
+                columns=columns,
+                weeks=_week_layouts(snapshot, row, end_row, week_pattern),
+            )
+        )
+
+    grouped: list[list[_DayLayout]] = []
+    current: list[_DayLayout] = []
+    previous: _DayLayout | None = None
+    for day in provisional:
+        schema = tuple(day.columns[key] for key in ("style", "exercise", "sets", "reps", "rest"))
+        previous_schema = (
+            tuple(previous.columns[key] for key in ("style", "exercise", "sets", "reps", "rest"))
+            if previous is not None
+            else None
+        )
+        if current and previous is not None and (
+            day.number <= previous.number or schema != previous_schema
+        ):
+            grouped.append(current)
+            current = []
+        current.append(day)
+        previous = day
+    if current:
+        grouped.append(current)
+
+    layouts: list[_BlockLayout] = []
+    for block_index, days in enumerate(grouped, start=1):
+        common: dict[str, str] = {
+            normalize_name(week.label): week.label
+            for week in days[0].weeks
+            if week.safe
+        }
+        for day in days[1:]:
+            safe = {normalize_name(week.label) for week in day.weeks if week.safe}
+            common = {key: label for key, label in common.items() if key in safe}
+        first_week_order = [
+            normalize_name(week.label) for week in days[0].weeks if week.safe
+        ]
+        labels = tuple(common[key] for key in first_week_order if key in common)
+        end_row = days[-1].end_row
+        option = ProgramBlockOption(
+            identifier=f"block-{block_index}",
+            sheet=sheet.name,
+            start_row=days[0].header_row,
+            end_row=end_row,
+            day_labels=tuple(day.label for day in days),
+            week_labels=labels,
+        )
+        layouts.append(_BlockLayout(option=option, days=tuple(days)))
+    return tuple(layouts)
+
+
+def discover_program_blocks(
+    path: str | Path, config: BridgeConfig
+) -> tuple[ProgramBlockOption, ...]:
+    package = XlsxPackage(path)
+    return tuple(
+        layout.option
+        for sheet in package.sheets
+        for layout in _discover_sheet_layouts(package, sheet, config)
+    )
+
+
+def _parse_integer(raw: str | None) -> int | None:
+    if raw is None or not re.fullmatch(r"\d+", raw):
+        return None
+    value = int(raw)
+    return value if value > 0 else None
+
+
+def _parse_reps(raw: str | None) -> tuple[int, int] | None:
+    if raw is None:
+        return None
+    match = re.fullmatch(r"(\d+)(?:\s*[-–]\s*(\d+))?(?:\s*reps?)?", raw, re.IGNORECASE)
+    if not match:
+        return None
+    minimum = int(match.group(1))
+    maximum = int(match.group(2) or match.group(1))
+    if minimum < 1 or maximum < minimum:
+        return None
+    return minimum, maximum
+
+
+def _parse_rest(raw: str | None) -> int | None:
+    if raw is None:
+        return None
+    match = re.fullmatch(
+        r"(\d+)\s*(s|sec|secs|second|seconds|min|mins|minute|minutes)(?:\s*rest)?",
+        raw,
+        re.IGNORECASE,
+    )
+    if not match:
+        return None
+    amount = int(match.group(1))
+    if amount < 1:
+        return None
+    return amount * 60 if match.group(2).casefold().startswith("m") else amount
+
+
+def _parse_rir(raw: str) -> int | None:
+    for pattern in (r"(\d+)\s*rir", r"rir\s*(\d+)"):
+        match = re.fullmatch(pattern, raw, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _parse_week(raw: str | None) -> _ParsedWeek | None:
+    if raw is None:
+        return _ParsedWeek()
+    parts = [part.strip() for part in re.split(r"\s*(?:,|;|@)\s*", raw) if part.strip()]
+    if not parts:
+        return _ParsedWeek()
+    values: dict[str, int] = {}
+    first = parts.pop(0)
+    combined = re.fullmatch(
+        r"(?:(\d+)\s*[x×]\s*)?(\d+)(?:\s*[-–]\s*(\d+))?(?:\s*reps?)?",
+        first,
+        re.IGNORECASE,
+    )
+    if combined:
+        if combined.group(1):
+            values["set_count"] = int(combined.group(1))
+        values["rep_min"] = int(combined.group(2))
+        values["rep_max"] = int(combined.group(3) or combined.group(2))
+    else:
+        sets = re.fullmatch(r"(\d+)\s*sets?", first, re.IGNORECASE)
+        rir = _parse_rir(first)
+        rest = _parse_rest(first)
+        if sets:
+            values["set_count"] = int(sets.group(1))
+        elif rir is not None:
+            values["rir"] = rir
+        elif rest is not None:
+            values["rest_seconds"] = rest
+        else:
+            return None
+    for part in parts:
+        rir = _parse_rir(part)
+        rest = _parse_rest(part)
+        if rir is not None and "rir" not in values:
+            values["rir"] = rir
+        elif rest is not None and "rest_seconds" not in values:
+            values["rest_seconds"] = rest
+        else:
+            return None
+    if values.get("set_count", 1) < 1:
+        return None
+    if values.get("rep_min", 1) < 1 or values.get("rep_max", 1) < values.get("rep_min", 1):
+        return None
+    return _ParsedWeek(**values)
+
+
+def _matching_rules(
+    coach_name: str, context: tuple[str, ...], config: BridgeConfig
+) -> list[ExerciseRule]:
+    name = normalize_name(coach_name)
+    context_keys = {normalize_name(value) for value in context if value}
+    matches: list[ExerciseRule] = []
+    for rule in config.rules:
+        if name not in {normalize_name(alias) for alias in rule.coach_aliases}:
+            continue
+        if rule.coach_context_aliases and not context_keys.intersection(
+            normalize_name(alias) for alias in rule.coach_context_aliases
+        ):
+            continue
+        matches.append(rule)
+    return matches
+
+
+def _valid_superset_rules(rules: list[ExerciseRule]) -> bool:
+    groups = {rule.superset_group for rule in rules}
+    orders = [rule.superset_order for rule in rules]
+    return (
+        len(rules) > 1
+        and len(groups) == 1
+        and None not in groups
+        and all(order > 0 for order in orders)
+        and len(set(orders)) == len(orders)
+    )
+
+
+def _classification(day_label: str, style: str | None, exercise: str) -> tuple[bool, bool, bool]:
+    text = normalize_name(" ".join(value for value in (day_label, style, exercise) if value))
+    optional = "optional" in text
+    warmup = "warm up" in text or "warmup" in text or "warm-up" in text
+    cardio = any(token in text for token in ("cardio", "conditioning", "zone 2", "interval"))
+    return optional, warmup, cardio
+
+
+def _field(
+    value: int | str | None,
+    source: str,
+    cell: str | None,
+    raw_text: str | None,
+) -> PrescriptionField:
+    return PrescriptionField(value=value, source=source, source_cell=cell, raw_text=raw_text)
+
+
+def _resolve_field(
+    *,
+    name: str,
+    base_value: int | str | None,
+    base_cell: str | None,
+    base_raw: str | None,
+    week_value: int | str | None,
+    week_cell: str,
+    week_raw: str | None,
+    default_value: int | str | None,
+    sheet: str,
+    day: str,
+    exercise: str,
+    cycle: str,
+    issues: list[ProgramIssue],
+    suppress_blockers: bool,
+) -> PrescriptionField:
+    if base_value is not None and week_value is not None and base_value != week_value:
+        if not suppress_blockers:
+            issues.append(
+                ProgramIssue(
+                    severity="blocking",
+                    code="conflicting_base_and_week",
+                    message=f"Base and selected-week {name} values conflict",
+                    sheet=sheet,
+                    cell=week_cell,
+                    day=day,
+                    exercise=exercise,
+                    cycle=cycle,
+                    raw_text=week_raw,
+                )
+            )
+        return _field(None, "conflict", week_cell, week_raw)
+    if week_value is not None:
+        return _field(week_value, "coach_week", week_cell, week_raw)
+    if base_value is not None:
+        return _field(base_value, "coach_base", base_cell, base_raw)
+    if default_value is not None:
+        issues.append(
+            ProgramIssue(
+                severity="warning",
+                code="config_default_proposed",
+                message=f"Configuration proposes a default {name} value",
+                sheet=sheet,
+                cell=week_cell,
+                day=day,
+                exercise=exercise,
+                cycle=cycle,
+            )
+        )
+        return _field(default_value, "config_default", None, None)
+    if not suppress_blockers:
+        issues.append(
+            ProgramIssue(
+                severity="blocking",
+                code="missing_prescription_field",
+                message=f"No supported {name} value was provided",
+                sheet=sheet,
+                cell=week_cell,
+                day=day,
+                exercise=exercise,
+                cycle=cycle,
+            )
+        )
+    return _field(None, "missing", None, None)
+
+
+def _base_value_issue(
+    *,
+    field_name: str,
+    raw_text: str | None,
+    cell: str,
+    sheet: str,
+    day: str,
+    exercise: str,
+    issues: list[ProgramIssue],
+    suppress_blockers: bool,
+) -> None:
+    if raw_text is None or suppress_blockers:
+        return
+    issues.append(
+        ProgramIssue(
+            severity="blocking",
+            code="unsupported_base_value",
+            message=f"Base {field_name} is not a supported exact value",
+            sheet=sheet,
+            cell=cell,
+            day=day,
+            exercise=exercise,
+            raw_text=raw_text,
+        )
+    )
+
+
+def _prescriptions(
+    *,
+    snapshot,
+    sheet: str,
+    day: _DayLayout,
+    row: int,
+    exercise: str,
+    base_raw: dict[str, str],
+    weeks: tuple[str, ...],
+    config: BridgeConfig,
+    issues: list[ProgramIssue],
+    suppress_blockers: bool,
+) -> tuple[CyclePrescription, ...]:
+    cells = {
+        key: make_cell_reference(row, day.columns[key])
+        for key in ("style", "sets", "reps", "rest")
+    }
+    set_count = _parse_integer(base_raw.get("sets"))
+    rep_range = _parse_reps(base_raw.get("reps"))
+    rest_seconds = _parse_rest(base_raw.get("rest"))
+    set_type = SET_TYPE_ALIASES.get(normalize_name(base_raw.get("style", "")))
+    if set_count is None:
+        _base_value_issue(
+            field_name="set count", raw_text=base_raw.get("sets"), cell=cells["sets"],
+            sheet=sheet, day=day.label, exercise=exercise, issues=issues,
+            suppress_blockers=suppress_blockers,
+        )
+    if rep_range is None:
+        _base_value_issue(
+            field_name="rep target", raw_text=base_raw.get("reps"), cell=cells["reps"],
+            sheet=sheet, day=day.label, exercise=exercise, issues=issues,
+            suppress_blockers=suppress_blockers,
+        )
+    if rest_seconds is None:
+        _base_value_issue(
+            field_name="rest", raw_text=base_raw.get("rest"), cell=cells["rest"],
+            sheet=sheet, day=day.label, exercise=exercise, issues=issues,
+            suppress_blockers=suppress_blockers,
+        )
+    if set_type is None:
+        _base_value_issue(
+            field_name="set type", raw_text=base_raw.get("style"), cell=cells["style"],
+            sheet=sheet, day=day.label, exercise=exercise, issues=issues,
+            suppress_blockers=suppress_blockers,
+        )
+
+    prescriptions: list[CyclePrescription] = []
+    for week_label in weeks:
+        week = next(
+            candidate
+            for candidate in day.weeks
+            if normalize_name(candidate.label) == normalize_name(week_label)
+        )
+        week_cell = make_cell_reference(row, week.plan_column)
+        raw_week = _raw(snapshot.cells.get(week_cell))
+        parsed_week = _parse_week(raw_week)
+        raw_unparsed = raw_week if raw_week is not None and parsed_week is None else None
+        if raw_unparsed is not None and not suppress_blockers:
+            issues.append(
+                ProgramIssue(
+                    severity="blocking",
+                    code="unsupported_week_instruction",
+                    message="Selected-week text is not a fully supported prescription",
+                    sheet=sheet,
+                    cell=week_cell,
+                    day=day.label,
+                    exercise=exercise,
+                    cycle=week_label,
+                    raw_text=raw_week,
+                )
+            )
+        parsed_week = parsed_week or _ParsedWeek()
+        minimum, maximum = rep_range or (None, None)
+        resolved_set_type = _resolve_field(
+            name="set type", base_value=set_type, base_cell=cells["style"],
+            base_raw=base_raw.get("style"), week_value=None, week_cell=week_cell,
+            week_raw=raw_week, default_value=None, sheet=sheet, day=day.label,
+            exercise=exercise, cycle=week_label, issues=issues,
+            suppress_blockers=suppress_blockers,
+        )
+        prescription = CyclePrescription(
+            cycle=week_label,
+            set_count=_resolve_field(
+                name="set count", base_value=set_count, base_cell=cells["sets"],
+                base_raw=base_raw.get("sets"), week_value=parsed_week.set_count,
+                week_cell=week_cell, week_raw=raw_week, default_value=None,
+                sheet=sheet, day=day.label, exercise=exercise, cycle=week_label,
+                issues=issues, suppress_blockers=suppress_blockers,
+            ),
+            set_type=resolved_set_type,
+            rep_min=_resolve_field(
+                name="minimum reps", base_value=minimum, base_cell=cells["reps"],
+                base_raw=base_raw.get("reps"), week_value=parsed_week.rep_min,
+                week_cell=week_cell, week_raw=raw_week,
+                default_value=config.program.defaults.rep_min, sheet=sheet,
+                day=day.label, exercise=exercise, cycle=week_label, issues=issues,
+                suppress_blockers=suppress_blockers,
+            ),
+            rep_max=_resolve_field(
+                name="maximum reps", base_value=maximum, base_cell=cells["reps"],
+                base_raw=base_raw.get("reps"), week_value=parsed_week.rep_max,
+                week_cell=week_cell, week_raw=raw_week,
+                default_value=config.program.defaults.rep_max, sheet=sheet,
+                day=day.label, exercise=exercise, cycle=week_label, issues=issues,
+                suppress_blockers=suppress_blockers,
+            ),
+            rir=_resolve_field(
+                name="RIR", base_value=None, base_cell=None, base_raw=None,
+                week_value=parsed_week.rir, week_cell=week_cell,
+                week_raw=raw_week, default_value=config.program.defaults.rir,
+                sheet=sheet, day=day.label, exercise=exercise, cycle=week_label,
+                issues=issues, suppress_blockers=suppress_blockers,
+            ),
+            rest_seconds=_resolve_field(
+                name="rest", base_value=rest_seconds, base_cell=cells["rest"],
+                base_raw=base_raw.get("rest"), week_value=parsed_week.rest_seconds,
+                week_cell=week_cell, week_raw=raw_week,
+                default_value=config.program.defaults.rest_seconds, sheet=sheet,
+                day=day.label, exercise=exercise, cycle=week_label, issues=issues,
+                suppress_blockers=suppress_blockers,
+            ),
+            notes=(raw_unparsed,) if raw_unparsed else (),
+            raw_week_text=raw_week,
+            raw_unparsed_text=raw_unparsed,
+        )
+        prescriptions.append(prescription)
+    return tuple(prescriptions)
+
+
+def parse_coach_program(
+    path: str | Path,
+    config: BridgeConfig,
+    sheet_name: str,
+    block_identifier: str,
+    included_weeks: tuple[str, ...],
+) -> ProgramParseResult:
+    if not included_weeks:
+        raise WorkbookError("Select at least one included week")
+    package = XlsxPackage(path)
+    sheet = package.sheet_by_name(sheet_name)
+    matches = [
+        layout
+        for layout in _discover_sheet_layouts(package, sheet, config)
+        if layout.option.identifier == block_identifier
+    ]
+    if len(matches) != 1:
+        raise WorkbookError(
+            f"Program block {block_identifier!r} was not found uniquely in {sheet_name!r}"
+        )
+    layout = matches[0]
+    available = {normalize_name(label): label for label in layout.option.week_labels}
+    normalized_weeks = [normalize_name(label) for label in included_weeks]
+    if len(set(normalized_weeks)) != len(normalized_weeks):
+        raise WorkbookError("Included weeks must be unique")
+    missing = [label for label in included_weeks if normalize_name(label) not in available]
+    if missing:
+        raise WorkbookError(
+            f"Program block does not safely expose selected week(s): {', '.join(missing)}"
+        )
+    selected_weeks = tuple(available[normalize_name(label)] for label in included_weeks)
+    snapshot = package.sheet_snapshot(sheet)
+    issues: list[ProgramIssue] = []
+    skipped: list[dict[str, object]] = []
+    workout_days: list[WorkoutDay] = []
+    exercise_order = 0
+
+    for day_order, day in enumerate(layout.days, start=1):
+        day_exercises: list[OrderedExercise] = []
+        for row in range(day.header_row + 1, day.end_row + 1):
+            exercise_cell = make_cell_reference(row, day.columns["exercise"])
+            coach_name = _raw(snapshot.cells.get(exercise_cell))
+            if coach_name is None:
+                continue
+            raw_base = {
+                key: value
+                for key in ("style", "sets", "reps", "rest")
+                if (
+                    value := _raw(
+                        snapshot.cells.get(make_cell_reference(row, day.columns[key]))
+                    )
+                )
+                is not None
+            }
+            raw_base["variation"] = coach_name
+            context = tuple(raw_base.values())
+            rules = _matching_rules(coach_name, context, config)
+            mapping_status = "exact"
+            if not rules:
+                mapping_status = "unmatched"
+                issues.append(
+                    ProgramIssue(
+                        severity="blocking",
+                        code="unmatched_exercise",
+                        message="No exact configured coach alias maps this exercise",
+                        sheet=sheet_name,
+                        cell=exercise_cell,
+                        day=day.label,
+                        exercise=coach_name,
+                    )
+                )
+                rules_for_output: list[ExerciseRule | None] = [None]
+            elif len(rules) > 1 and _valid_superset_rules(rules):
+                mapping_status = "exact_superset"
+                rules_for_output = sorted(rules, key=lambda rule: rule.superset_order)
+            elif len(rules) > 1:
+                mapping_status = "ambiguous"
+                issues.append(
+                    ProgramIssue(
+                        severity="blocking",
+                        code="ambiguous_exercise_mapping",
+                        message="Exact coach alias maps to multiple exercises without one ordered superset",
+                        sheet=sheet_name,
+                        cell=exercise_cell,
+                        day=day.label,
+                        exercise=coach_name,
+                    )
+                )
+                rules_for_output = [None]
+            else:
+                rules_for_output = [rules[0]]
+
+            style = raw_base.get("style")
+            optional, warmup, cardio = _classification(day.label, style, coach_name)
+            for rule in rules_for_output:
+                exercise_order += 1
+                excluded = bool(rule and rule.program_excluded)
+                if excluded:
+                    mapping_status_for_rule = "excluded"
+                    skipped.append(
+                        {
+                            "day": day.label,
+                            "exercise": coach_name,
+                            "canonical": rule.canonical,
+                            "reason": rule.program_exclusion_reason,
+                        }
+                    )
+                else:
+                    mapping_status_for_rule = mapping_status
+                if optional:
+                    issues.append(
+                        ProgramIssue(
+                            severity="warning",
+                            code="optional_item",
+                            message="Optional day or exercise requires review",
+                            sheet=sheet_name,
+                            cell=exercise_cell,
+                            day=day.label,
+                            exercise=coach_name,
+                        )
+                    )
+                if (warmup or cardio) and not excluded:
+                    issues.append(
+                        ProgramIssue(
+                            severity="blocking",
+                            code="unsupported_exercise_category",
+                            message=(
+                                "Warmup conversion requires explicit review"
+                                if warmup
+                                else "Cardio or conditioning conversion is unsupported"
+                            ),
+                            sheet=sheet_name,
+                            cell=exercise_cell,
+                            day=day.label,
+                            exercise=coach_name,
+                        )
+                    )
+                if rule and rule.macrofactor_custom:
+                    issues.append(
+                        ProgramIssue(
+                            severity="warning",
+                            code="custom_macrofactor_exercise",
+                            message="Confirm this custom exercise already exists in MacroFactor",
+                            sheet=sheet_name,
+                            cell=exercise_cell,
+                            day=day.label,
+                            exercise=coach_name,
+                        )
+                    )
+                if rule and not rule.macrofactor_available and not excluded:
+                    issues.append(
+                        ProgramIssue(
+                            severity="blocking",
+                            code="unavailable_macrofactor_exercise",
+                            message="Configured MacroFactor exercise is marked unavailable",
+                            sheet=sheet_name,
+                            cell=exercise_cell,
+                            day=day.label,
+                            exercise=coach_name,
+                        )
+                    )
+                prescriptions = _prescriptions(
+                    snapshot=snapshot,
+                    sheet=sheet_name,
+                    day=day,
+                    row=row,
+                    exercise=coach_name,
+                    base_raw=raw_base,
+                    weeks=selected_weeks,
+                    config=config,
+                    issues=issues,
+                    suppress_blockers=excluded,
+                )
+                superset = (
+                    SupersetMembership(rule.superset_group, rule.superset_order)
+                    if rule and rule.superset_group
+                    else None
+                )
+                day_exercises.append(
+                    OrderedExercise(
+                        order=exercise_order,
+                        source_row=row,
+                        source_cell=exercise_cell,
+                        coach_name=coach_name,
+                        macrofactor_name=rule.canonical if rule else None,
+                        mapping_status=mapping_status_for_rule,
+                        raw_base_fields=raw_base,
+                        prescriptions=prescriptions,
+                        superset=superset,
+                        excluded=excluded,
+                        exclusion_reason=(rule.program_exclusion_reason if rule else None),
+                        custom_exercise=bool(rule and rule.macrofactor_custom),
+                        macrofactor_available=bool(rule is None or rule.macrofactor_available),
+                        optional=optional,
+                        warmup=warmup,
+                        cardio=cardio,
+                    )
+                )
+        workout_days.append(
+            WorkoutDay(
+                label=day.label,
+                order=day_order,
+                optional=day.optional,
+                exercises=tuple(day_exercises),
+            )
+        )
+
+    program = Program(
+        name=f"{sheet_name} {block_identifier}",
+        cycle_name="Selected coach weeks",
+        cycles=tuple(
+            ProgramCycle(label=label, order=index)
+            for index, label in enumerate(selected_weeks, start=1)
+        ),
+        days=tuple(workout_days),
+    )
+    return ProgramParseResult(
+        program=program,
+        issues=tuple(issues),
+        skipped_items=tuple(skipped),
+    )

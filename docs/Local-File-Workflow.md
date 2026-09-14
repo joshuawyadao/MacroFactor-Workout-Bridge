@@ -12,6 +12,8 @@ local-data/
 ├── archive/
 │   ├── coach/              # Validated, consistently named workbook copies
 │   └── macrofactor/        # Validated, date-range-named exercise-log copies
+├── reference/
+│   └── macrofactor-program/ # Optional direct Export Program reference; manually managed
 ├── current/                # Stable shortcuts to the inputs the app should use
 ├── generated/
 │   ├── workbooks/          # Save completed coach workbook copies here
@@ -90,11 +92,20 @@ Each manifest records:
 
 This is local version history, not a backup service. Back up `local-data/` separately if protection against disk loss is important.
 
+## Part 2 program preview and template gate
+
+Coach-to-MacroFactor work starts with the read-only `program-inspect` and `program-preview` CLI commands documented in the README. Keep preview JSON under `local-data/generated/reports/`; it may contain private paths, coach text, exercise names, and mappings and must never be committed or attached to a public issue.
+
+The `reference/macrofactor-program/` directory is optional and is not created, archived, selected, or validated by `macrofactor-workspace`. It is only a private place to hold a future `.xlsx` created specifically with MacroFactor **Program Settings → Export Program**. A granular Data Export workbook, Program Log, or `Active Program` sheet inside an exercise-log export is not a substitute. Keep the real reference read-only. Once supplied, commit only a minimal anonymized structural fixture derived from the fields necessary for generator tests.
+
+Until that direct export is available, Part 2 reports a missing template hash, keeps `generation_safe` false, and does not expose a generator command. After a verified schema is implemented, generated files must use a new non-existing path under `local-data/generated/workbooks/`, preserve both private inputs byte-for-byte, and remain a manual MacroFactor import. A structurally valid file is not proof of compatibility; record success only after the generated workbook imports manually.
+
 ## Privacy and safety
 
 - The whole `local-data/` tree is ignored by Git.
 - Custom roots also receive workspace-local ignore rules for every managed data directory. Ignore rules do not remove files already tracked or prevent force-adding files; audit existing Git history separately if private data was previously committed.
 - Personal exports, manifests, generated workbooks, and reports must not be force-added to Git.
+- Direct MacroFactor program-export references and any derived private schema notes also remain local and must not be force-added to Git.
 - Only MacroFactor exercise-log exports belong in the MacroFactor inbox. Program exports do not contain the required exercise-log table and will fail validation.
 - Keep using Preview before creating output. Archival validation does not authorize or perform workbook writes.
 - Treat every yellow `Skip` value as a review prompt. MacroFactor exercise-log exports do not distinguish a skipped day from an unlogged or out-of-range workout.

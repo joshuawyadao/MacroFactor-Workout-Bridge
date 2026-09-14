@@ -5,6 +5,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from .program_models import ProgramConfig
+
 
 @dataclass(frozen=True)
 class ExerciseRule:
@@ -16,6 +18,10 @@ class ExerciseRule:
     weight_suffix: str = ""
     superset_group: str | None = None
     superset_order: int = 0
+    program_excluded: bool = False
+    program_exclusion_reason: str | None = None
+    macrofactor_custom: bool = False
+    macrofactor_available: bool = True
 
 
 @dataclass(frozen=True)
@@ -30,6 +36,7 @@ class BridgeConfig:
     week_header_pattern: str
     rules: tuple[ExerciseRule, ...]
     empty_day_marker: EmptyDayMarker | None = None
+    program: ProgramConfig = field(default_factory=ProgramConfig)
 
 
 @dataclass(frozen=True)

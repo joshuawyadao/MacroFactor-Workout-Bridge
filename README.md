@@ -5,13 +5,13 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://www.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-MacroFactor Workout Bridge is a conservative local macOS application that copies completed workout results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook. It includes a double-clickable graphical app and an optional command-line interface.
+MacroFactor Workout Bridge is a conservative local tool for reviewing and transferring workout data between MacroFactor exports and a coach's Excel workbook. Part 1 copies completed workout results into a selected coach week through the double-clickable macOS app or CLI. Part 2 currently provides a CLI-only, read-only preview of selected coach program blocks.
 
-The supported direction is intentionally narrow:
+The supported write direction remains intentionally narrow:
 
 **MacroFactor exercise log → coach `.xlsx` workbook**
 
-It does not create or import MacroFactor programs.
+Part 2 does not yet create or import MacroFactor programs. No verified workbook produced by MacroFactor's **Program Settings → Export Program** workflow was available during implementation, so the project refuses to invent that schema and reports generation as unsafe.
 
 > **Project status:** Source-first personal utility. It processes files locally, has no hosted backend, and does not distribute a signed or notarized binary.
 
@@ -151,6 +151,50 @@ Run `macrofactor-bridge`, or use the source tree without installation:
 ```sh
 PYTHONPATH=src python3 -m macrofactor_bridge --help
 ```
+
+### Preview a coach program for Part 2
+
+Part 2 is a separate, read-only CLI path. It discovers repeated day sections and structurally separates each selected week's planned column from its adjacent completed-result column. It never reads completed results as prescriptions and does not write an `.xlsx` file.
+
+List selectable worksheets, program blocks, days, and safely separated weeks:
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-inspect \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config config/exercises.local.json
+```
+
+Preview one or more included weeks and optionally save a private JSON report:
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config config/exercises.local.json \
+  --sheet "Selected worksheet" \
+  --block block-1 \
+  --week "Week 1" \
+  --week "Week 2" \
+  --report local-data/generated/reports/program-preview.json
+```
+
+The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, the coach source hash, the unavailable template hash, and `generation_safe: false`.
+
+Parsing is deliberately allow-listed. Base sets must be positive integers, reps must be a single value or range, and rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. Text such as `Read week`, `your choice`, RPE or AMRAP instructions, prescribed weights, substitutions, and progression prose remains raw and blocking for human review.
+
+The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`.
+
+Part 2 reuses each exercise rule's exact `coach_aliases` and `canonical` MacroFactor name. These optional fields add review behavior without changing Part 1:
+
+```json
+{
+  "program_excluded": true,
+  "program_exclusion_reason": "Handled outside the strength program import",
+  "macrofactor_custom": false,
+  "macrofactor_available": true
+}
+```
+
+`superset_group` and positive, unique `superset_order` values also define explicit Part 2 membership. A shared coach alias expands only when every exact match forms one complete ordered superset; otherwise preview blocks instead of guessing.
 
 ### Configure exercise mappings
 
@@ -311,7 +355,7 @@ QT_QPA_PLATFORM=offscreen \
 
 GitHub-hosted CI runs the complete Python and offscreen desktop test suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the same suite on `main`. Use the Actions tab's manual **CI Verify** dispatch when a hosted rerun is needed.
 
-The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
+The suite uses small anonymized workbooks and verifies Part 1 parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. It also generates synthetic Part 2 fixtures to verify dynamic program discovery, planned/result separation, conservative prescription parsing, raw-text retention, mappings, defaults, exclusions, custom exercises, and supersets. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
 
 ## Known limitations
 
@@ -323,7 +367,8 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.
-- Fuzzy exercise matching and reverse coach-program import are intentionally outside the current scope.
+- Fuzzy exercise matching remains outside the project scope. Part 2 can preview a coach program, but generation is blocked until a direct MacroFactor Export Program template is structurally understood; compatibility cannot be claimed until a generated file is manually imported successfully.
+- The desktop app remains Part 1-only until the Part 2 parser, generator, and manual import validation are complete.
 
 ## Contributing
 

@@ -7,8 +7,10 @@ from datetime import date
 from pathlib import Path
 
 from .config import ConfigError, load_config
+from .coach_program import discover_program_blocks
 from .importers import ImportError
 from .ooxml import WorkbookError
+from .program_service import build_program_preview
 from .service import apply_changes, build_preview
 from .workbook import discover_workbook
 
@@ -83,10 +85,108 @@ def _print_report(report, mode: str) -> None:
         )
 
 
+def _resolve_program_selection(args, config):
+    blocks = discover_program_blocks(args.workbook, config)
+    usable = [block for block in blocks if block.week_labels]
+    sheet_name = args.sheet or _select(
+        "Worksheet", list(dict.fromkeys(block.sheet for block in usable))
+    )
+    sheet_blocks = [block for block in usable if block.sheet == sheet_name]
+    block_id = args.block or _select(
+        "Program block",
+        [
+            f"{block.identifier} ({len(block.day_labels)} days)"
+            for block in sheet_blocks
+        ],
+    ).split(" ", 1)[0]
+    matches = [block for block in sheet_blocks if block.identifier == block_id]
+    if len(matches) != 1:
+        raise WorkbookError(
+            f"Program block is not available on worksheet {sheet_name!r}: {block_id!r}"
+        )
+    weeks = tuple(args.week or ())
+    if not weeks:
+        weeks = (_select("Week", list(matches[0].week_labels)),)
+    return sheet_name, block_id, weeks
+
+
+def _print_program_report(report) -> None:
+    print(
+        f"Program preview: {report.sheet} | {report.block} | "
+        f"{', '.join(report.included_weeks)}"
+    )
+    if report.program is not None:
+        print(
+            f"Discovered: {len(report.program.days)} day(s), "
+            f"{sum(len(day.exercises) for day in report.program.days)} exercise mapping(s)"
+        )
+        for day in report.program.days:
+            print(f"  {day.label}")
+            for exercise in day.exercises:
+                mapped = exercise.macrofactor_name or "unmapped"
+                flags = [exercise.mapping_status]
+                if exercise.custom_exercise:
+                    flags.append("custom")
+                if exercise.excluded:
+                    flags.append("excluded")
+                print(f"    {exercise.coach_name} -> {mapped} ({', '.join(flags)})")
+                for prescription in exercise.prescriptions:
+                    rep_value = (
+                        "missing"
+                        if prescription.rep_min.value is None
+                        else (
+                            str(prescription.rep_min.value)
+                            if prescription.rep_min.value == prescription.rep_max.value
+                            else f"{prescription.rep_min.value}-{prescription.rep_max.value}"
+                        )
+                    )
+                    rest_value = (
+                        "missing"
+                        if prescription.rest_seconds.value is None
+                        else f"{prescription.rest_seconds.value}s"
+                    )
+                    fields = (
+                        f"sets={prescription.set_count.value or 'missing'} "
+                        f"[{prescription.set_count.source}], "
+                        f"type={prescription.set_type.value or 'missing'} "
+                        f"[{prescription.set_type.source}], "
+                        f"reps={rep_value} [{prescription.rep_min.source}], "
+                        f"RIR={prescription.rir.value if prescription.rir.value is not None else 'missing'} "
+                        f"[{prescription.rir.source}], "
+                        f"rest={rest_value} [{prescription.rest_seconds.source}]"
+                    )
+                    print(f"      {prescription.cycle}: {fields}")
+                    if prescription.raw_unparsed_text:
+                        print(f"        review raw text: {prescription.raw_unparsed_text}")
+    blockers = report.blocking_issues
+    warnings = [issue for issue in report.issues if issue.severity == "warning"]
+    print(
+        f"Review: {len(blockers)} blocking item(s), {len(warnings)} warning(s), "
+        f"{len(report.skipped_items)} skipped item(s)"
+    )
+    for item in report.skipped_items:
+        print(
+            f"  [skipped] {item.get('day')}: {item.get('exercise')} "
+            f"({item.get('reason')})"
+        )
+    for issue in report.issues:
+        location = issue.cell or issue.day or report.sheet
+        print(f"  [{issue.severity}] {issue.code} at {location}: {issue.message}")
+        if issue.raw_text:
+            print(f"    raw text: {issue.raw_text}")
+    print(f"Coach source unchanged: {report.source_hash_before == report.source_hash_after}")
+    print(f"Source hash: {report.source_hash_before}")
+    print(f"Template hash: {report.template_hash or 'not available'}")
+    print(f"Generation safe: {'yes' if report.generation_safe else 'no'}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="macrofactor-bridge",
-        description="Safely preview and copy MacroFactor workout results into a coach workbook.",
+        description=(
+            "Safely transfer MacroFactor results to a coach workbook, or review a "
+            "coach program for a future manual MacroFactor import."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -106,6 +206,28 @@ def build_parser() -> argparse.ArgumentParser:
         command_parser.add_argument("--report", help="Optional JSON report path")
         if command == "apply":
             command_parser.add_argument("--output", required=True)
+
+    program_inspect = subparsers.add_parser(
+        "program-inspect",
+        help="Part 2: list coach program blocks and structurally separated plan weeks",
+    )
+    program_inspect.add_argument("--workbook", required=True)
+    program_inspect.add_argument("--config", required=True)
+
+    program_preview = subparsers.add_parser(
+        "program-preview",
+        help="Part 2: parse and review a coach program without generating a workbook",
+    )
+    program_preview.add_argument("--workbook", required=True)
+    program_preview.add_argument("--config", required=True)
+    program_preview.add_argument("--sheet")
+    program_preview.add_argument("--block")
+    program_preview.add_argument(
+        "--week",
+        action="append",
+        help="Included coach week; repeat to include multiple weeks",
+    )
+    program_preview.add_argument("--report", help="Optional private JSON report path")
     return parser
 
 
@@ -119,6 +241,33 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{sheet.name} [{status}]")
                 for week in sheet.weeks:
                     print(f"  {week.label} ({week.header_cell} -> result column {week.result_column})")
+            return 0
+        if args.command == "program-inspect":
+            blocks = discover_program_blocks(args.workbook, config)
+            if not blocks:
+                raise WorkbookError("No coach program blocks were discovered")
+            for block in blocks:
+                print(
+                    f"{block.sheet} | {block.identifier} | rows "
+                    f"{block.start_row}-{block.end_row}"
+                )
+                print(f"  Days: {', '.join(block.day_labels)}")
+                print(
+                    "  Safely separated plan weeks: "
+                    f"{', '.join(block.week_labels) or 'none'}"
+                )
+            return 0
+        if args.command == "program-preview":
+            sheet_name, block_id, weeks = _resolve_program_selection(args, config)
+            report = build_program_preview(
+                args.workbook,
+                config,
+                sheet_name,
+                block_id,
+                weeks,
+            )
+            _write_report(args.report, report)
+            _print_program_report(report)
             return 0
         sheet_name, week_label = _resolve_selection(args, config)
         report = build_preview(

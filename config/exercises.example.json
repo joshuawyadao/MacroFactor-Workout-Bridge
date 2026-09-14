@@ -7,6 +7,21 @@
       "fill_color": "FFFF00"
     }
   },
+  "program": {
+    "day_label_pattern": "^day\\s*(\\d+(?:\\.\\d+)?)(?:\\s*(?:[-:]?\\s*optional|\\(optional\\)))?$",
+    "week_header_pattern": "^week\\s*\\d+(?:\\s*\\([^)]*\\))?$",
+    "style_header_labels": ["Style"],
+    "exercise_header_labels": ["Variation", "Exercise"],
+    "sets_header_labels": ["Sets"],
+    "reps_header_labels": ["Reps", "Rep Target"],
+    "rest_header_labels": ["Rest"],
+    "defaults": {
+      "rep_min": null,
+      "rep_max": null,
+      "rir": null,
+      "rest_seconds": null
+    }
+  },
   "exercises": [
     {
       "canonical": "Tempo Back Squat",

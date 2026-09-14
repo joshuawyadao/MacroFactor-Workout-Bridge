@@ -1,35 +1,22 @@
 # Plan
 
-Make the CI vulnerability-audit bootstrap reproducible by reviewing and hash-locking the complete `pip-audit` tool closure. Keep application and build dependencies unchanged while aligning CI, contributor documentation, and dependency-integrity tests with the new audit-tool lock.
+Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model before any MacroFactor workbook can be generated. Preserve the 0.3.0 safety contract from PR #10 (`11fd219`) and the dependency-audit hardening now on `origin/main` (`d3b8a23`), while recording that both PRs are merged and the prior implementation-plan status was stale.
 
 ## Scope
-- In: a binary-only SHA-256 audit-tool lock, CI installation and cache configuration, dependency-integrity regression tests, contributor verification documentation, validation, commit, push, and PR preparation.
-- Out: application runtime behavior, app-build or GUI-test dependency upgrades, advisory policy changes, macOS packaging behavior, and merging the pull request.
+- In: Part 1 tracking reconciliation, direct-template discovery gate, prescription domain/config models, dynamic coach block/day/week discovery, conservative planned-prescription parsing, exact exercise mapping, configurable visible defaults, supersets/exclusions/custom warnings, CLI inspection and preview, JSON reporting, anonymized tests, documentation, issues, checkpoints, and a draft pull request.
+- Out: an invented or unverified MacroFactor program schema, program `.xlsx` generation, MacroFactor compatibility claims, desktop Part 2 mode, Google Drive, private-service or phone automation, private workbook artifacts, and merging the feature branch.
 
 ## Action items
-[x] Resolve the complete `pip-audit==2.10.1` closure for CI's Python 3.11 Linux environment and record exact wheel hashes in `requirements/audit.lock`.
-[x] Update `.github/workflows/ci-verify.yml` to cache and install the reviewed audit-tool lock with binary-only and hash verification before scanning the product locks.
-[x] Extend `tests/test_build_dependencies.py` to enforce the audit lock's direct version, complete hashes, and CI installation contract.
-[x] Update `CONTRIBUTING.md` and `README.md` so local verification installs the same reviewed audit tooling used by CI.
-[x] Verify lock installation in an isolated environment, run the dependency audit, focused dependency tests, complete suite, source compilation, and diff checks.
-[x] Review the final diff for unchanged product dependencies and document the rollback boundary as the audit lock plus its CI/docs/test wiring.
-[x] Commit and push `feature/hash-lock-pip-audit`, then run the full PR review cycle without merging.
-
-## Verification
-- The 29-package lock installed from the reviewed Apple-silicon macOS wheel set, and `pip check` reported no broken requirements.
-- A Python 3.11 Linux x86-64 download resolved all 29 locked packages from only the reviewed Linux wheel set with hash verification enabled.
-- `pip-audit` reported no known vulnerabilities across `requirements/audit.lock`, `requirements/app-build.lock`, and `requirements/test.lock`.
-- All 14 focused build-dependency tests and all 75 GUI-enabled repository tests passed.
-- Source compilation and `git diff --check` passed.
-- `pyproject.toml`, `requirements/app-build.lock`, and `requirements/test.lock` are unchanged. Rollback is limited to the new audit lock and its CI, documentation, test, and implementation-plan wiring.
+[ ] Reconcile Part 1 issues #1–#4 against implementation and test evidence, and replace stale PR #10/#11 status with a durable baseline summary.
+[ ] Record the failed direct Export Program discovery gate and create an explicit blocker requesting that workbook before generator implementation.
+[ ] Add a prescription-specific neutral domain model and backward-compatible Part 2 configuration for exact mappings, exclusions, custom-exercise warnings, supersets, and explicit defaults with provenance.
+[ ] Discover selectable program blocks, repeated day sections, base prescription roles, and included week groups dynamically from OOXML without fixed sheet names, rows, or columns.
+[ ] Parse only allow-listed prescription values, keep weekly plans separate from completed-result cells, preserve source text, and report missing, conflicting, optional, warmup, cardio, unsupported, or ambiguous instructions without guessing.
+[ ] Add a Part 2 preview service and CLI mode that reports days, exercises, cycles, exact mappings, raw text, visible defaults, custom/unavailable exercises, skipped/blocking items, hashes, and a false generation-safety state while the template is unverified.
+[ ] Add anonymized tests for shifted layouts, block/day/week selection, planned/result separation, supported parsing, raw retention, conflicts, defaults, exact mapping, exclusions, custom exercises, and ordered supersets while preserving Part 1 assertions.
+[ ] Update README, local workflow guidance, CLI help, and the implementation plan to explain the manual import boundary, private-template workflow, and remaining generator/desktop validation gates.
+[ ] Run targeted tests, `./scripts/test.sh`, source compilation, configuration parity, privacy/diff checks, and review the implementation against every conservative parsing risk.
+[ ] Publish approved vertical-slice issues, save meaningful checkpoints and the final branch, and open a draft pull request without merging or marking Part 2 complete.
 
 ## Open questions
 - None.
-
-## Brooks review follow-up
-- [x] Remove the duplicated `pip-audit` version literal from `tests/test_build_dependencies.py` while retaining the invariant that exactly one exact `pip-audit` requirement is present in the audit lock.
-- [x] Re-run the focused dependency tests and diff checks before saving the review fix.
-
-## Codex review follow-up
-- [x] Pin the documented local audit environment to Python 3.11, matching the interpreter-specific Linux and macOS hashes in `requirements/audit.lock` and CI.
-- [x] Add regression coverage for the documented interpreter command, then re-run focused and complete verification before saving the fix.
