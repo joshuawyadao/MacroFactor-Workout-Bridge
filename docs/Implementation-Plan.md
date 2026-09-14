@@ -13,8 +13,14 @@ Build the first read-only workout-history milestone inside the macOS app, using 
 [x] Add a read-only Workout History tab to the PySide app with source selection, overview metrics, block summaries, exercise trends, explicit confidence/limitations, and controls for saving private block/week annotations.
 [x] Add focused synthetic importer, analytics, annotation-storage, and offscreen GUI tests, including missing RIR, repeated session duration, unknown block dates, mapped block weeks, and vacation/injury annotations.
 [x] Update the README and local-file workflow for the dashboard, annotation privacy, RIR limitations, block-date behavior, and non-predictive recovery boundary; advance the app to version 0.4.0 build 5.
-[x] Run targeted tests, the complete `./scripts/test.sh` suite, source compilation, `git diff --check`, source-GUI smoke testing, real-data read-only verification, and default-size visual inspection. Rebuilding reached the macOS bundling step but could not run Apple's `lipo` tool until the machine owner accepts the installed Xcode license, so signed-app verification remains an environment follow-up rather than an untested code path.
+[x] Run targeted tests, the complete `./scripts/test.sh` suite, source compilation, `git diff --check`, source-GUI smoke testing, real-data read-only verification, and default-size visual inspection. The initial rebuild reached the macOS bundling step but stopped when Apple's `lipo` tool reported an unaccepted Xcode license; the release-validation follow-up below resolved and rechecked that environment dependency.
 [x] Review and save the scoped milestone on `codex/workout-dashboard-mvp` with no private exports, workbooks, reports, annotations, virtual environments, build directories, or generated app artifacts included.
+
+## Release validation follow-up
+[x] Accept the installed Xcode license with administrator authorization and confirm `xcodebuild -license check` succeeds.
+[x] Rebuild `dist/MacroFactor Workout Bridge.app` from the pinned dependency lock using `./scripts/build_macos_app.sh`.
+[x] Verify the packaged app has a valid ad-hoc signature, version `0.4.0` build `5`, an arm64 executable, and a passing embedded-GUI smoke test.
+[x] Save and push the completed release-validation record without staging the ignored build environment or generated app bundle.
 
 ## Open questions
 - None.
