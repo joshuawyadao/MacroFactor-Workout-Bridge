@@ -10,6 +10,7 @@
   "program": {
     "day_label_pattern": "^day\\s*(\\d+(?:\\.\\d+)?)(?:\\s*(?:[-:]?\\s*optional|\\(optional\\)))?$",
     "week_header_pattern": "^week\\s*\\d+(?:\\s*\\([^)]*\\))?$",
+    "week_pair_layout": "plan_then_result",
     "style_header_labels": ["Style"],
     "exercise_header_labels": ["Variation", "Exercise"],
     "sets_header_labels": ["Sets"],

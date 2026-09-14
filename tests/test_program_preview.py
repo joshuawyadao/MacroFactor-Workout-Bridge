@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from macrofactor_bridge.cli import build_parser, main
@@ -51,13 +53,19 @@ class ProgramPreviewTests(unittest.TestCase):
         self.write_config()
         self.config = load_config(self.config_path)
 
-    def write_config(self, *, defaults: dict[str, int | None] | None = None) -> None:
+    def write_config(
+        self,
+        *,
+        defaults: dict[str, int | None] | None = None,
+        week_pair_layout: str | None = "plan_then_result",
+    ) -> None:
         payload = {
             "workbook": {
                 "exercise_header_labels": ["Variation", "Exercise"],
                 "week_header_pattern": "^week\\s*\\d+$",
             },
             "program": {
+                "week_pair_layout": week_pair_layout,
                 "defaults": defaults
                 if defaults is not None
                 else {"rep_min": 8, "rep_max": 12, "rir": 2, "rest_seconds": 90}
@@ -142,6 +150,18 @@ class ProgramPreviewTests(unittest.TestCase):
         self.assertEqual(blocks[0].week_labels, ("Week 1", "Week 2"))
         self.assertEqual(blocks[1].start_row, 20)
 
+        report = build_program_preview(
+            workbook,
+            self.config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+        self.assertEqual(
+            [day.exercises[0].order for day in report.program.days],
+            [1, 1],
+        )
+
     def test_parses_selected_cycles_and_never_reads_adjacent_results(self) -> None:
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")
@@ -172,6 +192,45 @@ class ProgramPreviewTests(unittest.TestCase):
             "direct_program_export_required", {issue.code for issue in report.blocking_issues}
         )
 
+    def test_week_pair_direction_must_be_explicit_and_can_be_reversed(self) -> None:
+        payload = json.loads(self.config_path.read_text(encoding="utf-8"))
+        payload["program"].pop("week_pair_layout")
+        self.config_path.write_text(json.dumps(payload), encoding="utf-8")
+        unconfigured = load_config(self.config_path)
+
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Alpha Move")
+        workbook = self.write_workbook(cells)
+        self.assertEqual(discover_program_blocks(workbook, unconfigured)[0].week_labels, ())
+
+        self.write_config(week_pair_layout="result_then_plan")
+        reversed_config = load_config(self.config_path)
+        cells = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(
+            cells,
+            6,
+            name="Alpha Move",
+            week_one="COMPLETED-RESULT-SENTINEL",
+            week_one_result="3 x 8-10 @ 2 RIR, 120 sec rest",
+        )
+        workbook = self.write_workbook(cells)
+        report = build_program_preview(
+            workbook,
+            reversed_config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+
+        prescription = report.program.days[0].exercises[0].prescriptions[0]
+        self.assertEqual(
+            prescription.raw_week_text,
+            "3 x 8-10 @ 2 RIR, 120 sec rest",
+        )
+        self.assertNotIn("COMPLETED-RESULT-SENTINEL", json.dumps(report.to_dict()))
+
     def test_reports_base_week_conflicts_without_selecting_a_value(self) -> None:
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")
@@ -199,6 +258,28 @@ class ProgramPreviewTests(unittest.TestCase):
             issue for issue in report.issues if issue.code == "conflicting_base_and_week"
         ]
         self.assertEqual(len(conflicts), 4)
+
+    def test_exact_mapping_normalizes_only_case_and_whitespace(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="  alpha   MOVE  ")
+        exercise_row(cells, 7, name="Unknown Movement")
+        workbook = self.write_workbook(cells)
+
+        report = build_program_preview(
+            workbook,
+            self.config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("week 1",),
+        )
+        exact, unmatched = report.program.days[0].exercises
+
+        self.assertEqual(exact.macrofactor_name, "Alpha")
+        self.assertEqual(exact.mapping_status, "exact")
+        self.assertEqual(report.included_weeks, ("Week 1",))
+        self.assertEqual(unmatched.mapping_status, "unmatched")
+        self.assertFalse(unmatched.macrofactor_available)
 
     def test_retains_unsupported_weekly_prose_for_review(self) -> None:
         unsupported = (
@@ -313,6 +394,46 @@ class ProgramPreviewTests(unittest.TestCase):
             )
         )
 
+    def test_incomplete_or_noncontiguous_supersets_block_preview(self) -> None:
+        payload = json.loads(self.config_path.read_text(encoding="utf-8"))
+        payload["exercises"][1]["coach_aliases"] = ["Pair First Only"]
+        payload["exercises"][2]["coach_aliases"] = ["Pair Second Only"]
+        self.config_path.write_text(json.dumps(payload), encoding="utf-8")
+        incomplete_config = load_config(self.config_path)
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Pair First Only", style="Superset")
+        workbook = self.write_workbook(cells)
+
+        report = build_program_preview(
+            workbook,
+            incomplete_config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+        self.assertTrue(any(issue.code == "incomplete_superset" for issue in report.issues))
+
+        payload["exercises"][1]["coach_aliases"] = ["Arm Pair"]
+        payload["exercises"][2]["coach_aliases"] = ["Arm Pair"]
+        payload["exercises"][2]["superset_order"] = 3
+        self.config_path.write_text(json.dumps(payload), encoding="utf-8")
+        noncontiguous_config = load_config(self.config_path)
+        cells = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Arm Pair", style="Superset")
+        workbook = self.write_workbook(cells)
+        report = build_program_preview(
+            workbook,
+            noncontiguous_config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+        self.assertTrue(
+            any(issue.code == "ambiguous_exercise_mapping" for issue in report.issues)
+        )
+
     def test_unexpected_week_merge_width_is_not_treated_as_safe(self) -> None:
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")
@@ -355,15 +476,62 @@ class ProgramPreviewTests(unittest.TestCase):
         self.assertFalse(payload["generation_safe"])
         self.assertFalse(payload["template_schema_verified"])
 
+    def test_cli_refuses_to_overwrite_reports_or_use_a_reserved_path(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Alpha Move")
+        workbook = self.write_workbook(cells)
+        existing_report = self.root / "existing.json"
+        existing_report.write_text("keep me", encoding="utf-8")
+        common_args = [
+            "program-preview",
+            "--workbook",
+            str(workbook),
+            "--config",
+            str(self.config_path),
+            "--sheet",
+            "Shifted Program Sheet",
+            "--block",
+            "block-1",
+            "--week",
+            "Week 1",
+            "--report",
+        ]
+
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            exit_code = main([*common_args, str(existing_report)])
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(existing_report.read_text(encoding="utf-8"), "keep me")
+
+        source_before = workbook.read_bytes()
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            exit_code = main([*common_args, str(workbook)])
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(workbook.read_bytes(), source_before)
+
+        config_before = self.config_path.read_bytes()
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            exit_code = main([*common_args, str(self.config_path)])
+        self.assertEqual(exit_code, 2)
+        self.assertEqual(self.config_path.read_bytes(), config_before)
+
     def test_program_config_validation_is_backward_compatible_and_strict(self) -> None:
         root = Path(__file__).resolve().parents[1]
         existing = load_config(root / "config" / "exercises.example.json")
         self.assertIsNone(existing.program.defaults.rir)
+        self.assertEqual(existing.program.week_pair_layout, "plan_then_result")
 
         payload = json.loads(self.config_path.read_text(encoding="utf-8"))
         payload["program"]["defaults"] = {"rep_min": 8, "rir": 2}
         self.config_path.write_text(json.dumps(payload), encoding="utf-8")
         with self.assertRaisesRegex(ConfigError, "rep_min and rep_max"):
+            load_config(self.config_path)
+
+        payload = json.loads(self.config_path.read_text(encoding="utf-8"))
+        payload["program"]["defaults"] = {}
+        payload["program"]["week_pair_layout"] = "guess"
+        self.config_path.write_text(json.dumps(payload), encoding="utf-8")
+        with self.assertRaisesRegex(ConfigError, "week_pair_layout"):
             load_config(self.config_path)
 
 

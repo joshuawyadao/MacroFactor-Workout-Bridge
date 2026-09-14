@@ -50,12 +50,30 @@ def _resolve_selection(args, config):
     return sheet_name, week_label
 
 
-def _write_report(path: str | None, report) -> None:
+def _validate_report_path(
+    path: str | None, *, reserved: tuple[str | None, ...]
+) -> Path | None:
     if not path:
-        return
+        return None
     output = Path(path)
+    resolved = output.resolve(strict=False)
+    for reserved_path in reserved:
+        if reserved_path and resolved == Path(reserved_path).resolve(strict=False):
+            raise FileExistsError(f"Report path is reserved input or output: {output}")
+    if output.exists():
+        raise FileExistsError(f"Report path already exists: {output}")
+    return output
+
+
+def _write_report(
+    path: str | None, report, *, reserved: tuple[str | None, ...] = ()
+) -> None:
+    output = _validate_report_path(path, reserved=reserved)
+    if output is None:
+        return
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    with output.open("x", encoding="utf-8") as report_file:
+        report_file.write(json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n")
 
 
 def _print_report(report, mode: str) -> None:
@@ -234,6 +252,20 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        report_reserved: tuple[str | None, ...] = ()
+        if args.command == "program-preview":
+            report_reserved = (args.workbook, args.config)
+        elif args.command in {"preview", "apply"}:
+            report_reserved = (
+                args.export,
+                args.workbook,
+                args.config,
+                getattr(args, "output", None),
+            )
+        _validate_report_path(
+            getattr(args, "report", None),
+            reserved=report_reserved,
+        )
         config = load_config(args.config)
         if args.command == "inspect":
             for sheet in discover_workbook(args.workbook, config):
@@ -266,7 +298,11 @@ def main(argv: list[str] | None = None) -> int:
                 block_id,
                 weeks,
             )
-            _write_report(args.report, report)
+            _write_report(
+                args.report,
+                report,
+                reserved=report_reserved,
+            )
             _print_program_report(report)
             return 0
         sheet_name, week_label = _resolve_selection(args, config)
@@ -281,7 +317,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.command == "apply":
             report = apply_changes(report, config, args.output)
-        _write_report(args.report, report)
+        _write_report(
+            args.report,
+            report,
+            reserved=report_reserved,
+        )
         _print_report(report, args.command.capitalize())
         return 0
     except (ConfigError, ImportError, WorkbookError, ValueError, OSError) as exc:

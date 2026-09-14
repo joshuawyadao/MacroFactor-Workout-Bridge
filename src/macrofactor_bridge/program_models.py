@@ -18,6 +18,7 @@ class ProgramConfig:
         r"^day\s*(\d+(?:\.\d+)?)(?:\s*(?:[-:]?\s*optional|\(optional\)))?$"
     )
     week_header_pattern: str = r"^week\s*\d+(?:\s*\([^)]*\))?$"
+    week_pair_layout: str | None = None
     style_header_labels: tuple[str, ...] = ("Style",)
     exercise_header_labels: tuple[str, ...] = ("Variation", "Exercise")
     sets_header_labels: tuple[str, ...] = ("Sets",)

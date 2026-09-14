@@ -29,7 +29,7 @@ def build_program_preview(
         input_workbook=str(source),
         sheet=sheet_name,
         block=block_identifier,
-        included_weeks=included_weeks,
+        included_weeks=tuple(cycle.label for cycle in parsed.program.cycles),
         program=parsed.program,
         issues=list(parsed.issues),
         skipped_items=list(parsed.skipped_items),

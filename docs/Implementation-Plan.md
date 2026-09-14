@@ -29,11 +29,14 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 - No verified direct MacroFactor Export Program workbook was found. Issue #12 tracks the required private template and anonymized-fixture gate; generator and compatibility work remain blocked.
 
 ## Verification
-- `PYTHONPATH=src python3 -m unittest tests.test_program_preview -v`: 9 passed.
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v`: 85 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.
-- `./scripts/test.sh`: all 85 tests passed, including the offscreen GUI tests.
+- `PYTHONPATH=src python3 -m unittest tests.test_program_preview -v`: 13 passed.
+- `PYTHONPATH=src python3 -m unittest discover -s tests`: 89 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.
+- `./scripts/test.sh`: all 89 tests passed, including the offscreen GUI tests.
+- The final safety review added explicit plan/result direction, exclusive report creation, reserved-path protection, complete contiguous superset validation, exact unmatched availability status, canonical selected-cycle labels, and per-day exercise ordering.
 - `python3 -m compileall -q src tests packaging`, example/package configuration parity, privacy review, and branch diff checks passed.
 
 ## Checkpoints
 - `7c13560`: implemented and documented the gated Part 2 parser, neutral model, exact mapping/default review, CLI preview, and anonymized tests.
+- `4bc8aba`: recorded validation evidence, reconciled tracking, and opened the reviewable draft.
+- Final review checkpoint: tightened result-column isolation, report non-overwrite behavior, superset completeness, mapping status, selected-cycle labels, and exercise ordering.
 - Draft PR #13 contains the reviewable Part 2 checkpoint and remains blocked by issue #12 plus manual import validation.

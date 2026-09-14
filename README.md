@@ -154,7 +154,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge --help
 
 ### Preview a coach program for Part 2
 
-Part 2 is a separate, read-only CLI path. It discovers repeated day sections and structurally separates each selected week's planned column from its adjacent completed-result column. It never reads completed results as prescriptions and does not write an `.xlsx` file.
+Part 2 is a separate, read-only CLI path. It discovers repeated day sections and uses the explicit `program.week_pair_layout` setting (`plan_then_result` or `result_then_plan`) to identify planned and completed-result columns within each structurally proven week pair. Without that setting, no week is considered safe to preview. The parser never reads the configured completed-result column as a prescription and does not write an `.xlsx` file.
 
 List selectable worksheets, program blocks, days, and safely separated weeks:
 
@@ -177,11 +177,13 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
   --report local-data/generated/reports/program-preview.json
 ```
 
+Report paths must be new files and cannot reuse an input or generated workbook path; the CLI refuses to overwrite an existing report.
+
 The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, the coach source hash, the unavailable template hash, and `generation_safe: false`.
 
 Parsing is deliberately allow-listed. Base sets must be positive integers, reps must be a single value or range, and rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. Text such as `Read week`, `your choice`, RPE or AMRAP instructions, prescribed weights, substitutions, and progression prose remains raw and blocking for human review.
 
-The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`.
+The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
 
 Part 2 reuses each exercise rule's exact `coach_aliases` and `canonical` MacroFactor name. These optional fields add review behavior without changing Part 1:
 
@@ -194,7 +196,7 @@ Part 2 reuses each exercise rule's exact `coach_aliases` and `canonical` MacroFa
 }
 ```
 
-`superset_group` and positive, unique `superset_order` values also define explicit Part 2 membership. A shared coach alias expands only when every exact match forms one complete ordered superset; otherwise preview blocks instead of guessing.
+`superset_group` and contiguous `superset_order` values starting at 1 define explicit Part 2 membership. A shared coach alias expands only when every exact match forms one complete ordered superset, and each selected day must contain every configured, non-excluded group member exactly once; otherwise preview blocks instead of guessing.
 
 ### Configure exercise mappings
 

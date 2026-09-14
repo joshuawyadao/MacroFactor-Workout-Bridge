@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -103,6 +104,7 @@ def _week_layouts(
     header_row: int,
     end_row: int,
     pattern: re.Pattern[str],
+    pair_layout: str | None,
 ) -> tuple[_WeekLayout, ...]:
     candidates: list[tuple[int, int, str, str]] = []
     for reference, cell in snapshot.cells.items():
@@ -129,13 +131,20 @@ def _week_layouts(
                 break
         width = last_column - first_column + 1
         if width == 2:
+            plan_column = last_column if pair_layout == "result_then_plan" else first_column
+            completed_column = first_column if pair_layout == "result_then_plan" else last_column
             layouts.append(
                 _WeekLayout(
                     label=label,
                     header_cell=reference,
-                    plan_column=first_column,
-                    completed_columns=(last_column,),
-                    safe=True,
+                    plan_column=plan_column,
+                    completed_columns=(completed_column,),
+                    safe=pair_layout is not None,
+                    reason=(
+                        None
+                        if pair_layout is not None
+                        else "week plan/result direction requires program.week_pair_layout"
+                    ),
                 )
             )
             continue
@@ -164,13 +173,19 @@ def _week_layouts(
             _WeekLayout(
                 label=label,
                 header_cell=reference,
-                plan_column=column,
-                completed_columns=(column + 1,),
-                safe=adjacent_pair,
+                plan_column=column + 1 if pair_layout == "result_then_plan" else column,
+                completed_columns=(
+                    (column,) if pair_layout == "result_then_plan" else (column + 1,)
+                ),
+                safe=adjacent_pair and pair_layout is not None,
                 reason=(
                     None
-                    if adjacent_pair
-                    else "unmerged week header has no structurally proven adjacent result column"
+                    if adjacent_pair and pair_layout is not None
+                    else (
+                        "week plan/result direction requires program.week_pair_layout"
+                        if adjacent_pair
+                        else "unmerged week header has no structurally proven adjacent pair"
+                    )
                 ),
             )
         )
@@ -231,7 +246,13 @@ def _discover_sheet_layouts(package: XlsxPackage, sheet, config: BridgeConfig) -
                 header_row=row,
                 end_row=end_row,
                 columns=columns,
-                weeks=_week_layouts(snapshot, row, end_row, week_pattern),
+                weeks=_week_layouts(
+                    snapshot,
+                    row,
+                    end_row,
+                    week_pattern,
+                    config.program.week_pair_layout,
+                ),
             )
         )
 
@@ -409,7 +430,59 @@ def _valid_superset_rules(rules: list[ExerciseRule]) -> bool:
         and None not in groups
         and all(order > 0 for order in orders)
         and len(set(orders)) == len(orders)
+        and sorted(orders) == list(range(1, len(rules) + 1))
     )
+
+
+def _validate_day_supersets(
+    *,
+    day: _DayLayout,
+    exercises: list[OrderedExercise],
+    config: BridgeConfig,
+    sheet_name: str,
+    issues: list[ProgramIssue],
+) -> None:
+    actual_groups = {
+        exercise.superset.group
+        for exercise in exercises
+        if exercise.superset is not None and not exercise.excluded
+    }
+    for group in sorted(actual_groups):
+        expected_rules = [
+            rule
+            for rule in config.rules
+            if rule.superset_group == group and not rule.program_excluded
+        ]
+        expected_names = Counter(rule.canonical for rule in expected_rules)
+        actual_exercises = [
+            exercise
+            for exercise in exercises
+            if exercise.superset is not None
+            and exercise.superset.group == group
+            and not exercise.excluded
+        ]
+        actual_names = Counter(
+            exercise.macrofactor_name
+            for exercise in actual_exercises
+            if exercise.macrofactor_name is not None
+        )
+        orders = sorted(rule.superset_order for rule in expected_rules)
+        complete_orders = orders == list(range(1, len(expected_rules) + 1))
+        if len(expected_rules) < 2 or not complete_orders or actual_names != expected_names:
+            issues.append(
+                ProgramIssue(
+                    severity="blocking",
+                    code="incomplete_superset",
+                    message=(
+                        f"Superset {group!r} is incomplete, duplicated, or not ordered "
+                        "contiguously from 1"
+                    ),
+                    sheet=sheet_name,
+                    cell=actual_exercises[0].source_cell if actual_exercises else None,
+                    day=day.label,
+                    exercise=group,
+                )
+            )
 
 
 def _classification(day_label: str, style: str | None, exercise: str) -> tuple[bool, bool, bool]:
@@ -687,10 +760,9 @@ def parse_coach_program(
     issues: list[ProgramIssue] = []
     skipped: list[dict[str, object]] = []
     workout_days: list[WorkoutDay] = []
-    exercise_order = 0
-
     for day_order, day in enumerate(layout.days, start=1):
         day_exercises: list[OrderedExercise] = []
+        exercise_order = 0
         for row in range(day.header_row + 1, day.end_row + 1):
             exercise_cell = make_cell_reference(row, day.columns["exercise"])
             coach_name = _raw(snapshot.cells.get(exercise_cell))
@@ -844,12 +916,19 @@ def parse_coach_program(
                         excluded=excluded,
                         exclusion_reason=(rule.program_exclusion_reason if rule else None),
                         custom_exercise=bool(rule and rule.macrofactor_custom),
-                        macrofactor_available=bool(rule is None or rule.macrofactor_available),
+                        macrofactor_available=bool(rule and rule.macrofactor_available),
                         optional=optional,
                         warmup=warmup,
                         cardio=cardio,
                     )
                 )
+        _validate_day_supersets(
+            day=day,
+            exercises=day_exercises,
+            config=config,
+            sheet_name=sheet_name,
+            issues=issues,
+        )
         workout_days.append(
             WorkoutDay(
                 label=day.label,

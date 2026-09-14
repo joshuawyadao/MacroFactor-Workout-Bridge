@@ -53,6 +53,11 @@ def _load_program_config(
         raise ConfigError("program must be an object")
     day_pattern = payload.get("day_label_pattern", ProgramConfig.day_label_pattern)
     program_week_pattern = payload.get("week_header_pattern", week_pattern)
+    week_pair_layout = payload.get("week_pair_layout")
+    if week_pair_layout not in {None, "plan_then_result", "result_then_plan"}:
+        raise ConfigError(
+            "program.week_pair_layout must be plan_then_result, result_then_plan, or null"
+        )
     for value, label in (
         (day_pattern, "program.day_label_pattern"),
         (program_week_pattern, "program.week_header_pattern"),
@@ -89,6 +94,7 @@ def _load_program_config(
     return ProgramConfig(
         day_label_pattern=day_pattern,
         week_header_pattern=program_week_pattern,
+        week_pair_layout=week_pair_layout,
         style_header_labels=_string_list(
             payload,
             "style_header_labels",
