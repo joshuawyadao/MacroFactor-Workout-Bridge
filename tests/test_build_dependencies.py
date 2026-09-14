@@ -119,6 +119,7 @@ class BuildDependencyTests(unittest.TestCase):
 
     def test_dependency_locks_require_binary_artifacts_and_sha256_hashes(self) -> None:
         for relative_path in (
+            "requirements/audit.lock",
             "requirements/app-build.lock",
             "requirements/test.lock",
         ):
@@ -138,22 +139,26 @@ class BuildDependencyTests(unittest.TestCase):
                 self.assertIn("--require-hashes", text)
 
         workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
-        audit_install_lines = [
-            line.strip()
-            for line in workflow.splitlines()
-            if "pip install" in line and "pip-audit==" in line
-        ]
-        self.assertEqual(len(audit_install_lines), 1)
-        self.assertRegex(
-            audit_install_lines[0],
-            r'"pip-audit==\d+\.\d+\.\d+"$',
-            "CI must install one exact dependency-auditor version",
-        )
-        self.assertIn("python -m pip_audit", workflow)
-        self.assertIn("--disable-pip", workflow)
-        self.assertIn("--require-hashes", workflow)
-        self.assertIn("--requirement requirements/app-build.lock", workflow)
-        self.assertIn("--requirement requirements/test.lock", workflow)
+        audit_locked = read_locked_requirements("requirements/audit.lock")
+        self.assertIn("pip-audit==2.10.1", audit_locked)
+        self.assertNotIn('"pip-audit==', workflow)
+        self.assertIn("cache-dependency-path: |\n            requirements/audit.lock", workflow)
+
+        install_start = workflow.index("- name: Install reviewed dependency-audit tooling")
+        audit_start = workflow.index("- name: Audit locked Python dependencies")
+        install_step = workflow[install_start:audit_start]
+        self.assertIn("python -m pip install", install_step)
+        self.assertIn("--only-binary=:all:", install_step)
+        self.assertIn("--require-hashes", install_step)
+        self.assertIn("--requirement requirements/audit.lock", install_step)
+
+        audit_step = workflow[audit_start:]
+        self.assertIn("python -m pip_audit", audit_step)
+        self.assertIn("--disable-pip", audit_step)
+        self.assertIn("--require-hashes", audit_step)
+        self.assertIn("--requirement requirements/audit.lock", audit_step)
+        self.assertIn("--requirement requirements/app-build.lock", audit_step)
+        self.assertIn("--requirement requirements/test.lock", audit_step)
 
     def test_macos_builder_recreates_environment_before_locked_install(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
