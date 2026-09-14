@@ -192,7 +192,37 @@ def _week_layouts(
     return tuple(layouts)
 
 
-def _discover_sheet_layouts(package: XlsxPackage, sheet, config: BridgeConfig) -> tuple[_BlockLayout, ...]:
+def _day_table_end(
+    snapshot,
+    *,
+    header_row: int,
+    provisional_end_row: int,
+    columns: dict[str, int],
+    weeks: tuple[_WeekLayout, ...],
+) -> int:
+    relevant_columns = tuple(columns.values()) + tuple(
+        column
+        for week in weeks
+        for column in (week.plan_column, *week.completed_columns)
+    )
+    exercise_column = columns["exercise"]
+    found_exercise = False
+    for row in range(header_row + 1, provisional_end_row + 1):
+        if _raw(snapshot.cells.get(make_cell_reference(row, exercise_column))) is not None:
+            found_exercise = True
+        if found_exercise and all(
+            _raw(snapshot.cells.get(make_cell_reference(row, column))) is None
+            for column in relevant_columns
+        ):
+            return row - 1
+    return provisional_end_row
+
+
+def _discover_sheet_layouts(
+    package: XlsxPackage,
+    sheet,
+    config: BridgeConfig,
+) -> tuple[_BlockLayout, ...]:
     snapshot = package.sheet_snapshot(sheet)
     by_row: dict[int, dict[int, object]] = {}
     for reference, cell in snapshot.cells.items():
@@ -238,6 +268,20 @@ def _discover_sheet_layouts(package: XlsxPackage, sheet, config: BridgeConfig) -
     provisional: list[_DayLayout] = []
     for index, (row, label, number, optional, columns) in enumerate(candidates):
         end_row = candidates[index + 1][0] - 1 if index + 1 < len(candidates) else max_row
+        weeks = _week_layouts(
+            snapshot,
+            row,
+            end_row,
+            week_pattern,
+            config.program.week_pair_layout,
+        )
+        end_row = _day_table_end(
+            snapshot,
+            header_row=row,
+            provisional_end_row=end_row,
+            columns=columns,
+            weeks=weeks,
+        )
         provisional.append(
             _DayLayout(
                 label=label,
@@ -246,13 +290,7 @@ def _discover_sheet_layouts(package: XlsxPackage, sheet, config: BridgeConfig) -
                 header_row=row,
                 end_row=end_row,
                 columns=columns,
-                weeks=_week_layouts(
-                    snapshot,
-                    row,
-                    end_row,
-                    week_pattern,
-                    config.program.week_pair_layout,
-                ),
+                weeks=weeks,
             )
         )
 
@@ -324,7 +362,11 @@ def _parse_integer(raw: str | None) -> int | None:
 def _parse_reps(raw: str | None) -> tuple[int, int] | None:
     if raw is None:
         return None
-    match = re.fullmatch(r"(\d+)(?:\s*[-–]\s*(\d+))?(?:\s*reps?)?", raw, re.IGNORECASE)
+    match = re.fullmatch(
+        r"(\d+)(?:\s*(?:[-–]|to)\s*(\d+))?(?:\s*reps?)?",
+        raw,
+        re.IGNORECASE,
+    )
     if not match:
         return None
     minimum = int(match.group(1))
@@ -367,7 +409,7 @@ def _parse_week(raw: str | None) -> _ParsedWeek | None:
     values: dict[str, int] = {}
     first = parts.pop(0)
     combined = re.fullmatch(
-        r"(?:(\d+)\s*[x×]\s*)?(\d+)(?:\s*[-–]\s*(\d+))?(?:\s*reps?)?",
+        r"(?:(\d+)\s*[x×]\s*)?(\d+)(?:\s*(?:[-–]|to)\s*(\d+))?(?:\s*reps?)?",
         first,
         re.IGNORECASE,
     )
@@ -635,13 +677,6 @@ def _prescriptions(
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
             suppress_blockers=suppress_blockers,
         )
-    if set_type is None:
-        _base_value_issue(
-            field_name="set type", raw_text=base_raw.get("style"), cell=cells["style"],
-            sheet=sheet, day=day.label, exercise=exercise, issues=issues,
-            suppress_blockers=suppress_blockers,
-        )
-
     prescriptions: list[CyclePrescription] = []
     for week_label in weeks:
         week = next(

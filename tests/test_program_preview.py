@@ -192,6 +192,104 @@ class ProgramPreviewTests(unittest.TestCase):
             "direct_program_export_required", {issue.code for issue in report.blocking_issues}
         )
 
+    def test_preserves_coach_style_without_treating_a_slot_label_as_set_type(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(
+            cells,
+            6,
+            name="Alpha Move",
+            style="Primary strength slot",
+        )
+        workbook = self.write_workbook(cells)
+
+        report = build_program_preview(
+            workbook,
+            self.config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+        exercise = report.program.days[0].exercises[0]
+        prescription = exercise.prescriptions[0]
+
+        self.assertEqual(exercise.raw_base_fields["style"], "Primary strength slot")
+        self.assertIsNone(prescription.set_type.value)
+        self.assertEqual(prescription.set_type.source, "missing")
+        self.assertFalse(
+            any(
+                issue.code == "unsupported_base_value"
+                and issue.raw_text == "Primary strength slot"
+                for issue in report.issues
+            )
+        )
+        self.assertTrue(
+            any(
+                issue.code == "missing_prescription_field"
+                and "set type" in issue.message
+                for issue in report.issues
+            )
+        )
+
+    def test_stops_a_day_at_blank_separator_before_trailing_reference_rows(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 7, name="Alpha Move")
+        exercise_row(cells, 9, name="Reference Metric", style="Goal")
+        workbook = self.write_workbook(cells)
+
+        block = discover_program_blocks(workbook, self.config)[0]
+        report = build_program_preview(
+            workbook,
+            self.config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+
+        self.assertEqual(block.end_row, 7)
+        self.assertEqual(
+            [exercise.coach_name for exercise in report.program.days[0].exercises],
+            ["Alpha Move"],
+        )
+        self.assertFalse(
+            any(issue.exercise == "Reference Metric" for issue in report.issues)
+        )
+
+    def test_parses_plain_language_rep_ranges_without_accepting_prose(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(
+            cells,
+            6,
+            name="Alpha Move",
+            reps="8 to 12 reps",
+            week_one="3 x 8 to 12 reps @ 2 RIR, 120 sec rest",
+        )
+        workbook = self.write_workbook(cells)
+
+        report = build_program_preview(
+            workbook,
+            self.config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+        prescription = report.program.days[0].exercises[0].prescriptions[0]
+
+        self.assertEqual(
+            (prescription.rep_min.value, prescription.rep_max.value),
+            (8, 12),
+        )
+        self.assertIsNone(prescription.raw_unparsed_text)
+        self.assertFalse(
+            any(
+                issue.code == "unsupported_base_value"
+                and issue.raw_text == "8 to 12 reps"
+                for issue in report.issues
+            )
+        )
+
     def test_week_pair_direction_must_be_explicit_and_can_be_reversed(self) -> None:
         payload = json.loads(self.config_path.read_text(encoding="utf-8"))
         payload["program"].pop("week_pair_layout")

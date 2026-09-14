@@ -5,13 +5,13 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://www.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-MacroFactor Workout Bridge is a conservative local tool for reviewing and transferring workout data between MacroFactor exports and a coach's Excel workbook. Part 1 copies completed workout results into a selected coach week through the double-clickable macOS app or CLI. Part 2 currently provides a CLI-only, read-only preview of selected coach program blocks.
+MacroFactor Workout Bridge is a conservative local tool for reviewing and transferring workout data between MacroFactor exports and a coach's Excel workbook. Part 1 copies completed workout results into a selected coach week through the double-clickable macOS app or CLI. Part 2 provides a CLI-only preview and a gated generator for the narrow workbook structure proved by a direct MacroFactor program export.
 
-The supported write direction remains intentionally narrow:
+The established Part 1 write direction remains intentionally narrow:
 
 **MacroFactor exercise log → coach `.xlsx` workbook**
 
-Part 2 does not yet create or import MacroFactor programs. No verified workbook produced by MacroFactor's **Program Settings → Export Program** workflow was available during implementation, so the project refuses to invent that schema and reports generation as unsafe.
+Part 2 can create a new candidate program workbook only when its preview has no blockers and the coach selection matches the verified template structure. MacroFactor import remains a manual action, and compatibility is not claimed until a generated file imports successfully.
 
 > **Project status:** Source-first personal utility. It processes files locally, has no hosted backend, and does not distribute a signed or notarized binary.
 
@@ -182,7 +182,9 @@ Report paths must be new files and cannot reuse an input or generated workbook p
 
 The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
 
-Parsing is deliberately allow-listed. Base sets must be positive integers, reps must be a single value or range, and rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. Text such as `Read week`, `your choice`, RPE or AMRAP instructions, prescribed weights, substitutions, and progression prose remains raw and blocking for human review.
+Parsing is deliberately allow-listed. Base sets must be positive integers, reps must be a single value or an unambiguous range such as `8-12` or `8 to 12 reps`, and rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. Text such as `Read week`, `your choice`, RPE or AMRAP instructions, prescribed weights, substitutions, and progression prose remains raw and blocking for human review.
+
+The coach `Style` column is preserved as raw classification text. It supplies a MacroFactor set type only when the complete value exactly matches an allow-listed set-type alias such as `Straight Sets` or `Superset`; labels such as exercise-slot categories are not reinterpreted. Within a discovered day, the exercise table begins at the first exercise and ends at the first structurally blank row, so later blank-separated goals, notes, and reference tables are not mistaken for program exercises.
 
 The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
 

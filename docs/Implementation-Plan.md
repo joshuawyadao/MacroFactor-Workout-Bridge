@@ -3,7 +3,7 @@
 Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the 0.3.0 safety contract from PR #10 (`11fd219`) and the dependency-audit hardening now on `origin/main` (`d3b8a23`).
 
 ## Scope
-- In: the completed Part 2 preview foundation; read-only validation of the supplied direct export; an anonymized template fixture; dynamic template-schema inspection; template-aware preview hashes and blockers; conservative CLI generation for shape-matched programs whose selected cycles have identical prescriptions; OOXML integrity checks; tests, documentation, issue updates, and draft-PR checkpoints.
+- In: the completed Part 2 preview foundation; read-only validation of the supplied direct export; an anonymized template fixture; dynamic template-schema inspection; template-aware preview hashes and blockers; conservative CLI generation for shape-matched programs whose selected cycles have identical prescriptions; reconciliation against the first private coach block; OOXML integrity checks; tests, documentation, issue updates, and draft-PR checkpoints.
 - Out: extrapolating a periodized multi-cycle layout not present in the verified export, unsupported set types or template expansion, MacroFactor compatibility claims before manual import, desktop Part 2 mode, Google Drive, private-service or phone automation, private workbook artifacts, and merging the feature branch.
 
 ## Action items
@@ -26,6 +26,12 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Add targeted tests for schema validation, homogeneous-cycle generation, template/source immutability, output non-overwrite, shared-string cleanup, structural round-trip inspection, and every generation blocker.
 [x] Update README, local workflow guidance, and CLI help with the verified scope and the remaining periodized/manual-import gates. Update issue #12 and draft PR #13 after saving the checkpoint.
 [x] Run focused tests, `./scripts/test.sh`, compilation, configuration parity, source/template hashes, privacy checks, and final diff review before saving and pushing the checkpoint.
+[x] Treat the coach `Style` field as preserved coach classification text and interpret it as a MacroFactor set type only when it exactly matches an allow-listed set-type alias.
+[x] End each discovered day table at the first structurally blank separator after its first exercise so trailing goals, notes, reference tables, or other non-program sections are not parsed as exercises.
+[x] Accept unambiguous `N to M` rep ranges, including an optional `rep`/`reps` suffix, while continuing to retain and block ambiguous prose.
+[x] Add anonymized regression tests for coach classification labels, blank-separated trailing reference content, and plain-language rep ranges without weakening the existing safety assertions.
+[x] Regenerate the private first-block review with the confirmed left-plan/right-result direction, verify both private workbook hashes remain unchanged, and keep the report and personal configuration ignored and uncommitted.
+[x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
 
 ## Open questions
 - None.
@@ -44,6 +50,8 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 - A disposable, synthetic 4-day program was written through the private verified export and structurally re-inspected: 538 target cells round-tripped, no unrelated OOXML member changed, both private input hashes remained stable, and the temporary output was removed.
 - Independent final review added bidirectional set-type/superset consistency checks, unique set-header validation, required OOXML relationship/content-type/style validation, conservative rejection of rich shared strings that cannot be preserved safely, and blocking error handling for malformed worksheet XML.
 - `python3 -m compileall -q src tests packaging`, example/package configuration parity, source/template hash checks, privacy review, and branch diff checks passed.
+- The first private coach-block preview was regenerated with the confirmed planned/result direction. Both input hashes remained stable, the direct template schema was recognized, private reports and configuration remained ignored, and generation stayed blocked rather than guessing through unresolved review items.
+- `./scripts/test.sh`: all 99 tests passed after adding the classification, table-boundary, and plain-language rep-range regressions. Compilation, configuration parity, ignored-path checks, and `git diff --check` also passed.
 
 ## Checkpoints
 - `7c13560`: implemented and documented the gated Part 2 parser, neutral model, exact mapping/default review, CLI preview, and anonymized tests.
