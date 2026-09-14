@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .models import BridgeConfig, EmptyDayMarker, ExerciseRule
+from .program_models import ProgramConfig, ProgramDefaults
 
 
 class ConfigError(ValueError):
@@ -16,6 +17,116 @@ class ConfigError(ValueError):
 def normalize_name(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value)
     return re.sub(r"\s+", " ", normalized).strip().casefold()
+
+
+def _string_list(
+    payload: dict[str, object], key: str, default: tuple[str, ...], label: str
+) -> tuple[str, ...]:
+    value = payload.get(key, list(default))
+    if not isinstance(value, list) or not value or not all(
+        isinstance(item, str) and item.strip() for item in value
+    ):
+        raise ConfigError(f"{label}.{key} must be a non-empty list of strings")
+    return tuple(dict.fromkeys(item.strip() for item in value))
+
+
+def _optional_int(
+    payload: dict[str, object], key: str, label: str, *, minimum: int
+) -> int | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ConfigError(f"{label}.{key} must be null or an integer >= {minimum}")
+    return value
+
+
+def _load_program_config(
+    payload: object, exercise_header_labels: tuple[str, ...], week_pattern: str
+) -> ProgramConfig:
+    if payload is None:
+        return ProgramConfig(
+            exercise_header_labels=exercise_header_labels,
+            week_header_pattern=week_pattern,
+        )
+    if not isinstance(payload, dict):
+        raise ConfigError("program must be an object")
+    day_pattern = payload.get("day_label_pattern", ProgramConfig.day_label_pattern)
+    program_week_pattern = payload.get("week_header_pattern", week_pattern)
+    week_pair_layout = payload.get("week_pair_layout")
+    if week_pair_layout not in {None, "plan_then_result", "result_then_plan"}:
+        raise ConfigError(
+            "program.week_pair_layout must be plan_then_result, result_then_plan, or null"
+        )
+    for value, label in (
+        (day_pattern, "program.day_label_pattern"),
+        (program_week_pattern, "program.week_header_pattern"),
+    ):
+        if not isinstance(value, str):
+            raise ConfigError(f"{label} must be a string")
+        try:
+            re.compile(value, re.IGNORECASE)
+        except re.error as exc:
+            raise ConfigError(f"Invalid {label}: {exc}") from exc
+
+    defaults_payload = payload.get("defaults", {})
+    if not isinstance(defaults_payload, dict):
+        raise ConfigError("program.defaults must be an object")
+    defaults = ProgramDefaults(
+        rep_min=_optional_int(defaults_payload, "rep_min", "program.defaults", minimum=1),
+        rep_max=_optional_int(defaults_payload, "rep_max", "program.defaults", minimum=1),
+        rir=_optional_int(defaults_payload, "rir", "program.defaults", minimum=0),
+        rest_seconds=_optional_int(
+            defaults_payload, "rest_seconds", "program.defaults", minimum=1
+        ),
+    )
+    if (
+        defaults.rep_min is not None
+        and defaults.rep_max is not None
+        and defaults.rep_max < defaults.rep_min
+    ):
+        raise ConfigError("program.defaults.rep_max must be >= rep_min")
+    if (defaults.rep_min is None) != (defaults.rep_max is None):
+        raise ConfigError(
+            "program.defaults.rep_min and rep_max must both be set or both be null"
+        )
+
+    return ProgramConfig(
+        day_label_pattern=day_pattern,
+        week_header_pattern=program_week_pattern,
+        week_pair_layout=week_pair_layout,
+        style_header_labels=_string_list(
+            payload,
+            "style_header_labels",
+            ProgramConfig.style_header_labels,
+            "program",
+        ),
+        exercise_header_labels=_string_list(
+            payload,
+            "exercise_header_labels",
+            exercise_header_labels,
+            "program",
+        ),
+        sets_header_labels=_string_list(
+            payload,
+            "sets_header_labels",
+            ProgramConfig.sets_header_labels,
+            "program",
+        ),
+        reps_header_labels=_string_list(
+            payload,
+            "reps_header_labels",
+            ProgramConfig.reps_header_labels,
+            "program",
+        ),
+        rest_header_labels=_string_list(
+            payload,
+            "rest_header_labels",
+            ProgramConfig.rest_header_labels,
+            "program",
+        ),
+        defaults=defaults,
+    )
 
 
 def load_config(path: str | Path) -> BridgeConfig:
@@ -57,6 +168,10 @@ def load_config(path: str | Path) -> BridgeConfig:
             text=marker_text.strip(),
             fill_color=normalized_fill,
         )
+
+    program_config = _load_program_config(
+        payload.get("program"), tuple(header_labels), pattern
+    )
 
     raw_rules = payload.get("exercises")
     if not isinstance(raw_rules, list) or not raw_rules:
@@ -102,6 +217,28 @@ def load_config(path: str | Path) -> BridgeConfig:
         order = raw.get("superset_order", 0)
         if not isinstance(order, int):
             raise ConfigError(f"Exercise rule {canonical!r} superset_order must be an integer")
+        program_excluded = raw.get("program_excluded", False)
+        if not isinstance(program_excluded, bool):
+            raise ConfigError(f"Exercise rule {canonical!r} program_excluded must be a boolean")
+        exclusion_reason = raw.get("program_exclusion_reason")
+        if exclusion_reason is not None and not isinstance(exclusion_reason, str):
+            raise ConfigError(
+                f"Exercise rule {canonical!r} program_exclusion_reason must be a string"
+            )
+        if program_excluded and not (
+            isinstance(exclusion_reason, str) and exclusion_reason.strip()
+        ):
+            raise ConfigError(
+                f"Exercise rule {canonical!r} needs program_exclusion_reason when excluded"
+            )
+        macrofactor_custom = raw.get("macrofactor_custom", False)
+        macrofactor_available = raw.get("macrofactor_available", True)
+        if not isinstance(macrofactor_custom, bool):
+            raise ConfigError(f"Exercise rule {canonical!r} macrofactor_custom must be a boolean")
+        if not isinstance(macrofactor_available, bool):
+            raise ConfigError(
+                f"Exercise rule {canonical!r} macrofactor_available must be a boolean"
+            )
 
         aliases = tuple(dict.fromkeys([canonical, *source_aliases]))
         for alias in aliases:
@@ -122,6 +259,14 @@ def load_config(path: str | Path) -> BridgeConfig:
                 weight_suffix=suffix,
                 superset_group=group.strip() if isinstance(group, str) and group.strip() else None,
                 superset_order=order,
+                program_excluded=program_excluded,
+                program_exclusion_reason=(
+                    exclusion_reason.strip()
+                    if isinstance(exclusion_reason, str) and exclusion_reason.strip()
+                    else None
+                ),
+                macrofactor_custom=macrofactor_custom,
+                macrofactor_available=macrofactor_available,
             )
         )
 
@@ -130,6 +275,7 @@ def load_config(path: str | Path) -> BridgeConfig:
         week_header_pattern=pattern,
         rules=tuple(rules),
         empty_day_marker=empty_day_marker,
+        program=program_config,
     )
 
 

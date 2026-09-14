@@ -12,6 +12,8 @@ local-data/
 ├── archive/
 │   ├── coach/              # Validated, consistently named workbook copies
 │   └── macrofactor/        # Validated, date-range-named exercise-log copies
+├── reference/
+│   └── macrofactor-program/ # Optional direct Export Program reference; manually managed
 ├── current/                # Stable shortcuts to the inputs the app should use
 ├── generated/
 │   ├── workbooks/          # Save completed coach workbook copies here
@@ -51,7 +53,7 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
    ```
 
 5. Open MacroFactor Workout Bridge and select `current/Coach Program - Current.xlsx` plus `current/MacroFactor Exercise Log - Current.csv` or `.xlsx`. These stable shortcuts are updated by the archive command. Preview the selected worksheet, week, and explicit workout dates.
-6. Save the generated workbook under `local-data/generated/workbooks/` and its JSON report under `local-data/generated/reports/`.
+6. Save generated coach-workbook copies or MacroFactor program files under `local-data/generated/workbooks/` and their JSON reports under `local-data/generated/reports/`.
 
 When an `.xlsx` export contains MacroFactor's `Active Program` table, the preview reports non-empty exercise-level notes for exercises performed in the selected dates. This can carry context such as equipment choice or a misload explanation when entered in the exercise note. The current export's `Workout Log` table does not include program-level or session-level note columns, so those note types cannot be recovered. Reported notes remain review-only and are never inserted into coach result cells automatically.
 
@@ -90,11 +92,26 @@ Each manifest records:
 
 This is local version history, not a backup service. Back up `local-data/` separately if protection against disk loss is important.
 
+## Part 2 program preview and template gate
+
+Coach-to-MacroFactor work starts with the read-only `program-inspect` and `program-preview` CLI commands documented in the README. Keep preview JSON under `local-data/generated/reports/`; it may contain private paths, coach text, exercise names, and mappings and must never be committed or attached to a public issue.
+
+The `reference/macrofactor-program/` directory is optional and is not created, archived, selected, or validated by `macrofactor-workspace`. It is a private place to hold an `.xlsx` created specifically with MacroFactor **Program Settings → Export Program**. A granular Data Export workbook, Program Log, or `Active Program` sheet inside an exercise-log export is not a substitute. Keep the real reference read-only. The repository tests create their own synthetic structural fixture and never copy the real export or its values.
+
+Pass the direct export to `program-preview --template` before generation. A valid template supplies a hash and schema result; an omitted, malformed, changed, or incompatible template keeps `generation_safe` false. `program-generate` accepts the same coach selection plus `--template` and a new `--output` path under `local-data/generated/workbooks/`. It refuses existing paths, differing periodized prescriptions, template shape/capacity mismatches, unsupported values, and every parser blocker. It preserves both private inputs byte-for-byte and validates that only the program worksheet and shared-string OOXML parts changed.
+
+Coach week pairs require an explicitly verified direction. Use `program.week_pair_layout: "plan_then_result"` only when the left cell is the coach prescription and the right cell is the completed result; use `"result_then_plan"` for the reverse arrangement. The parser preserves the coach `Style` value but treats it as a MacroFactor set type only when the whole value is an exact supported set-type alias. It also stops a day at the first structurally blank separator after exercises begin, excluding later goals, notes, and reference sections from the program table.
+
+The current verified schema contains one distinct cycle layout that MacroFactor repeats for the configured cycle count. It does not establish how different cycle prescriptions are encoded. Use the generator only when all selected coach weeks resolve to identical prescriptions. To add periodized support, privately supply another direct export with periodization enabled and at least two deliberately different cycles so the additional structure can be inspected rather than inferred.
+
+A structurally valid generated file is not proof of compatibility. Import it manually through MacroFactor **New Program → Import From File**, confirm the preview inside MacroFactor, and report whether the import succeeded before the project claims compatibility or adds the Part 2 desktop flow.
+
 ## Privacy and safety
 
 - The whole `local-data/` tree is ignored by Git.
 - Custom roots also receive workspace-local ignore rules for every managed data directory. Ignore rules do not remove files already tracked or prevent force-adding files; audit existing Git history separately if private data was previously committed.
 - Personal exports, manifests, generated workbooks, and reports must not be force-added to Git.
+- Direct MacroFactor program-export references and any derived private schema notes also remain local and must not be force-added to Git.
 - Only MacroFactor exercise-log exports belong in the MacroFactor inbox. Program exports do not contain the required exercise-log table and will fail validation.
 - Keep using Preview before creating output. Archival validation does not authorize or perform workbook writes.
 - Treat every yellow `Skip` value as a review prompt. MacroFactor exercise-log exports do not distinguish a skipped day from an unlogged or out-of-range workout.
