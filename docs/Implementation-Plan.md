@@ -29,3 +29,7 @@ Make the CI vulnerability-audit bootstrap reproducible by reviewing and hash-loc
 ## Brooks review follow-up
 - [x] Remove the duplicated `pip-audit` version literal from `tests/test_build_dependencies.py` while retaining the invariant that exactly one exact `pip-audit` requirement is present in the audit lock.
 - [x] Re-run the focused dependency tests and diff checks before saving the review fix.
+
+## Codex review follow-up
+- [x] Pin the documented local audit environment to Python 3.11, matching the interpreter-specific Linux and macOS hashes in `requirements/audit.lock` and CI.
+- [x] Add regression coverage for the documented interpreter command, then re-run focused and complete verification before saving the fix.

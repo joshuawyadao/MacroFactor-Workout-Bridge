@@ -278,7 +278,7 @@ git diff --check
 CI installs its dependency-audit tooling from a separate reviewed closure, then audits that tooling and both application dependency closures for known Python-package vulnerabilities. To run the same check locally:
 
 ```sh
-python3 -m venv --clear .venv/audit
+python3.11 -m venv --clear .venv/audit
 .venv/audit/bin/python -m pip install \
   --only-binary=:all: \
   --require-hashes \
@@ -291,7 +291,7 @@ python3 -m venv --clear .venv/audit
   --requirement requirements/test.lock
 ```
 
-The audit is read-only and reports publicly known advisories; it does not update dependencies automatically. `requirements/audit.lock` pins the complete `pip-audit` closure and records reviewed Linux x86-64 and Apple-silicon macOS wheel hashes. Hash checking guarantees that pip accepts only the reviewed wheel artifacts recorded in the locks.
+The audit is read-only and reports publicly known advisories; it does not update dependencies automatically. Use Python 3.11 for this workflow because `requirements/audit.lock` pins the complete `pip-audit` closure and records the reviewed Python 3.11 Linux x86-64 and Apple-silicon macOS wheel hashes. Hash checking guarantees that pip accepts only the reviewed wheel artifacts recorded in the locks.
 
 The first test run creates an environment under the primary project checkout's already-ignored `.venv/worktree-tests/` directory and requires internet access unless the pinned, hash-verified wheels are already cached. Its directory name contains the Python version and SHA-256 fingerprint of `requirements/test.lock`: worktrees with the same test dependencies reuse one environment, while branches with different locks cannot modify an environment used by another test run. Linked Git worktrees discover the shared root through Git's common directory, and the runner always prepends the launching worktree's `src/` directory to `PYTHONPATH`.
 

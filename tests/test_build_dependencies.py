@@ -221,6 +221,12 @@ class BuildDependencyTests(unittest.TestCase):
                 text = (PROJECT_ROOT / relative_path).read_text()
                 self.assertIn("./scripts/test.sh", text)
 
+    def test_documented_audit_environment_uses_the_locked_python_version(self) -> None:
+        for relative_path in ("README.md", "CONTRIBUTING.md"):
+            with self.subTest(relative_path=relative_path):
+                text = (PROJECT_ROOT / relative_path).read_text()
+                self.assertIn("python3.11 -m venv --clear .venv/audit", text)
+
     def test_test_runner_honors_the_virtualenv_root_override(self) -> None:
         override_root = PROJECT_ROOT / ".test-venv-override"
         environment = os.environ.copy()

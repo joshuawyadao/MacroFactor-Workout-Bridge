@@ -29,7 +29,7 @@ By participating, you agree to follow the [Contributor Covenant Code of Conduct]
 
    ```sh
    ./scripts/test.sh
-   python3 -m venv --clear .venv/audit
+   python3.11 -m venv --clear .venv/audit
    .venv/audit/bin/python -m pip install \
      --only-binary=:all: \
      --require-hashes \
@@ -42,7 +42,7 @@ By participating, you agree to follow the [Contributor Covenant Code of Conduct]
    git diff --check
    ```
 
-   The dependency audit installs `pip-audit` and its complete transitive closure from `requirements/audit.lock`, using the same exact versions and reviewed Linux/macOS wheel hashes as CI. Dependency lock changes must retain exact versions, reviewed wheel SHA-256 hashes, and binary-only installation unless a separately reviewed source-build requirement is documented.
+   The dependency audit requires Python 3.11 because the lock contains the exact Linux and macOS wheels reviewed for that interpreter. It installs `pip-audit` and its complete transitive closure from `requirements/audit.lock`, using the same exact versions and wheel hashes as CI. Dependency lock changes must retain exact versions, reviewed wheel SHA-256 hashes, and binary-only installation unless a separately reviewed source-build requirement is documented.
 
 5. Describe the user-visible behavior, privacy and workbook-safety implications, verification performed, and any manual macOS checks in the pull request.
 
