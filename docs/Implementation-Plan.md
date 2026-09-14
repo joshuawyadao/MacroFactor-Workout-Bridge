@@ -14,6 +14,7 @@ Harden pull request #14 before merge by preventing private annotations from bein
 [x] Record that no README or other durable user documentation changes are required because this fixes stale UI state and internal structure without changing the documented workflow or data format.
 [x] Run the complete `./scripts/test.sh` suite, source compilation, `git diff --check`, and source GUI smoke test.
 [x] Commit and push only the review-remediation files; keep private data and ignored build artifacts out of Git.
+[x] Integrate the completed dependency-audit tooling changes from `main` and re-run the combined branch verification.
 
 ## Open questions
 - None.
