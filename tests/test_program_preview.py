@@ -446,6 +446,7 @@ class ProgramPreviewTests(unittest.TestCase):
 
     def test_cli_help_and_json_report_expose_a_separate_gated_mode(self) -> None:
         self.assertIn("program-preview", build_parser().format_help())
+        self.assertIn("program-generate", build_parser().format_help())
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")
         exercise_row(cells, 6, name="Alpha Move")

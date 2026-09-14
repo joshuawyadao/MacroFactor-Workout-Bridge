@@ -1,10 +1,10 @@
 # Plan
 
-Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model before any MacroFactor workbook can be generated. Preserve the 0.3.0 safety contract from PR #10 (`11fd219`) and the dependency-audit hardening now on `origin/main` (`d3b8a23`), while recording that both PRs are merged and the prior implementation-plan status was stale.
+Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the 0.3.0 safety contract from PR #10 (`11fd219`) and the dependency-audit hardening now on `origin/main` (`d3b8a23`).
 
 ## Scope
-- In: Part 1 tracking reconciliation, direct-template discovery gate, prescription domain/config models, dynamic coach block/day/week discovery, conservative planned-prescription parsing, exact exercise mapping, configurable visible defaults, supersets/exclusions/custom warnings, CLI inspection and preview, JSON reporting, anonymized tests, documentation, issues, checkpoints, and a draft pull request.
-- Out: an invented or unverified MacroFactor program schema, program `.xlsx` generation, MacroFactor compatibility claims, desktop Part 2 mode, Google Drive, private-service or phone automation, private workbook artifacts, and merging the feature branch.
+- In: the completed Part 2 preview foundation; read-only validation of the supplied direct export; an anonymized template fixture; dynamic template-schema inspection; template-aware preview hashes and blockers; conservative CLI generation for shape-matched programs whose selected cycles have identical prescriptions; OOXML integrity checks; tests, documentation, issue updates, and draft-PR checkpoints.
+- Out: extrapolating a periodized multi-cycle layout not present in the verified export, unsupported set types or template expansion, MacroFactor compatibility claims before manual import, desktop Part 2 mode, Google Drive, private-service or phone automation, private workbook artifacts, and merging the feature branch.
 
 ## Action items
 [x] Reconcile Part 1 issues #1–#4 against implementation and test evidence, and replace stale PR #10/#11 status with a durable baseline summary.
@@ -18,6 +18,14 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Run targeted tests, `./scripts/test.sh`, source compilation, configuration parity, privacy/diff checks, and review the implementation against every conservative parsing risk.
 [ ] Publish the remaining vertical-slice issues after the proposed `to-issues` breakdown is approved.
 [x] Save the feature branch and open draft PR #13 without merging or marking Part 2 complete.
+[x] Verify the newly supplied workbook as a direct MacroFactor Export Program file and inspect it read-only without retaining private names or values.
+[x] Add a neutral template-schema model and inspector that discovers metadata, block/cycle headers, workout row groups, set columns, and formatting capacity without fixed cell coordinates.
+[x] Add an anonymized synthetic template fixture that preserves only the minimum verified structural contract and contains no private names, notes, mappings, or metadata.
+[x] Make Part 2 preview accept a template, report before/after template hashes, and block mismatched day/exercise shapes, excess set counts, unsupported set types, custom/unavailable exercises, or differing selected-cycle prescriptions.
+[x] Add a CLI generator that copies the template to a new path, replaces only validated program cells, rebuilds shared strings without stale template data, keeps both inputs unchanged, and validates all unrelated OOXML members byte-for-byte.
+[x] Add targeted tests for schema validation, homogeneous-cycle generation, template/source immutability, output non-overwrite, shared-string cleanup, structural round-trip inspection, and every generation blocker.
+[x] Update README, local workflow guidance, and CLI help with the verified scope and the remaining periodized/manual-import gates. Update issue #12 and draft PR #13 after saving the checkpoint.
+[x] Run focused tests, `./scripts/test.sh`, compilation, configuration parity, source/template hashes, privacy checks, and final diff review before saving and pushing the checkpoint.
 
 ## Open questions
 - None.
@@ -26,14 +34,16 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 - PR #10 merged as `11fd219`, establishing Part 1 version 0.3.0 with its recorded 75-test, compile, diff, app-build, signature, and smoke verification.
 - `origin/main` advanced during discovery to `d3b8a23` through merged PR #11. That dependency-audit-only change raised the pre-Part-2 collected test count to 76 without changing application behavior.
 - Issues #1–#4 were reviewed acceptance criterion by acceptance criterion, received public completion evidence, and were closed after the current canonical suite passed.
-- No verified direct MacroFactor Export Program workbook was found. Issue #12 tracks the required private template and anonymized-fixture gate; generator and compatibility work remain blocked.
+- A verified direct MacroFactor Export Program workbook is now available as a private read-only input. Its package contains a dedicated program worksheet, program metadata, one block/cycle table, merged workout row groups, exercise/skipped/notes fields, and repeated per-set type/rep-range/RIR/rest columns.
+- The verified export repeats one distinct cycle layout. It does not prove the OOXML layout for different prescriptions in different cycles, so periodized generation remains blocked pending a richer direct export or manual evidence.
 
 ## Verification
-- `PYTHONPATH=src python3 -m unittest tests.test_program_preview -v`: 13 passed.
-- `PYTHONPATH=src python3 -m unittest discover -s tests`: 89 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.
-- `./scripts/test.sh`: all 89 tests passed, including the offscreen GUI tests.
-- The final safety review added explicit plan/result direction, exclusive report creation, reserved-path protection, complete contiguous superset validation, exact unmatched availability status, canonical selected-cycle labels, and per-day exercise ordering.
-- `python3 -m compileall -q src tests packaging`, example/package configuration parity, privacy review, and branch diff checks passed.
+- `PYTHONPATH=src python3 -m unittest tests.test_program_generation tests.test_program_preview -v`: 20 passed.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v`: 96 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.
+- `./scripts/test.sh`: all 96 tests passed, including the offscreen GUI tests.
+- A disposable, synthetic 4-day program was written through the private verified export and structurally re-inspected: 538 target cells round-tripped, no unrelated OOXML member changed, both private input hashes remained stable, and the temporary output was removed.
+- Independent final review added bidirectional set-type/superset consistency checks, unique set-header validation, required OOXML relationship/content-type/style validation, conservative rejection of rich shared strings that cannot be preserved safely, and blocking error handling for malformed worksheet XML.
+- `python3 -m compileall -q src tests packaging`, example/package configuration parity, source/template hash checks, privacy review, and branch diff checks passed.
 
 ## Checkpoints
 - `7c13560`: implemented and documented the gated Part 2 parser, neutral model, exact mapping/default review, CLI preview, and anonymized tests.

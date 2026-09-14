@@ -138,10 +138,15 @@ class ProgramPreviewReport:
     skipped_items: list[dict[str, Any]] = field(default_factory=list)
     source_hash_before: str | None = None
     source_hash_after: str | None = None
+    template_workbook: str | None = None
     template_hash: str | None = None
+    template_hash_after: str | None = None
     template_schema_verified: bool = False
     manual_import_verified: bool = False
     generation_safe: bool = False
+    output_file: str | None = None
+    output_hash: str | None = None
+    validation: dict[str, Any] = field(default_factory=dict)
 
     @property
     def blocking_issues(self) -> tuple[ProgramIssue, ...]:

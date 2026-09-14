@@ -152,9 +152,9 @@ Run `macrofactor-bridge`, or use the source tree without installation:
 PYTHONPATH=src python3 -m macrofactor_bridge --help
 ```
 
-### Preview a coach program for Part 2
+### Preview and generate a coach program for Part 2
 
-Part 2 is a separate, read-only CLI path. It discovers repeated day sections and uses the explicit `program.week_pair_layout` setting (`plan_then_result` or `result_then_plan`) to identify planned and completed-result columns within each structurally proven week pair. Without that setting, no week is considered safe to preview. The parser never reads the configured completed-result column as a prescription and does not write an `.xlsx` file.
+Part 2 begins with a separate, read-only preview path. It discovers repeated day sections and uses the explicit `program.week_pair_layout` setting (`plan_then_result` or `result_then_plan`) to identify planned and completed-result columns within each structurally proven week pair. Without that setting, no week is considered safe to preview. The parser never reads the configured completed-result column as a prescription.
 
 List selectable worksheets, program blocks, days, and safely separated weeks:
 
@@ -170,6 +170,7 @@ Preview one or more included weeks and optionally save a private JSON report:
 PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
   --workbook "/path/to/Coach_Program.xlsx" \
   --config config/exercises.local.json \
+  --template local-data/reference/macrofactor-program/template.xlsx \
   --sheet "Selected worksheet" \
   --block block-1 \
   --week "Week 1" \
@@ -179,7 +180,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
 
 Report paths must be new files and cannot reuse an input or generated workbook path; the CLI refuses to overwrite an existing report.
 
-The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, the coach source hash, the unavailable template hash, and `generation_safe: false`.
+The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
 
 Parsing is deliberately allow-listed. Base sets must be positive integers, reps must be a single value or range, and rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. Text such as `Read week`, `your choice`, RPE or AMRAP instructions, prescribed weights, substitutions, and progression prose remains raw and blocking for human review.
 
@@ -197,6 +198,27 @@ Part 2 reuses each exercise rule's exact `coach_aliases` and `canonical` MacroFa
 ```
 
 `superset_group` and contiguous `superset_order` values starting at 1 define explicit Part 2 membership. A shared coach alias expands only when every exact match forms one complete ordered superset, and each selected day must contain every configured, non-excluded group member exactly once; otherwise preview blocks instead of guessing.
+
+Generate only after a template-aware preview reports no blocking items:
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-generate \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config config/exercises.local.json \
+  --template local-data/reference/macrofactor-program/template.xlsx \
+  --sheet "Selected worksheet" \
+  --block block-1 \
+  --week "Week 1" \
+  --week "Week 2" \
+  --output local-data/generated/workbooks/macrofactor-program.xlsx \
+  --report local-data/generated/reports/program-generation.json
+```
+
+The generator writes only to a new `.xlsx` path. It rechecks both inputs after preview, preserves their bytes, retains the template worksheet layout and formatting, rebuilds shared strings so replaced template content is not carried forward, and verifies every unrelated OOXML package member byte-for-byte.
+
+The verified export proves one repeated cycle layout. Generation therefore requires all selected coach weeks to resolve to identical set count, type, rep range, RIR, rest, and notes for each exercise. The included day count and per-day exercise counts must match the template row groups, sets must fit its discovered capacity, RIR must be an exact integer from 0 through 6, and only standard sets or explicitly grouped supersets are currently writable. A periodized program with different cycle prescriptions needs a direct export that demonstrates that richer layout before support can be implemented.
+
+The generated workbook remains unverified for MacroFactor compatibility until it imports successfully through **New Program → Import From File**. Keep the pull request draft and do not treat structural validation as import confirmation.
 
 ### Configure exercise mappings
 
@@ -357,7 +379,7 @@ QT_QPA_PLATFORM=offscreen \
 
 GitHub-hosted CI runs the complete Python and offscreen desktop test suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the same suite on `main`. Use the Actions tab's manual **CI Verify** dispatch when a hosted rerun is needed.
 
-The suite uses small anonymized workbooks and verifies Part 1 parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. It also generates synthetic Part 2 fixtures to verify dynamic program discovery, planned/result separation, conservative prescription parsing, raw-text retention, mappings, defaults, exclusions, custom exercises, and supersets. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
+The suite uses small anonymized workbooks and verifies Part 1 parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. It also generates synthetic Part 2 fixtures to verify dynamic program discovery, planned/result separation, conservative prescription parsing, raw-text retention, mappings, defaults, exclusions, custom exercises, supersets, template-schema inspection, generation gates, source/template immutability, shared-string cleanup, and structural round trips. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
 
 ## Known limitations
 
@@ -369,7 +391,7 @@ The suite uses small anonymized workbooks and verifies Part 1 parsing, formattin
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.
-- Fuzzy exercise matching remains outside the project scope. Part 2 can preview a coach program, but generation is blocked until a direct MacroFactor Export Program template is structurally understood; compatibility cannot be claimed until a generated file is manually imported successfully.
+- Fuzzy exercise matching remains outside the project scope. Part 2 can generate only the verified single-layout, shape-matched subset described above. Periodized cycle layouts remain blocked, and compatibility cannot be claimed until a generated file is manually imported successfully.
 - The desktop app remains Part 1-only until the Part 2 parser, generator, and manual import validation are complete.
 
 ## Contributing

@@ -10,7 +10,7 @@ from .config import ConfigError, load_config
 from .coach_program import discover_program_blocks
 from .importers import ImportError
 from .ooxml import WorkbookError
-from .program_service import build_program_preview
+from .program_service import build_program_preview, generate_program
 from .service import apply_changes, build_preview
 from .workbook import discover_workbook
 
@@ -196,14 +196,25 @@ def _print_program_report(report) -> None:
     print(f"Source hash: {report.source_hash_before}")
     print(f"Template hash: {report.template_hash or 'not available'}")
     print(f"Generation safe: {'yes' if report.generation_safe else 'no'}")
+    if report.output_file:
+        print(f"Output: {report.output_file}")
+        print(
+            "Template unchanged: "
+            f"{report.template_hash == report.template_hash_after}"
+        )
+        print(
+            "Unrelated template parts unchanged: "
+            f"{not report.validation.get('unrelated_members_changed', ['unknown'])}"
+        )
+        print("Manual MacroFactor import verified: no")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="macrofactor-bridge",
         description=(
-            "Safely transfer MacroFactor results to a coach workbook, or review a "
-            "coach program for a future manual MacroFactor import."
+            "Safely transfer MacroFactor results to a coach workbook, or review and "
+            "generate a coach program for manual MacroFactor import."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -245,7 +256,28 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         help="Included coach week; repeat to include multiple weeks",
     )
+    program_preview.add_argument(
+        "--template",
+        help="Optional direct MacroFactor Export Program .xlsx used for safety checks",
+    )
     program_preview.add_argument("--report", help="Optional private JSON report path")
+
+    program_generate = subparsers.add_parser(
+        "program-generate",
+        help="Part 2: generate a structurally validated workbook for manual import",
+    )
+    program_generate.add_argument("--workbook", required=True)
+    program_generate.add_argument("--config", required=True)
+    program_generate.add_argument("--template", required=True)
+    program_generate.add_argument("--output", required=True)
+    program_generate.add_argument("--sheet")
+    program_generate.add_argument("--block")
+    program_generate.add_argument(
+        "--week",
+        action="append",
+        help="Included coach week; repeat to include multiple weeks",
+    )
+    program_generate.add_argument("--report", help="Optional private JSON report path")
     return parser
 
 
@@ -253,8 +285,13 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         report_reserved: tuple[str | None, ...] = ()
-        if args.command == "program-preview":
-            report_reserved = (args.workbook, args.config)
+        if args.command in {"program-preview", "program-generate"}:
+            report_reserved = (
+                args.workbook,
+                args.config,
+                getattr(args, "template", None),
+                getattr(args, "output", None),
+            )
         elif args.command in {"preview", "apply"}:
             report_reserved = (
                 args.export,
@@ -289,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"{', '.join(block.week_labels) or 'none'}"
                 )
             return 0
-        if args.command == "program-preview":
+        if args.command in {"program-preview", "program-generate"}:
             sheet_name, block_id, weeks = _resolve_program_selection(args, config)
             report = build_program_preview(
                 args.workbook,
@@ -297,7 +334,14 @@ def main(argv: list[str] | None = None) -> int:
                 sheet_name,
                 block_id,
                 weeks,
+                template_path=args.template,
             )
+            if args.command == "program-generate":
+                report = generate_program(
+                    report,
+                    args.template,
+                    args.output,
+                )
             _write_report(
                 args.report,
                 report,

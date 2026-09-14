@@ -53,7 +53,7 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
    ```
 
 5. Open MacroFactor Workout Bridge and select `current/Coach Program - Current.xlsx` plus `current/MacroFactor Exercise Log - Current.csv` or `.xlsx`. These stable shortcuts are updated by the archive command. Preview the selected worksheet, week, and explicit workout dates.
-6. Save the generated workbook under `local-data/generated/workbooks/` and its JSON report under `local-data/generated/reports/`.
+6. Save generated coach-workbook copies or MacroFactor program files under `local-data/generated/workbooks/` and their JSON reports under `local-data/generated/reports/`.
 
 When an `.xlsx` export contains MacroFactor's `Active Program` table, the preview reports non-empty exercise-level notes for exercises performed in the selected dates. This can carry context such as equipment choice or a misload explanation when entered in the exercise note. The current export's `Workout Log` table does not include program-level or session-level note columns, so those note types cannot be recovered. Reported notes remain review-only and are never inserted into coach result cells automatically.
 
@@ -96,9 +96,13 @@ This is local version history, not a backup service. Back up `local-data/` separ
 
 Coach-to-MacroFactor work starts with the read-only `program-inspect` and `program-preview` CLI commands documented in the README. Keep preview JSON under `local-data/generated/reports/`; it may contain private paths, coach text, exercise names, and mappings and must never be committed or attached to a public issue.
 
-The `reference/macrofactor-program/` directory is optional and is not created, archived, selected, or validated by `macrofactor-workspace`. It is only a private place to hold a future `.xlsx` created specifically with MacroFactor **Program Settings → Export Program**. A granular Data Export workbook, Program Log, or `Active Program` sheet inside an exercise-log export is not a substitute. Keep the real reference read-only. Once supplied, commit only a minimal anonymized structural fixture derived from the fields necessary for generator tests.
+The `reference/macrofactor-program/` directory is optional and is not created, archived, selected, or validated by `macrofactor-workspace`. It is a private place to hold an `.xlsx` created specifically with MacroFactor **Program Settings → Export Program**. A granular Data Export workbook, Program Log, or `Active Program` sheet inside an exercise-log export is not a substitute. Keep the real reference read-only. The repository tests create their own synthetic structural fixture and never copy the real export or its values.
 
-Until that direct export is available, Part 2 reports a missing template hash, keeps `generation_safe` false, and does not expose a generator command. After a verified schema is implemented, generated files must use a new non-existing path under `local-data/generated/workbooks/`, preserve both private inputs byte-for-byte, and remain a manual MacroFactor import. A structurally valid file is not proof of compatibility; record success only after the generated workbook imports manually.
+Pass the direct export to `program-preview --template` before generation. A valid template supplies a hash and schema result; an omitted, malformed, changed, or incompatible template keeps `generation_safe` false. `program-generate` accepts the same coach selection plus `--template` and a new `--output` path under `local-data/generated/workbooks/`. It refuses existing paths, differing periodized prescriptions, template shape/capacity mismatches, unsupported values, and every parser blocker. It preserves both private inputs byte-for-byte and validates that only the program worksheet and shared-string OOXML parts changed.
+
+The current verified schema contains one distinct cycle layout that MacroFactor repeats for the configured cycle count. It does not establish how different cycle prescriptions are encoded. Use the generator only when all selected coach weeks resolve to identical prescriptions. To add periodized support, privately supply another direct export with periodization enabled and at least two deliberately different cycles so the additional structure can be inspected rather than inferred.
+
+A structurally valid generated file is not proof of compatibility. Import it manually through MacroFactor **New Program → Import From File**, confirm the preview inside MacroFactor, and report whether the import succeeded before the project claims compatibility or adds the Part 2 desktop flow.
 
 ## Privacy and safety
 
