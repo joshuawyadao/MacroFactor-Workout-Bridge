@@ -109,6 +109,10 @@ dist/MacroFactor Workout Bridge.app
 
 Open Finder, navigate to `dist`, and double-click **MacroFactor Workout Bridge**. The app is self-contained; using the built app does not require Python or Terminal.
 
+Version 0.5.1 uses a dark desktop interface: black/charcoal surfaces, white text, high-contrast primary actions, visible keyboard focus, and distinct selected/disabled controls. The theme is currently dark-only, independent of the system appearance. Yellow `Skip` review markers retain dark text for readability.
+
+In **Overview & trends**, summary cards show logged sets, training days, coach blocks, and recorded-RIR coverage. Hover the summary or cards for workout counts and duration details. Full-width block and exercise tables have a draggable divider. Select a block and click **Edit context →** (or double-click its row) to open its annotation editor. In **Compare blocks**, use **Swap A/B** to exchange blocks without changing the exercise or metric, and **Block notes…** to read full saved notes in a separate dialog. Cyan solid and orange dashed chart lines match the A/B row labels; missing values still break lines. The styling and shortcuts do not change calculations or save any data automatically.
+
 The **Weekly Bridge** tab guides the safe workbook workflow:
 
 1. Choose the MacroFactor `.csv` or `.xlsx` exercise-log export.

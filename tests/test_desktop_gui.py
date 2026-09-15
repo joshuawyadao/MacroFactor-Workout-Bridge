@@ -81,6 +81,7 @@ class DesktopGuiTests(unittest.TestCase):
             self.assertIsNotNone(item)
             assert item is not None
             self.assertEqual(item.background().color().name(), "#ffff00")
+            self.assertEqual(item.foreground().color().name(), "#101113")
         self.assertIn("Empty-day review markers: 1", window.review_panel.toPlainText())
         window.close()
 

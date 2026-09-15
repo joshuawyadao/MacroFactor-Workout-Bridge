@@ -1,28 +1,36 @@
 # Plan
 
-Finish post-merge synchronization and add a read-only, two-block comparison for one exercise. Reuse the verified history metrics and explicit week layouts, align by relative block week while retaining calendar dates, and keep absent logs and saved context visible.
+Refresh the desktop GUI with black/charcoal surfaces, white text, clearer visual hierarchy, and easier block comparison. Preserve training metrics, source safety, and annotation workflows on `codex/block-comparison`.
 
 ## Scope
-- In: synchronize clean main/primary checkouts to merged PR #15; record its completion; compare weekly sets, training days, top load, and estimated 1RM for one exercise in two blocks; show notes, coverage, and gaps; tests, docs, local app build, commit and push.
-- Out: source-file edits, inferred skips/injury/fatigue, automatic date correction, recovery/deload predictions, group-of-block analysis, new export acquisition, and PR creation/merge unless requested.
+- In: shared dark theme, dashboard cards, readable tables/charts, comparison swap and context shortcuts, focus/disabled states, tests/docs, versioned app build and installation with backup, commit and push.
+- Out: copied MacroFactor assets, data/model changes, recovery predictions, source-file edits, new dependencies, PR creation or merge.
 
 ## Action items
-[x] Verify clean checkouts and synchronize them to merged main without changing private data; create `codex/block-comparison` from main.
-[x] Add a pure comparison model using existing history summaries; preserve explicit ordering, unequal lengths, missing metrics, and export-range coverage; reject ambiguous/undated/non-Monday blocks.
-[x] Add a comparison panel with exercise/two-block selectors, shared-scale trend chart, paired weekly rows, calendar dates, and saved block/week context; reset stale results and preserve selections on reload.
-[x] Test alignment, shared chart scales, absent logs, partial/out-of-range weeks, ambiguous dates, exact exercise selection, context, and immutable inputs using synthetic data; cover desktop selection/reload/error behavior.
-[x] Update README and Local-File-Workflow with comparison semantics, limitations, and refresh steps; preserve the prior PR completion record below.
-[x] Run focused and full tests, compilation, diff checks, real-data read-only GUI verification, visual inspection, and a signed app build/smoke test.
-[x] Commit and push only scoped code/tests/docs with save-branch; leave the working tree clean and report the feature branch.
+[x] Inspect desktop/comparison views, GUI tests, README, and Local-File-Workflow; retain the existing comparison feature and safety constraints.
+[x] Centralize dark palette and widget styles, preserving warning contrast and clear focus/disabled/selected states.
+[x] Add compact overview cards and comparison/context shortcuts without crowding the minimum-size analysis viewport.
+[x] Extend GUI regressions for contrast, swap/context actions, clearing stale cards, and minimum-size rendering.
+[x] Update README and Local-File-Workflow; bump release metadata consistently.
+[x] Run focused/full tests, compilation, diff checks, visual inspection, and signed app build/smoke tests.
+[ ] Install with recoverable backup after the user saves pending work and closes the running 0.5.0 app.
+[x] Commit and push scoped files with save-branch; exclude private data and build artifacts.
 
 ## Prior milestone completion
 - PR #15 merged into main as `7e3bf5b` after CI Verify passed and all three addressed review threads were resolved with user approval.
 - The old feature branch was deleted locally and remotely. Version 0.4.1 and verified private week layouts were installed with recoverable backups; source workbook and export remained unchanged.
 
 ## Open questions
-- None. Use confirmed Monday–Sunday block dates and the existing export. Missing logs remain unknown; explicit skip information can remain in saved notes, but workbook Skip review markers are not treated as confirmations. A newer all-time export can be selected later.
+- None. Use a dark-only theme with restrained cyan/orange chart accents; preserve existing data semantics.
 
-## Verification notes
+## Dark-interface verification
+- Added theme contrast/calendar/popup tests and comparison regressions for swaps, context navigation, on-demand notes, stale summary clearing, sparse RIR coverage, and minimum-window rendering. The full suite contains 120 passing tests.
+- Inspected Weekly Bridge, overview, comparison, context, calendar, and popup rendering at 1120×820 and 900×680. Long saved block notes moved into a read-only dialog to preserve table space. Real-input comparison retains an 82-pixel table viewport at minimum size with the existing warnings visible.
+- Source workbook, export, config, and annotation hashes remained unchanged during real-input checks. No calculations, annotation schema, or input files changed.
+- Compilation and diff checks pass. Version 0.5.1 (bundle build 8) is built, ad-hoc signed, signature-verified, and passes its GUI smoke test.
+- Installation is pending: the user's existing 0.5.0 app is still running. Do not replace it until it is closed; retain it as `MacroFactor Workout Bridge-0.5.0-before-dark-interface.app` when installing. The built app and local screenshots remain Git-ignored/outside the repository.
+
+## Previous comparison verification
 - Source, config, and annotation hashes stayed unchanged during real-input GUI comparison checks.
 - Visual inspection found the source controls crowding out comparison rows; successful loads now collapse those controls behind Show sources, and long block notes scroll inside a bounded read-only field.
 - Actual Qt rendering caught a collision with QWidget's metric method; renamed the chart field and selector and retained a render regression test.

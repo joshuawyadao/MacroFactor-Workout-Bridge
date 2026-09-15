@@ -1,6 +1,7 @@
 import importlib.util
 import os
 from decimal import Decimal
+from dataclasses import replace
 from pathlib import Path
 import tempfile
 import unittest
@@ -81,6 +82,69 @@ class ComparisonGuiTests(unittest.TestCase):
         self.assertEqual(self.panel.first_block.currentText(), "Archive")
         self.assertEqual(load_dashboard_annotations(self.path).blocks["Training Block"].week_layout, layout)
         self.assertEqual(source_hashes, [file_sha256(p) for p in (self.export, self.coach)])
+
+    def test_swap_keeps_metric_and_exercise_and_is_disabled_without_history(self):
+        self.panel.metric_selector.setCurrentIndex(1)
+        before = self.panel.chart.plot_values()
+        self.panel.swap_button.click()
+        self.assertEqual(self.panel.first_block.currentText(), "Archive")
+        self.assertEqual(self.panel.second_block.currentText(), "Training Block")
+        self.assertEqual(self.panel.exercise.currentText(), "Tempo Back Squat")
+        self.assertEqual(self.panel.metric_selector.currentData(), "top_weight")
+        self.assertEqual(self.panel.chart.plot_values(), before[::-1])
+        self.window.history_export_path.setText("changed.csv")
+        self.assertFalse(self.panel.swap_button.isEnabled())
+
+    def test_summary_cards_and_selected_block_context_shortcut(self):
+        dashboard = self.window._history_dashboard
+        self.assertEqual([card.value.text() for card in self.window.history_cards],
+                         [str(dashboard.set_count), str(dashboard.training_day_count), "2", "0%"])
+        self.assertIn("workouts", self.window.history_overview.toolTip())
+        self.assertFalse(self.window.history_context_button.isEnabled())
+        self.window.history_block_table.selectRow(1)
+        self.window.history_context_button.click()
+        self.assertEqual(self.window.history_block_combo.currentText(), "Archive")
+        self.assertEqual(self.window.history_analysis_tabs.currentIndex(), 2)
+        self.window.history_export_path.setText("changed.csv")
+        self.assertEqual([card.value.text() for card in self.window.history_cards], ["—"] * 4)
+        self.assertFalse(self.window.history_context_button.isEnabled())
+        self.assertEqual(self.window.history_overview.toolTip(), "")
+
+    def test_full_block_notes_open_on_demand_and_clear_with_inputs(self):
+        self.window.show()
+        self.panel.notes_button.click()
+        self.app.processEvents()
+        self.assertTrue(self.panel.notes_dialog.isVisible())
+        self.assertIn("Synthetic strength block", self.panel.block_notes.toPlainText())
+        self.panel.notes_dialog.accept()
+        self.window.history_export_path.setText("changed.csv")
+        self.assertEqual(self.panel.block_notes.toPlainText(), "")
+        self.assertFalse(self.panel.notes_button.isEnabled())
+
+    def test_sparse_rir_coverage_does_not_look_like_zero_or_complete_coverage(self):
+        dashboard = self.window._history_dashboard
+        self.window._display_history_dashboard(replace(dashboard, set_count=2000, rir_set_count=4))
+        self.assertEqual(self.window.history_cards[3].value.text(), "<1%")
+        self.window._display_history_dashboard(replace(dashboard, set_count=2000, rir_set_count=1999))
+        self.assertEqual(self.window.history_cards[3].value.text(), ">99%")
+
+    def test_minimum_window_keeps_chart_and_comparison_rows_visible(self):
+        self.window.history_status.setText(
+            "History loaded read-only; neither source file was changed. Estimated 1RM uses weighted standard "
+            "sets of 1–12 reps. A training block is using a private history layout with 3 weeks. "
+            "RIR is recorded for 4 sets; it remains descriptive and does not adjust estimated 1RM."
+        )
+        self.window.tabs.setCurrentIndex(1)
+        self.window.history_analysis_tabs.setCurrentWidget(self.panel)
+        self.window.resize(900, 680)
+        self.window.show()
+        self.app.processEvents()
+        self.assertEqual(self.window.width(), 900)
+        self.assertEqual(self.window.height(), 680)
+        self.assertGreaterEqual(self.panel.table.viewport().height(), 70)
+        self.assertGreaterEqual(self.panel.chart.height(), 135)
+        self.assertLessEqual(self.panel.chart.geometry().bottom(), self.panel.table.geometry().top())
+        self.assertFalse(self.window.grab().isNull())
 
     def test_same_block_invalid_input_and_failed_reload_clear_stale_results(self):
         self.panel.second_block.setCurrentText("Training Block")

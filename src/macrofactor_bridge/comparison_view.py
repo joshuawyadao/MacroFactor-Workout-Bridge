@@ -5,11 +5,12 @@ from decimal import Decimal
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
-    QComboBox, QGridLayout, QHeaderView, QLabel, QPlainTextEdit, QTableWidget,
+    QComboBox, QDialog, QGridLayout, QHeaderView, QLabel, QPlainTextEdit, QPushButton, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from .comparison import METRICS, BlockComparison, ComparisonError, compare_blocks
+from .desktop_theme import SERIES_COLORS, SURFACE
 from .history import (
     BLOCK_TYPE_OPTIONS, WEEK_REASON_OPTIONS, WEEK_STATUS_OPTIONS,
     DashboardAnnotations, HistoryDashboard, decimal_text, option_label,
@@ -43,6 +44,9 @@ class ComparisonChart(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(SURFACE))
+        painter.drawRoundedRect(QRectF(self.rect()), 9, 9)
         painter.setPen(self.palette().text().color())
         values = self.plot_values()
         available = [value for series in values for value in series if value is not None]
@@ -68,7 +72,7 @@ class ComparisonChart(QWidget):
             painter.drawText(QRectF(x - 18, area.bottom() + 5, 36, 18),
                              Qt.AlignmentFlag.AlignCenter, str(index + 1))
         for number, series in enumerate(values):
-            color = QColor("#1976b9" if number == 0 else "#b85b00")
+            color = QColor(SERIES_COLORS[number])
             pen = QPen(color, 2)
             if number == 1:
                 pen.setStyle(Qt.PenStyle.DashLine)
@@ -102,17 +106,29 @@ class BlockComparisonPanel(QWidget):
         for label, value in METRICS:
             self.metric_selector.addItem(label, value)
         for row, (label, combo) in enumerate((
-            ("Exercise", self.exercise), ("A · blue solid", self.first_block),
+            ("Exercise", self.exercise), ("A · cyan solid", self.first_block),
             ("B · orange dashed", self.second_block), ("Chart metric", self.metric_selector),
         )):
             # Two rows keep the table usable at the app's minimum height.
-            controls.addWidget(QLabel(label), row // 2, (row % 2) * 2)
+            caption = QLabel(label)
+            caption.setBuddy(combo)
+            combo.setAccessibleName(label)
+            if row in (1, 2):
+                caption.setObjectName("seriesA" if row == 1 else "seriesB")
+            controls.addWidget(caption, row // 2, (row % 2) * 2)
             controls.addWidget(combo, row // 2, (row % 2) * 2 + 1)
             combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
             combo.setMinimumContentsLength(12)
             combo.currentIndexChanged.connect(self._refresh)
         controls.setColumnStretch(1, 1)
         controls.setColumnStretch(3, 1)
+        self.swap_button = QPushButton("Swap A/B")
+        self.swap_button.setToolTip("Exchange the two blocks while keeping the exercise and metric.")
+        self.swap_button.clicked.connect(self._swap_blocks)
+        controls.addWidget(self.swap_button, 0, 4)
+        self.notes_button = QPushButton("Block notes…")
+        self.notes_button.setToolTip("Read the saved type and full notes for both selected blocks.")
+        controls.addWidget(self.notes_button, 1, 4)
         outer.addLayout(controls)
         self.status = QLabel()
         self.status.setTextFormat(Qt.TextFormat.PlainText)
@@ -135,14 +151,22 @@ class BlockComparisonPanel(QWidget):
         header.setSectionResizeMode(8, QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().hide()
         outer.addWidget(self.table, 1)
+        self.notes_dialog = QDialog(self)
+        self.notes_dialog.setWindowTitle("Saved block notes · A and B")
+        self.notes_dialog.resize(580, 260)
+        notes_layout = QVBoxLayout(self.notes_dialog)
         self.block_notes = QPlainTextEdit()
         self.block_notes.setReadOnly(True)
-        self.block_notes.setMaximumHeight(58)
         self.block_notes.setAccessibleName("Saved block types and notes for A and B")
-        outer.addWidget(self.block_notes)
-        note = QLabel("X-axis: relative block week. Dates stay in the table. Missing values break chart lines. "
-                      "No logged sets is not a confirmed skip. Coverage describes export dates, not completeness.")
+        notes_layout.addWidget(self.block_notes)
+        close_notes = QPushButton("Close")
+        close_notes.clicked.connect(self.notes_dialog.accept)
+        notes_layout.addWidget(close_notes)
+        self.notes_button.clicked.connect(self.notes_dialog.open)
+        note = QLabel("X-axis: relative week. Gaps stay missing; no logs ≠ a confirmed skip. "
+                      "Export coverage ≠ completeness.")
         note.setWordWrap(True)
+        note.setObjectName("subtitle")
         outer.addWidget(note)
         self.set_history(None)
 
@@ -161,6 +185,7 @@ class BlockComparisonPanel(QWidget):
             combo.clear()
             combo.setEnabled(dashboard is not None)
         self.metric_selector.setEnabled(dashboard is not None)
+        self.swap_button.setEnabled(dashboard is not None)
         if dashboard is not None:
             self.exercise.addItems(item.exercise for item in dashboard.exercises)
             names = [block.name for block in dashboard.blocks]
@@ -180,9 +205,20 @@ class BlockComparisonPanel(QWidget):
             combo.blockSignals(False)
         self._refresh()
 
+    def _swap_blocks(self) -> None:
+        first, second = self.first_block.currentIndex(), self.second_block.currentIndex()
+        self.first_block.blockSignals(True)
+        self.second_block.blockSignals(True)
+        self.first_block.setCurrentIndex(second)
+        self.second_block.setCurrentIndex(first)
+        self.first_block.blockSignals(False)
+        self.second_block.blockSignals(False)
+        self._refresh()
+
     def _refresh(self, *_args: object) -> None:
         self.table.setRowCount(0)
         self.block_notes.clear()
+        self.notes_button.setEnabled(False)
         self.chart.set_comparison(None, str(self.metric_selector.currentData()))
         if self._dashboard is None:
             self.status.setText("Load history to compare two blocks.")
@@ -195,6 +231,7 @@ class BlockComparisonPanel(QWidget):
             return
         self.status.setText("A and B share one scale. Counts and weights are per exercise, not whole-block totals.")
         self.chart.set_comparison(comparison, str(self.metric_selector.currentData()))
+        self.notes_button.setEnabled(True)
         pairs = comparison.paired_weeks()
         self.table.setRowCount(len(pairs) * 2)
         for index, pair in enumerate(pairs):
@@ -203,6 +240,8 @@ class BlockComparisonPanel(QWidget):
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
                     item.setToolTip(value)
+                    if column == 1:
+                        item.setForeground(QColor(SERIES_COLORS[side]))
                     self.table.setItem(index * 2 + side, column, item)
         self.table.resizeRowsToContents()
         self.block_notes.setPlainText("\n".join(

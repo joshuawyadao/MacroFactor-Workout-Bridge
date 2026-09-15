@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 from . import __version__
 from .config import load_config
 from .comparison_view import BlockComparisonPanel
+from .desktop_theme import SummaryCard, apply_dark_theme, style_calendar
 from .desktop_model import (
     bundled_config_path,
     copy_mapping,
@@ -70,6 +71,7 @@ APP_NAME = "MacroFactor Workout Bridge"
 class BridgeWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        apply_dark_theme(QApplication.instance())
         self._report: BridgeReport | None = None
         self._choices: dict[str, tuple[str, ...]] = {}
         self._history_dashboard: HistoryDashboard | None = None
@@ -228,31 +230,18 @@ class BridgeWindow(QMainWindow):
         self.from_date.dateChanged.connect(self._invalidate_preview)
         self.to_date.dateChanged.connect(self._invalidate_preview)
 
-        self.setStyleSheet(
-            """
-            QMainWindow { background: #f5f7fa; }
-            QTabWidget::pane { border: none; }
-            QTabBar::tab { padding: 9px 18px; }
-            QGroupBox { background: white; border: 1px solid #d9dee7; border-radius: 10px;
-                        margin-top: 12px; padding: 12px; font-weight: 600; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; }
-            QLineEdit, QComboBox, QDateEdit, QPlainTextEdit, QTableWidget {
-                background: white; border: 1px solid #cdd3dd; border-radius: 6px; padding: 5px;
-            }
-            QPushButton { min-height: 28px; padding: 2px 12px; }
-            QPushButton#primaryButton { background: #1769e0; color: white; border: none;
-                                        border-radius: 7px; font-weight: 600; min-height: 34px; }
-            QPushButton#primaryButton:hover { background: #0d5dcc; }
-            QLabel#subtitle { color: #586174; }
-            QLabel#status { background: #eaf2ff; color: #214b84; border-radius: 7px; padding: 9px; }
-            """
-        )
+        for table in self.findChildren(QTableWidget):
+            table.setAlternatingRowColors(True)
+            table.setShowGrid(False)
+            table.verticalHeader().hide()
+        for date_control in self.findChildren(QDateEdit):
+            style_calendar(date_control.calendarWidget())
 
     def _build_history_ui(self) -> QWidget:
         tab = QWidget()
         outer = QVBoxLayout(tab)
-        outer.setContentsMargins(26, 22, 26, 22)
-        outer.setSpacing(12)
+        outer.setContentsMargins(26, 10, 26, 10)
+        outer.setSpacing(6)
 
         title = QLabel("Workout History")
         title_font = QFont()
@@ -323,11 +312,19 @@ class BridgeWindow(QMainWindow):
         actions.addWidget(self.history_overview, 1)
         outer.addLayout(actions)
 
-        analysis = QSplitter(Qt.Orientation.Horizontal)
+        analysis = QSplitter(Qt.Orientation.Vertical)
+        analysis.setChildrenCollapsible(False)
         block_frame = QFrame()
         block_layout = QVBoxLayout(block_frame)
         block_layout.setContentsMargins(0, 0, 0, 0)
-        block_layout.addWidget(QLabel("Coach blocks (newest workbook, tab order)"))
+        block_heading = QHBoxLayout()
+        block_heading.addWidget(QLabel("Coach blocks · workbook order"), 1)
+        self.history_context_button = QPushButton("Edit context →")
+        self.history_context_button.setEnabled(False)
+        self.history_context_button.setToolTip("Open context for the selected block; double-clicking its row also works.")
+        self.history_context_button.clicked.connect(self._open_selected_block_context)
+        block_heading.addWidget(self.history_context_button)
+        block_layout.addLayout(block_heading)
         self.history_block_table = QTableWidget(0, 7)
         self.history_block_table.setHorizontalHeaderLabels(
             [
@@ -345,6 +342,11 @@ class BridgeWindow(QMainWindow):
         )
         self.history_block_table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
+        )
+        self.history_block_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.history_block_table.cellDoubleClicked.connect(self._open_selected_block_context)
+        self.history_block_table.itemSelectionChanged.connect(
+            lambda: self.history_context_button.setEnabled(self.history_block_table.currentRow() >= 0)
         )
         block_header = self.history_block_table.horizontalHeader()
         block_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -393,9 +395,19 @@ class BridgeWindow(QMainWindow):
             )
         exercise_layout.addWidget(self.history_trend_table)
         analysis.addWidget(exercise_frame)
-        analysis.setSizes([570, 500])
+        analysis.setSizes([160, 240])
         self.history_analysis_tabs = QTabWidget()
-        self.history_analysis_tabs.addTab(analysis, "Overview & trends")
+        overview = QWidget()
+        overview_layout = QVBoxLayout(overview)
+        overview_layout.setContentsMargins(0, 10, 0, 0)
+        cards = QHBoxLayout()
+        self.history_cards = [SummaryCard(label) for label in
+                              ("Logged sets", "Training days", "Coach blocks", "Sets with RIR")]
+        for card in self.history_cards:
+            cards.addWidget(card, 1)
+        overview_layout.addLayout(cards)
+        overview_layout.addWidget(analysis, 1)
+        self.history_analysis_tabs.addTab(overview, "Overview && trends")
         self.history_comparison = BlockComparisonPanel()
         self.history_analysis_tabs.addTab(self.history_comparison, "Compare blocks")
         outer.addWidget(self.history_analysis_tabs, 1)
@@ -573,6 +585,11 @@ class BridgeWindow(QMainWindow):
         self.history_comparison.set_history(None)
         self.history_save_annotation_button.setEnabled(False)
         self.history_overview.setText("Load the selected files to summarize your history.")
+        self.history_overview.setToolTip("")
+        for card in self.history_cards:
+            card.value.setText("—")
+            card.setToolTip("")
+        self.history_context_button.setEnabled(False)
         self.history_block_table.setRowCount(0)
         self.history_trend_table.setRowCount(0)
         self.history_block_combo.clear()
@@ -655,11 +672,27 @@ class BridgeWindow(QMainWindow):
         duration = duration_text(dashboard.total_duration_seconds)
         self.history_overview.setText(
             f"{dashboard.first_workout:%b %d, %Y}–{dashboard.last_workout:%b %d, %Y}  •  "
-            f"{dashboard.set_count} sets  •  {dashboard.training_day_count} training days  •  "
+            f"{dashboard.set_count:,} sets"
+        )
+        detail = (
+            f"{dashboard.training_day_count} training days  •  "
             f"{dashboard.workout_count} workouts  •  RIR {dashboard.rir_set_count}/{dashboard.set_count} "
             f"({rir_percent}%)  •  {duration} logged across "
             f"{dashboard.duration_session_count} workouts"
         )
+        self.history_overview.setToolTip(detail)
+        rir_coverage = f"{rir_percent}%"
+        if 0 < dashboard.rir_set_count < dashboard.set_count:
+            if rir_percent == 0:
+                rir_coverage = "<1%"
+            elif rir_percent == 100:
+                rir_coverage = ">99%"
+        for card, value in zip(self.history_cards, (
+            f"{dashboard.set_count:,}", str(dashboard.training_day_count),
+            str(len(dashboard.blocks)), rir_coverage,
+        )):
+            card.value.setText(value)
+            card.setToolTip(detail)
 
         self.history_block_table.setRowCount(len(dashboard.blocks))
         for row, block in enumerate(dashboard.blocks):
@@ -722,6 +755,14 @@ class BridgeWindow(QMainWindow):
             )
             for column, value in enumerate(values):
                 self.history_trend_table.setItem(row, column, QTableWidgetItem(value))
+
+    def _open_selected_block_context(self, *_args: object) -> None:
+        row = self.history_block_table.currentRow()
+        item = self.history_block_table.item(row, 0)
+        if item is not None and self._history_dashboard is not None:
+            self.history_block_combo.setCurrentText(item.text())
+            self.history_analysis_tabs.setCurrentIndex(2)
+            self.history_block_combo.setFocus()
 
     def _history_block_changed(self, block_name: str) -> None:
         dashboard = self._history_dashboard
@@ -933,7 +974,9 @@ class BridgeWindow(QMainWindow):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if proposal.fill_color:
-                    item.setBackground(QColor(f"#{proposal.fill_color[-6:]}"))
+                    fill = QColor(f"#{proposal.fill_color[-6:]}")
+                    item.setBackground(fill)
+                    item.setForeground(QColor("#101113" if fill.lightnessF() >= 0.5 else "#ffffff"))
                 self.preview_table.setItem(row, column, item)
         self.review_panel.setPlainText(review_text(report))
 
