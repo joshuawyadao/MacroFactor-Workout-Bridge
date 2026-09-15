@@ -18,6 +18,8 @@ if HAS_QT:
 
 from macrofactor_bridge.models import BridgeReport, ProposedWrite
 from macrofactor_bridge.history import load_dashboard_annotations
+from macrofactor_bridge.history import BlockAnnotation, DashboardAnnotations, save_dashboard_annotations
+from tests.history_fixture import LAYOUT, irregular_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,6 +124,33 @@ class DesktopGuiTests(unittest.TestCase):
             self.assertEqual(week.affected_movements, ("Squat", "Deadlift"))
             self.assertIn("Saved private context", window.history_status.text())
             window.close()
+
+    def test_irregular_history_layout_survives_desktop_save_and_reload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            coach = root / 'coach.xlsx'
+            irregular_workbook(coach)
+            path = root / 'history.json'
+            save_dashboard_annotations(path, DashboardAnnotations({
+                'Training Block': BlockAnnotation(week_layout=LAYOUT),
+            }))
+            window = BridgeWindow()
+            self.addCleanup(window.close)
+            window.history_export_path.setText(str(ROOT / 'tests/fixtures/macrofactor-log.xlsx'))
+            window.history_workbook_path.setText(str(coach))
+            window.history_config_path.setText(str(ROOT / 'config/exercises.example.json'))
+            window.history_annotations_path.setText(str(path))
+            window._load_history()
+            self.assertEqual([window.history_week_combo.itemText(i) for i in range(3)],
+                             ['Week 10', 'Week 11', 'Week 12'])
+            self.assertEqual(window.history_week_combo.count(), 3)
+            window.history_week_combo.setCurrentText('Week 12')
+            window.history_week_notes.setText('A synthetic date-labelled week')
+            window._save_history_annotation()
+            saved = load_dashboard_annotations(path).blocks['Training Block']
+            self.assertEqual(saved.week_layout, LAYOUT)
+            self.assertEqual(saved.weeks['Week 12'].notes, 'A synthetic date-labelled week')
+            self.assertEqual(window.history_week_combo.currentText(), 'Week 12')
 
     def test_history_input_changes_invalidate_loaded_dashboard(self) -> None:
         fields = (
