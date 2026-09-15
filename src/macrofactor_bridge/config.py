@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .models import BridgeConfig, EmptyDayMarker, ExerciseRule
-from .program_models import ProgramConfig, ProgramDefaults
+from .program_models import BasePrescriptionOverride, ProgramConfig, ProgramDefaults
 
 
 class ConfigError(ValueError):
@@ -80,13 +80,15 @@ def _load_program_config(
         ("sheet_order", ("left_to_right", "right_to_left"), "left_to_right"),
         ("rest_range_policy", ("block", "upper"), "block"),
         ("set_count_range_policy", ("block", "upper"), "block"),
+        ("prescription_source", ("selected_week", "base"), "selected_week"),
+        ("notes_mode", ("full", "concise"), "full"),
     ):
         value = payload.get(key, default)
         if value not in choices:
             raise ConfigError(f"program.{key} must be one of {choices}")
         policy_values[key] = value
     for key in ("allow_blank_targets", "preserve_coach_notes", "exclude_warmups", "exclude_cardio",
-                "resize_template_workouts"):
+                "resize_template_workouts", "use_day_designations"):
         value = payload.get(key, False)
         if not isinstance(value, bool):
             raise ConfigError(f"program.{key} must be a boolean")
@@ -263,6 +265,25 @@ def load_config(path: str | Path) -> BridgeConfig:
                        for value in set_types)):
             raise ConfigError(f"Exercise rule {canonical!r} program_set_types must list standard/myo types")
         blank_reps = raw.get("program_blank_rep_targets", False)
+        include_warmup = raw.get("program_include_warmup", False)
+        if not isinstance(include_warmup, bool) or (include_warmup and program_excluded):
+            raise ConfigError("program_include_warmup must be a boolean and cannot accompany exclusion")
+        overrides = raw.get("program_base_overrides", {})
+        if not isinstance(overrides, dict) or set(overrides) - {"sets", "reps"}:
+            raise ConfigError("program_base_overrides supports only sets and reps")
+        parsed_overrides = []
+        for key, override in overrides.items():
+            if (not isinstance(override, dict) or set(override) != {"expected", "value"}
+                    or any(not isinstance(v, str) or not v.strip() for v in override.values())):
+                raise ConfigError("Each program_base_overrides entry needs non-empty expected/value strings")
+            parsed_overrides.append(BasePrescriptionOverride(
+                key, override["expected"].strip(), override["value"].strip()))
+        program_notes = raw.get("program_notes")
+        if program_notes is not None and (not isinstance(program_notes, list)
+                or any(not isinstance(v, str) or not v.strip() for v in program_notes)):
+            raise ConfigError("program_notes must be null or a list of non-empty reviewed note strings")
+        if program_notes is not None and not program_config.preserve_coach_notes:
+            raise ConfigError("program_notes requires program.preserve_coach_notes")
         if not isinstance(blank_reps, bool):
             raise ConfigError(f"Exercise rule {canonical!r} program_blank_rep_targets must be a boolean")
         if set_types and group:
@@ -305,6 +326,9 @@ def load_config(path: str | Path) -> BridgeConfig:
                 macrofactor_available=macrofactor_available,
                 program_set_types=tuple(set_types),
                 program_blank_rep_targets=blank_reps,
+                program_include_warmup=include_warmup,
+                program_base_overrides=tuple(parsed_overrides),
+                program_notes=tuple(v.strip() for v in program_notes) if program_notes is not None else None,
             )
         )
 

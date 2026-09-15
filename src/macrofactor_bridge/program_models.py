@@ -35,6 +35,9 @@ class ProgramConfig:
     exclude_warmups: bool = False
     exclude_cardio: bool = False
     resize_template_workouts: bool = False
+    prescription_source: str = "selected_week"
+    notes_mode: str = "full"
+    use_day_designations: bool = False
 
 
 @dataclass(frozen=True)
@@ -62,6 +65,19 @@ class PrescriptionField:
 
 
 @dataclass(frozen=True)
+class RepTarget:
+    minimum: PrescriptionField
+    maximum: PrescriptionField
+
+
+@dataclass(frozen=True)
+class BasePrescriptionOverride:
+    field: str
+    expected: str
+    value: str
+
+
+@dataclass(frozen=True)
 class CyclePrescription:
     cycle: str
     set_count: PrescriptionField
@@ -74,6 +90,7 @@ class CyclePrescription:
     raw_week_text: str | None
     raw_unparsed_text: str | None
     set_types: tuple[PrescriptionField, ...] = ()
+    set_rep_targets: tuple[RepTarget, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -108,6 +125,9 @@ class WorkoutDay:
     order: int
     optional: bool
     exercises: tuple[OrderedExercise, ...]
+    designation: str | None = None
+    designation_cell: str | None = None
+    export_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +136,7 @@ class Program:
     cycle_name: str
     cycles: tuple[ProgramCycle, ...]
     days: tuple[WorkoutDay, ...]
+    prescription_source: str = "selected_week"
 
 
 @dataclass(frozen=True)

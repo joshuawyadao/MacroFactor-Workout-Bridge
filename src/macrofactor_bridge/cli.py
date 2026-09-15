@@ -124,7 +124,8 @@ def _resolve_program_selection(args, config):
         )
     weeks = tuple(args.week or ())
     if not weeks:
-        weeks = (_select("Week", list(matches[0].week_labels)),)
+        weeks = (matches[0].week_labels if config.program.prescription_source == "base"
+                 else (_select("Week", list(matches[0].week_labels)),))
     return sheet_name, block_id, weeks
 
 
@@ -134,12 +135,14 @@ def _print_program_report(report) -> None:
         f"{', '.join(report.included_weeks)}"
     )
     if report.program is not None:
+        print(f"Prescription source: {report.program.prescription_source}; "
+              f"{len(report.program.cycles)} cycle(s). {report.program.cycle_name}")
         print(
             f"Discovered: {len(report.program.days)} day(s), "
             f"{sum(len(day.exercises) for day in report.program.days)} exercise mapping(s)"
         )
         for day in report.program.days:
-            print(f"  {day.label}")
+            print(f"  {day.label}" + (f" -> {day.export_name}" if day.export_name and day.export_name != day.label else ""))
             for exercise in day.exercises:
                 mapped = exercise.macrofactor_name or "unmapped"
                 flags = [exercise.mapping_status]
@@ -163,6 +166,11 @@ def _print_program_report(report) -> None:
                         if prescription.rest_seconds.value is None
                         else f"{prescription.rest_seconds.value}s"
                     )
+                    if prescription.rep_min.value is not None and prescription.rep_max.value is None:
+                        rep_value = f"{prescription.rep_min.value}+ (maximum unset)"
+                    if prescription.set_rep_targets:
+                        rep_value = ", ".join(f"{target.minimum.value}-{target.maximum.value}"
+                                              for target in prescription.set_rep_targets)
                     fields = (
                         f"sets={prescription.set_count.value or 'missing'} "
                         f"[{prescription.set_count.source}], "
@@ -181,6 +189,8 @@ def _print_program_report(report) -> None:
                         ))
                     if prescription.raw_unparsed_text:
                         print(f"        review raw text: {prescription.raw_unparsed_text}")
+                    if prescription.notes:
+                        print("        export notes: " + " / ".join(prescription.notes))
     blockers = report.blocking_issues
     warnings = [issue for issue in report.issues if issue.severity == "warning"]
     print(
@@ -259,7 +269,7 @@ def build_parser() -> argparse.ArgumentParser:
     program_preview.add_argument(
         "--week",
         action="append",
-        help="Included coach week; repeat to include multiple weeks",
+        help="Included week; repeat for multiple cycles. In base mode, all repeat the base table",
     )
     program_preview.add_argument(
         "--template",
@@ -280,7 +290,7 @@ def build_parser() -> argparse.ArgumentParser:
     program_generate.add_argument(
         "--week",
         action="append",
-        help="Included coach week; repeat to include multiple weeks",
+        help="Included week; repeat for multiple cycles. In base mode, all repeat the base table",
     )
     program_generate.add_argument("--report", help="Optional private JSON report path")
     return parser

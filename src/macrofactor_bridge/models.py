@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from .program_models import ProgramConfig
+from .program_models import BasePrescriptionOverride, ProgramConfig
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,9 @@ class ExerciseRule:
     macrofactor_available: bool = True
     program_set_types: tuple[str, ...] = ()
     program_blank_rep_targets: bool = False
+    program_include_warmup: bool = False
+    program_base_overrides: tuple[BasePrescriptionOverride, ...] = ()
+    program_notes: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)

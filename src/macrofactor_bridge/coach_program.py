@@ -26,6 +26,7 @@ from .program_models import (
     ProgramCycle,
     ProgramIssue,
     ProgramParseResult,
+    RepTarget,
     SupersetMembership,
     WorkoutDay,
 )
@@ -401,21 +402,29 @@ def _parse_set_count(raw: str | None, range_policy: str = "block") -> int | None
     return upper if 1 <= lower <= upper else None
 
 
-def _parse_reps(raw: str | None) -> tuple[int, int] | None:
+def _parse_reps(raw: str | None) -> tuple[int, int | None] | None:
     if raw is None:
         return None
     match = re.fullmatch(
-        r"(\d+)(?:\s*(?:[-–]|to)\s*(\d+))?(?:\s*reps?)?",
+        r"(\d+)(?:(\+)|\s*(?:[-–]|to)\s*(\d+))?(?:\s*reps?)?"
+        r"(?:\s*(?:ea\.?|each)(?:\s+(?:leg|side))?)?(?:\s+again)?",
         raw,
         re.IGNORECASE,
     )
     if not match:
         return None
     minimum = int(match.group(1))
-    maximum = int(match.group(2) or match.group(1))
-    if minimum < 1 or maximum < minimum:
+    maximum = None if match.group(2) else int(match.group(3) or match.group(1))
+    if minimum < 1 or (maximum is not None and maximum < minimum):
         return None
     return minimum, maximum
+
+
+def _parse_rep_list(raw: str | None) -> tuple[tuple[int, int | None], ...]:
+    if not raw or not re.fullmatch(r"\d+(?:\s*,\s*\d+)+", raw):
+        return ()
+    values = tuple(int(value.strip()) for value in raw.split(","))
+    return tuple((value, value) for value in values) if all(value > 0 for value in values) else ()
 
 
 def _parse_rest(raw: str | None, range_policy: str = "block") -> int | None:
@@ -771,6 +780,7 @@ def _apply_set_layout(
         prescription = replace(prescription,
             rep_min=_field(None, "blank_by_policy", None, prescription.rep_min.raw_text),
             rep_max=_field(None, "blank_by_policy", None, prescription.rep_max.raw_text),
+            set_rep_targets=(),
         )
     return replace(prescription, notes=notes)
 
@@ -791,7 +801,26 @@ def _prescriptions(
     date_styles: set[str] | None = None,
     set_types: tuple[str, ...] = (),
     blank_rep_targets: bool = False,
+    rule: ExerciseRule | None = None,
 ) -> tuple[CyclePrescription, ...]:
+    original_base = base_raw
+    base_raw = dict(base_raw)
+    overridden = set()
+    for override in rule.program_base_overrides if rule else ():
+        matches = base_raw.get(override.field) == override.expected
+        if not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="warning" if matches else "blocking",
+                code="reviewed_base_override" if matches else "stale_base_override",
+                message=(f"Reviewed {override.field} correction: {override.expected!r} -> {override.value!r}"
+                         if matches else f"Reviewed {override.field} correction no longer matches source"),
+                sheet=sheet, day=day.label, exercise=exercise,
+                cell=make_cell_reference(row, day.columns[override.field]),
+                raw_text=base_raw.get(override.field),
+            ))
+        if matches:
+            base_raw[override.field] = override.value
+            overridden.add(override.field)
     cells = {
         key: make_cell_reference(row, day.columns[key])
         for key in ("style", "sets", "reps", "rest")
@@ -799,12 +828,28 @@ def _prescriptions(
     set_count = _parse_set_count(base_raw.get("sets"), config.program.set_count_range_policy)
     ranged_sets = set_count is not None and _parse_integer(base_raw.get("sets")) is None
     rep_range = _parse_reps(base_raw.get("reps"))
+    rep_list = _parse_rep_list(base_raw.get("reps"))
     rep_cell = snapshot.cells.get(cells["reps"])
     date_rep = bool(rep_cell and rep_cell.style in (date_styles or set())
-                    and isinstance(rep_cell.value, (int, float)))
+                    and isinstance(rep_cell.value, (int, float)) and "reps" not in overridden)
     if date_rep:
         rep_range = None
+        rep_list = ()
+    if rep_list and len(rep_list) != set_count and not suppress_blockers:
+        issues.append(ProgramIssue(
+            severity="blocking", code="rep_sequence_length_mismatch",
+            message="Per-set rep list must match the resolved total set count",
+            sheet=sheet, day=day.label, exercise=exercise, cell=cells["reps"],
+            raw_text=base_raw.get("reps"),
+        ))
     rest_seconds = _parse_rest(base_raw.get("rest"), config.program.rest_range_policy)
+    for key, valid in (("sets", set_count is not None), ("reps", rep_range is not None or bool(rep_list))):
+        if key in overridden and not valid and not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="blocking", code="unsupported_base_override",
+                message=f"Reviewed {key} replacement is not a supported exact prescription",
+                sheet=sheet, day=day.label, exercise=exercise, cell=cells[key], raw_text=base_raw[key],
+            ))
     set_type = SET_TYPE_ALIASES.get(normalize_name(base_raw.get("style", "")))
     if set_count is None:
         _base_value_issue(
@@ -823,7 +868,7 @@ def _prescriptions(
             sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
             raw_text=base_raw.get("reps"),
         ))
-    if rep_range is None and not (notes_policy and blank_reps_allowed):
+    if rep_range is None and not rep_list and not (notes_policy and blank_reps_allowed):
         _base_value_issue(
             field_name="rep target", raw_text=base_raw.get("reps"), cell=cells["reps"],
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
@@ -843,7 +888,15 @@ def _prescriptions(
             if normalize_name(candidate.label) == normalize_name(week_label)
         )
         week_cell = make_cell_reference(row, week.plan_column)
-        raw_week = _raw(snapshot.cells.get(week_cell))
+        source_week = _raw(snapshot.cells.get(week_cell))
+        raw_week = source_week if config.program.prescription_source == "selected_week" else None
+        if source_week and config.program.prescription_source == "base" and not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="warning", code="weekly_update_not_applied",
+                message="Base program mode: weekly instruction retained for later review, not applied",
+                sheet=sheet, cell=week_cell, day=day.label, exercise=exercise,
+                cycle=week_label, raw_text=source_week,
+            ))
         parsed_week = _parse_week(raw_week)
         if notes_policy and raw_week and re.fullmatch(r"\d+(?:\.\d+)?", raw_week):
             # Unlabelled numbers in coach weeks can be weights, not rep targets.
@@ -865,7 +918,20 @@ def _prescriptions(
                 )
             )
         parsed_week = parsed_week or _ParsedWeek()
-        minimum, maximum = rep_range or (None, None)
+        minimum, maximum = rep_range or (rep_list[0] if rep_list else (None, None))
+        if rep_range and maximum is None and parsed_week.rep_max is not None and not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="blocking", code="conflicting_base_and_week",
+                message="Weekly bounded range conflicts with a minimum-only base target",
+                sheet=sheet, day=day.label, exercise=exercise, cycle=week_label, cell=week_cell,
+            ))
+        if rep_list and (parsed_week.rep_min is not None or parsed_week.rep_max is not None):
+            if any(target != (parsed_week.rep_min, parsed_week.rep_max) for target in rep_list) and not suppress_blockers:
+                issues.append(ProgramIssue(
+                    severity="blocking", code="conflicting_base_and_week",
+                    message="Weekly rep target conflicts with the base per-set list",
+                    sheet=sheet, day=day.label, exercise=exercise, cycle=week_label, cell=week_cell,
+                ))
         explicit_types = {
             kind for kind, pattern in (
                 ("myo", r"\bmyo(?:[ -]?reps?|[ -]?sets?)?\b"),
@@ -949,7 +1015,8 @@ def _prescriptions(
                 suppress_blockers=suppress_blockers,
                 allow_blank=blank_reps_allowed,
             ),
-            rep_max=_resolve_field(
+            rep_max=(_field(None, "coach_unbounded", cells["reps"], base_raw.get("reps"))
+                     if rep_range and maximum is None else _resolve_field(
                 name="maximum reps", base_value=maximum, base_cell=cells["reps"],
                 base_raw=base_raw.get("reps"), week_value=parsed_week.rep_max,
                 week_cell=week_cell, week_raw=raw_week,
@@ -957,7 +1024,7 @@ def _prescriptions(
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
                 allow_blank=blank_reps_allowed,
-            ),
+            )),
             rir=_resolve_field(
                 name="RIR", base_value=None, base_cell=None, base_raw=None,
                 week_value=parsed_week.rir, week_cell=week_cell,
@@ -976,9 +1043,15 @@ def _prescriptions(
                 allow_blank=blank_targets,
             ),
             notes=notes if notes_policy else ((raw_unparsed,) if raw_unparsed else ()),
-            raw_week_text=raw_week,
-            raw_unparsed_text=raw_unparsed,
+            raw_week_text=source_week,
+            raw_unparsed_text=(source_week if config.program.prescription_source == "base" else raw_unparsed),
         )
+        if rep_list:
+            prescription = replace(prescription, set_rep_targets=tuple(
+                RepTarget(_field(lo, "coach_base", cells["reps"], base_raw.get("reps")),
+                          _field(hi, "coach_base", cells["reps"], base_raw.get("reps")))
+                for lo, hi in rep_list
+            ))
         if (rest_seconds is not None and _parse_rest(base_raw.get("rest")) is None
                 and prescription.rest_seconds.source != "conflict"):
             prescription = replace(prescription, rest_seconds=_field(
@@ -989,12 +1062,59 @@ def _prescriptions(
             prescription = replace(prescription, set_count=_field(
                 set_count, "coach_range_upper_by_policy", cells["sets"], base_raw.get("sets"),
             ))
-        prescriptions.append(_apply_set_layout(
+        for key, fields in (("sets", ("set_count",)), ("reps", ("rep_min", "rep_max"))):
+            if key in overridden:
+                prescription = replace(prescription, **{
+                    field: replace(getattr(prescription, field), source="config_reviewed_override",
+                                   raw_text=original_base.get(key))
+                    for field in fields if getattr(prescription, field).source != "conflict"
+                })
+        if "reps" in overridden and prescription.set_rep_targets:
+            prescription = replace(prescription, set_rep_targets=tuple(
+                RepTarget(replace(target.minimum, source="config_reviewed_override", raw_text=original_base.get("reps")),
+                          replace(target.maximum, source="config_reviewed_override", raw_text=original_base.get("reps")))
+                for target in prescription.set_rep_targets
+            ))
+        prescription = _apply_set_layout(
             prescription, set_types=set_types, blank_reps=blank_rep_targets,
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
             suppress_blockers=suppress_blockers,
-        ))
+        )
+        if notes_policy and config.program.notes_mode == "concise":
+            concise = list(rule.program_notes) if rule and rule.program_notes is not None else []
+            variation = base_raw.get("variation")
+            if (not rule or rule.program_notes is None) and variation and (
+                    not rule or normalize_name(variation) != normalize_name(rule.canonical)):
+                concise.append(variation)
+            for key, parsed in (("sets", set_count), ("reps", rep_range or rep_list), ("rest", rest_seconds)):
+                if base_raw.get(key) and (parsed is None or parsed == ()):
+                    concise.append(f"{key.capitalize()}: {base_raw[key]}")
+            if blank_rep_targets and (rep_range or rep_list):
+                concise.append(f"Coach rep guidance: {base_raw['reps']}")
+            if rep_range and re.search(r"\b(?:ea\.?|each)\b", base_raw.get("reps", ""), re.IGNORECASE):
+                concise.append("Reps are per side.")
+            if raw_week:
+                concise.append(raw_week)
+            prescription = replace(prescription, notes=tuple(dict.fromkeys(concise)))
+        prescriptions.append(prescription)
     return tuple(prescriptions)
+
+
+def _day_designation(snapshot, day: _DayLayout) -> tuple[str | None, str | None, bool]:
+    headings = [split_cell_reference(ref)[1] for ref, cell in snapshot.cells.items()
+                if split_cell_reference(ref)[0] == day.header_row and _raw(cell) == day.label]
+    if len(headings) != 1 or headings[0] in day.columns.values():
+        return None, None, False
+    candidates = [(ref, cell) for ref, cell in snapshot.cells.items()
+                  if split_cell_reference(ref)[1] == headings[0]
+                  and day.header_row < split_cell_reference(ref)[0] <= day.end_row
+                  and (cell.formula is not None or _raw(cell))]
+    if len(candidates) != 1 or candidates[0][1].formula is not None:
+        return None, None, bool(candidates)
+    reference, cell = candidates[0]
+    if not isinstance(cell.value, str):
+        return None, None, True
+    return _raw(cell), reference, False
 
 
 def parse_coach_program(
@@ -1034,6 +1154,8 @@ def parse_coach_program(
     skipped: list[dict[str, object]] = []
     workout_days: list[WorkoutDay] = []
     for day_order, day in enumerate(layout.days, start=1):
+        designation, designation_cell, ambiguous = _day_designation(snapshot, day)
+        day_optional = day.optional or bool(designation and "optional" in normalize_name(designation))
         day_exercises: list[OrderedExercise] = []
         exercise_order = 0
         for row in range(day.header_row + 1, day.end_row + 1):
@@ -1060,14 +1182,18 @@ def parse_coach_program(
                 _raw(snapshot.cells.get(make_cell_reference(row, week.plan_column))) or ""
                 for week in day.weeks if normalize_name(week.label) in normalized_weeks
             )
+            if config.program.prescription_source == "base":
+                week_texts = ()
             # Week text is context only, never a completed-result column.
             rules = _exercise_rules(coach_name, raw_base["variation"], context + week_texts, config)
             style = raw_base.get("style")
             optional, warmup, cardio = _classification(
                 day.label, " ".join((*context, *week_texts)), coach_name
             )
+            optional = optional or day_optional
             category_exclusion = (
                 "Warmup excluded by program policy" if warmup and config.program.exclude_warmups
+                and not (len(rules) == 1 and rules[0].program_include_warmup)
                 else "Cardio excluded by program policy" if cardio and config.program.exclude_cardio
                 else None
             )
@@ -1138,11 +1264,13 @@ def parse_coach_program(
                         )
                     )
                 if (warmup or cardio) and not excluded:
+                    reviewed_warmup = bool(rule and rule.program_include_warmup and not cardio)
                     issues.append(
                         ProgramIssue(
-                            severity="blocking",
-                            code="unsupported_exercise_category",
+                            severity="warning" if reviewed_warmup else "blocking",
+                            code="reviewed_warmup_inclusion" if reviewed_warmup else "unsupported_exercise_category",
                             message=(
+                                "Warmup exercise included by reviewed configuration" if reviewed_warmup else
                                 "Warmup conversion requires explicit review"
                                 if warmup
                                 else "Cardio or conditioning conversion is unsupported"
@@ -1192,6 +1320,7 @@ def parse_coach_program(
                     date_styles=date_styles,
                     set_types=rule.program_set_types if rule else (),
                     blank_rep_targets=bool(rule and rule.program_blank_rep_targets),
+                    rule=rule,
                 )
                 superset = (
                     SupersetMembership(rule.superset_group, rule.superset_order)
@@ -1225,23 +1354,34 @@ def parse_coach_program(
             sheet_name=sheet_name,
             issues=issues,
         )
+        if ambiguous and config.program.use_day_designations:
+            issues.append(ProgramIssue(
+                severity="warning", code="ambiguous_day_designation",
+                message="No unique literal day designation; retaining the original day label",
+                sheet=sheet_name, day=day.label,
+            ))
         workout_days.append(
             WorkoutDay(
                 label=day.label,
                 order=day_order,
-                optional=day.optional,
+                optional=day_optional,
                 exercises=tuple(day_exercises),
+                designation=designation,
+                designation_cell=designation_cell,
+                export_name=(designation if config.program.use_day_designations and designation else day.label),
             )
         )
 
     program = Program(
         name=f"{sheet_name} {block_identifier}",
-        cycle_name="Selected coach weeks",
+        cycle_name=("Base program repeated across selected weeks" if config.program.prescription_source == "base"
+                    else "Selected coach weeks"),
         cycles=tuple(
             ProgramCycle(label=label, order=index)
             for index, label in enumerate(selected_weeks, start=1)
         ),
         days=tuple(workout_days),
+        prescription_source=config.program.prescription_source,
     )
     return ProgramParseResult(
         program=program,

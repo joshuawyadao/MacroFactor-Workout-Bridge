@@ -34,7 +34,27 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
 
 ## Open questions
-- None.
+- None for the available correction slice. The user confirmed a repeated base-table program with weekly updates handled separately, supplied the remaining exact identity, and confirmed the canonical-name entry imported correctly. Minimum-only output remains an evidence gate, not permission to invent its encoding; implement its neutral representation and explicit blocker while completing independent corrections.
+
+## Manual-import feedback correction slice
+
+The user has reported content defects after testing the first candidate: insufficient duration, blank rep targets, redundant notes, a set-count correction, and missing exercises. This is useful manual-test evidence, not acceptance of the generated program. The prior structural tests do not establish semantic fidelity inside MacroFactor. Keep PR #13 draft and issue #12 open. The clarification pause is resolved: use base-table prescriptions repeated across selected weeks, retain weekly updates separately for review, preserve the confirmed imported identity, and apply the explicit inclusion choices privately. Do not claim periodization or minimum-only output support without direct evidence.
+
+[x] Inspect the relevant coach prescription cells, both direct program references and the original candidate read-only; distinguish planned columns from completed results and verify all four files remain byte-for-byte unchanged.
+[x] Confirm that the original candidate contains the reported canonical-name discrepancy, that category-based warmup exclusion omitted other requested rows, and that the references contain bounded or blank rep targets but no minimum-only example. Keep all identifying evidence private.
+[x] Resolve the open questions and update this plan before implementation. Treat the latest explicit inclusion and count corrections as reviewed Part 2 overrides, never edits to the coach workbook or Part 1 mappings.
+[x] Add an opt-in base-table prescription mode: selected weeks determine repeated cycle count, while weekly coach text remains separate review data and cannot supply targets, set types, mapping context or exclusions. Preserve strict weekly mode by default.
+[x] Discover a unique designation below each day heading in the same dynamically located column. Preserve the original day identifier and full designation in review; use the designation for export names, falling back safely when missing or ambiguous. Cover shifted columns, merged headings, fractional days and multiple blocks.
+[x] Extend the neutral model and conservative parser for per-set rep lists, explicitly understood unilateral suffixes, and minimum-only targets. Preserve raw text, set-count/list-length checks, weekly conflicts and visible provenance; do not turn arbitrary numeric prose or date serials into targets.
+[x] Add exact-rule, reviewed corrections for ambiguous source values and narrow inclusion exceptions, with preview warnings showing when a correction differs from the source. Preserve global warmup/cardio exclusions elsewhere.
+[x] Separate concise exported exercise notes from full raw review data. Keep meaningful tempo, equipment, unilateral, progression and unsupported instructions without redundant field dumps; preserve the existing detailed-notes option and its safety behavior.
+[x] Implement the user-approved repeated-base workflow without inferring differing-cycle encoding. Keep minimum-only output blocked until a direct reference proves it.
+[ ] Verify native minimum-only rep encoding from a new direct export and add its generation tests before producing a replacement candidate.
+[x] Add anonymized regression coverage in the program preview, policy, generation and mixed-set tests for per-set reps, unilateral targets, minimum-only gating, corrections, inclusion exceptions, concise notes, cycle duration and exact output identities. Preserve all existing assertions and Part 1 behavior.
+[x] Update README, local workflow documentation, CLI help where applicable, and this plan with the new policies, verified scope and remaining manual-test gaps.
+[x] Run 76 targeted Part 2 tests and all 152 canonical tests, compilation, configuration parity and diff/privacy checks. Synthetic generation tests verify per-set targets, repeated-cycle metadata, day names, immutable inputs and non-overwrite. All three private input hashes and the prior candidate still match the saved evidence.
+[ ] Generate a distinct private corrected candidate only after minimum-only encoding is verified; leave the existing candidate unchanged.
+Final handoff: save and push the validated feature-branch correction checkpoint with `save-branch` and update tracking with redacted evidence. A new direct export is required before the next candidate/manual test; do not merge or mark Part 2 complete.
 
 ## Verified mixed-set candidate
 
@@ -80,6 +100,7 @@ The user approved upper-bound set counts and the private exercise-match proposal
 - The verified export repeats one distinct cycle layout. It does not prove the OOXML layout for different prescriptions in different cycles, so periodized generation remains blocked pending a richer direct export or manual evidence.
 
 ## Verification
+- Manual-feedback correction checkpoint: all 152 canonical tests and 76 targeted Part 2 tests passed, including 22 new tests in `tests/test_program_corrections.py`. Coverage includes base/weekly separation, repeated duration, per-set reps, unilateral and minimum-only targets, exact-source corrections, concise notes, warmup inclusion, dynamic day designations and output integrity. Compilation, configuration parity, privacy and diff checks passed. The private corrected preview has one remaining minimum-only encoding gate; no replacement workbook is claimed. All three original input hashes and the first candidate hash remain unchanged.
 - Mixed-set checkpoint: 54 targeted Part 2 tests and all 130 canonical tests passed. Eight new anonymized tests cover native labels, ordered sequences, blank targets, CLI/report visibility, immutable-input/non-overwrite round trips, sequence length/conflicts, invalid configuration, differing-cycle order and independent RIR safety. Existing assertions remain unchanged.
 - The first private CLI-generated candidate passed a fresh 482-cell structural round trip against the current code. The coach source, full-layout template and mixed-set reference all retained their hashes. Native mixed types, blank rep/RIR cells, full coach notes, and unchanged unrelated OOXML members were checked. Output, evidence, reports and mappings remain ignored and uncommitted. Manual import is pending; no compatibility claim is made.
 - Compilation, example/bundled configuration parity, ignored-path checks and `git diff --check` passed for this checkpoint. Spreadsheet tooling was used only for read-only reference inspection; production remains Python/OOXML.

@@ -473,6 +473,7 @@ def _prescription_signature(prescription: CyclePrescription) -> tuple[object, ..
         prescription.rest_seconds.value,
         prescription.notes,
         tuple(field.value for field in prescription.set_types),
+        tuple((target.minimum.value, target.maximum.value) for target in prescription.set_rep_targets),
     )
 
 
@@ -546,6 +547,20 @@ def template_generation_issues(
                 rep_max = prescription.rep_max.value
                 rir = prescription.rir.value
                 rest_seconds = prescription.rest_seconds.value
+                if prescription.set_rep_targets:
+                    if (len(prescription.set_rep_targets) != set_count or any(
+                            type(target.minimum.value) is not int or type(target.maximum.value) is not int
+                            or target.minimum.value < 1 or target.maximum.value < target.minimum.value
+                            for target in prescription.set_rep_targets)):
+                        block("unsupported_template_rep_sequence",
+                              "Per-set reps must match the set count and contain verified bounded targets",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                if type(rep_min) is int and rep_min > 0 and rep_max is None:
+                    block("minimum_only_template_required",
+                          "A direct Export Program example must verify minimum-only rep encoding before generation",
+                          day=day.label, exercise=exercise.coach_name)
+                    break
                 if type(set_count) is not int or not 1 <= set_count <= len(schema.sets):
                     block(
                         "template_set_capacity_exceeded",
@@ -648,7 +663,7 @@ def _program_changes(
     for day, template_day in zip(program.days, schema.days, strict=True):
         for row in template_day.rows:
             changes[make_cell_reference(row, schema.day_column)] = None
-        changes[template_day.label_cell] = day.label
+        changes[template_day.label_cell] = day.export_name or day.label
         exercises = [exercise for exercise in day.exercises if not exercise.excluded]
         for exercise, row in zip(exercises, template_day.rows, strict=True):
             prescription = exercise.prescriptions[0]
@@ -666,6 +681,10 @@ def _program_changes(
             assert isinstance(set_count, int)
             for group in schema.sets:
                 populated = group.number <= set_count
+                target = (prescription.set_rep_targets[group.number - 1]
+                          if populated and prescription.set_rep_targets else None)
+                minimum = target.minimum.value if target else prescription.rep_min.value
+                maximum = target.maximum.value if target else prescription.rep_max.value
                 kind = (
                     prescription.set_types[group.number - 1].value
                     if populated and prescription.set_types else "standard"
@@ -674,8 +693,8 @@ def _program_changes(
                     {"standard": "Standard Set", "myo": "Myo Set"}[kind] if populated else None
                 )
                 changes[make_cell_reference(row, group.rep_range)] = (
-                    f"{prescription.rep_min.value} - {prescription.rep_max.value}"
-                    if populated and prescription.rep_min.value is not None
+                    f"{minimum} - {maximum}"
+                    if populated and minimum is not None
                     else None
                 )
                 changes[make_cell_reference(row, group.rir)] = (
