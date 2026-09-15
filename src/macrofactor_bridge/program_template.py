@@ -7,7 +7,7 @@ import tempfile
 import zipfile
 from collections import Counter
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 from xml.dom import Node, minidom
@@ -402,6 +402,67 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
     )
 
 
+def prepare_program_schema(
+    template: Path,
+    schema: ProgramTemplateSchema,
+    program: Program,
+    *,
+    resize_workouts: bool = False,
+) -> ProgramTemplateSchema:
+    counts = [sum(not exercise.excluded for exercise in day.exercises) for day in program.days]
+    if not resize_workouts or counts == [len(day.rows) for day in schema.days]:
+        return schema
+    if len(counts) != len(schema.days):
+        raise WorkbookError("Workout resizing cannot add or remove template days")
+    if any(count < 2 for count in counts) or any(len(day.rows) < 2 for day in schema.days):
+        raise WorkbookError("Workout resizing currently requires at least two exercises per day")
+    expected_rows = list(range(schema.header_row + 1, schema.days[-1].rows[-1] + 1))
+    if [row for day in schema.days for row in day.rows] != expected_rows:
+        raise WorkbookError("Workout resizing requires contiguous template exercise rows")
+    with zipfile.ZipFile(template) as archive:
+        root = ET.fromstring(archive.read(schema.sheet_path))
+        workbook = ET.fromstring(archive.read("xl/workbook.xml"))
+    supported = {
+        "sheetPr", "dimension", "sheetViews", "sheetFormatPr", "cols", "sheetData",
+        "mergeCells", "pageMargins", "pageSetup", "printOptions", "headerFooter",
+    }
+    if any(
+        child.tag not in {qn(MAIN_NS, tag) for tag in supported}
+        and not (child.tag == qn(MAIN_NS, "extLst") and len(child) == 0)
+        for child in root
+    ):
+        raise WorkbookError("Workout resizing cannot preserve this template's worksheet features")
+    if any(True for _ in workbook.iter(qn(MAIN_NS, "definedName"))):
+        raise WorkbookError("Workout resizing does not support defined names or print areas")
+    if any(int(row.get("r", "0")) > expected_rows[-1] for row in root.iter(qn(MAIN_NS, "row"))):
+        raise WorkbookError("Workout resizing cannot move trailing template rows")
+    snapshot = XlsxPackage(template).sheet_snapshot(schema.sheet_name)
+    valid_columns = {
+        schema.day_column, schema.exercise_column, schema.skipped_column, schema.notes_column,
+        *(column for group in schema.sets for column in (
+            group.set_type, group.rep_range, group.rir, group.rest,
+        )),
+    }
+    for reference, cell in snapshot.cells.items():
+        row, column = split_cell_reference(reference)
+        if row > schema.header_row and column not in valid_columns and cell.value is not None:
+            raise WorkbookError("Workout resizing cannot duplicate unknown exercise-row fields")
+    expected_merges = {
+        f"{day.label_cell}:{make_cell_reference(day.rows[-1], schema.day_column)}"
+        for day in schema.days
+    }
+    for merge in snapshot.merges:
+        if split_range(merge)[2] > schema.header_row and merge not in expected_merges:
+            raise WorkbookError("Workout resizing cannot preserve non-workout body merges")
+    next_row = schema.header_row + 1
+    days = []
+    for count in counts:
+        rows = tuple(range(next_row, next_row + count))
+        days.append(ProgramTemplateDay(make_cell_reference(next_row, schema.day_column), rows))
+        next_row += count
+    return replace(schema, days=tuple(days))
+
+
 def _prescription_signature(prescription: CyclePrescription) -> tuple[object, ...]:
     return (
         prescription.set_count.value,
@@ -450,7 +511,6 @@ def template_generation_issues(
                 "Included exercise count does not match this template workout group",
                 day=day.label,
             )
-            continue
         for exercise in exercises:
             if exercise.macrofactor_name is None or not exercise.macrofactor_available:
                 block(
@@ -485,7 +545,7 @@ def template_generation_issues(
                 rep_max = prescription.rep_max.value
                 rir = prescription.rir.value
                 rest_seconds = prescription.rest_seconds.value
-                if not isinstance(set_count, int) or not 1 <= set_count <= len(schema.sets):
+                if type(set_count) is not int or not 1 <= set_count <= len(schema.sets):
                     block(
                         "template_set_capacity_exceeded",
                         f"Set count must fit the verified {len(schema.sets)}-set template capacity",
@@ -518,27 +578,34 @@ def template_generation_issues(
                     )
                     break
                 if (
-                    not isinstance(rep_min, int)
-                    or not isinstance(rep_max, int)
-                    or rep_min < 1
-                    or rep_max < rep_min
+                    not (rep_min is None and rep_max is None
+                         and prescription.rep_min.source == "blank_by_policy"
+                         and prescription.rep_max.source == "blank_by_policy")
+                    and (type(rep_min) is not int
+                         or type(rep_max) is not int
+                         or rep_min < 1
+                         or rep_max < rep_min)
                 ):
                     block(
                         "unsupported_template_rep_range",
-                        "Rep targets must be exact positive minimum and maximum values",
+                        "Rep targets require positive min/max values or an explicitly requested blank pair",
                         day=day.label,
                         exercise=exercise.coach_name,
                     )
                     break
-                if not isinstance(rir, int) or not 0 <= rir <= 6:
+                if not (rir is None and prescription.rir.source == "blank_by_policy") and (
+                    type(rir) is not int or not 0 <= rir <= 6
+                ):
                     block(
                         "unsupported_template_rir",
-                        "RIR must be an exact integer from 0 through 6",
+                        "RIR must be an integer from 0 through 6 or an explicitly requested blank",
                         day=day.label,
                         exercise=exercise.coach_name,
                     )
                     break
-                if not isinstance(rest_seconds, int) or rest_seconds < 1:
+                if not (rest_seconds is None and prescription.rest_seconds.source == "blank_by_policy") and (
+                    type(rest_seconds) is not int or rest_seconds < 1
+                ):
                     block(
                         "unsupported_template_rest",
                         "Rest must be an exact positive duration in seconds",
@@ -566,6 +633,8 @@ def _program_changes(
         schema.cycles_cell: f"Cycles: {len(program.cycles)}",
     }
     for day, template_day in zip(program.days, schema.days, strict=True):
+        for row in template_day.rows:
+            changes[make_cell_reference(row, schema.day_column)] = None
         changes[template_day.label_cell] = day.label
         exercises = [exercise for exercise in day.exercises if not exercise.excluded]
         for exercise, row in zip(exercises, template_day.rows, strict=True):
@@ -589,7 +658,7 @@ def _program_changes(
                 )
                 changes[make_cell_reference(row, group.rep_range)] = (
                     f"{prescription.rep_min.value} - {prescription.rep_max.value}"
-                    if populated
+                    if populated and prescription.rep_min.value is not None
                     else None
                 )
                 changes[make_cell_reference(row, group.rir)] = (
@@ -655,6 +724,7 @@ def _rewrite_package_parts(
     template: Path,
     schema: ProgramTemplateSchema,
     changes: dict[str, str | int | None],
+    source_schema: ProgramTemplateSchema | None = None,
 ) -> tuple[bytes, bytes]:
     package = XlsxPackage(template)
     snapshot = package.sheet_snapshot(schema.sheet_name)
@@ -665,6 +735,9 @@ def _rewrite_package_parts(
     shared_values: list[str] = []
     shared_uses = 0
     with minidom.parseString(sheet_xml) as document:
+        source_references = {reference: reference for reference in snapshot.cells}
+        if source_schema is not None and source_schema != schema:
+            source_references = _resize_workout_rows(document, source_schema, schema)
         cells = {
             cell.getAttribute("r"): cell
             for cell in document.getElementsByTagNameNS(MAIN_NS, "c")
@@ -676,7 +749,7 @@ def _rewrite_package_parts(
                 "Template target cell is missing: " + ", ".join(missing[:3])
             )
         for reference, cell in cells.items():
-            original = snapshot.cells[reference]
+            original = snapshot.cells[source_references[reference]]
             if reference in changes:
                 value = changes[reference]
             elif isinstance(original.value, str):
@@ -709,6 +782,57 @@ def _rewrite_package_parts(
         root.setAttribute("uniqueCount", str(len(shared_values)))
         updated_strings = document.toxml(encoding="utf-8")
     return updated_sheet, updated_strings
+
+
+def _resize_workout_rows(
+    document: minidom.Document,
+    original: ProgramTemplateSchema,
+    target: ProgramTemplateSchema,
+) -> dict[str, str]:
+    sheet_data = document.getElementsByTagNameNS(MAIN_NS, "sheetData")[0]
+    rows = {
+        int(row.getAttribute("r")): row
+        for row in document.getElementsByTagNameNS(MAIN_NS, "row")
+    }
+    source_references = {
+        cell.getAttribute("r"): cell.getAttribute("r")
+        for cell in document.getElementsByTagNameNS(MAIN_NS, "c")
+        if split_cell_reference(cell.getAttribute("r"))[0] <= original.header_row
+    }
+    for day in original.days:
+        for number in day.rows:
+            sheet_data.removeChild(rows[number])
+    for source_day, target_day in zip(original.days, target.days, strict=True):
+        for index, number in enumerate(target_day.rows):
+            if index == 0:
+                source_number = source_day.rows[0]
+            elif index == len(target_day.rows) - 1:
+                source_number = source_day.rows[-1]
+            else:
+                source_number = source_day.rows[min(index, len(source_day.rows) - 2)]
+            row = rows[source_number].cloneNode(deep=True)
+            row.setAttribute("r", str(number))
+            for cell in row.getElementsByTagNameNS(MAIN_NS, "c"):
+                old_ref = cell.getAttribute("r")
+                new_ref = make_cell_reference(number, split_cell_reference(old_ref)[1])
+                source_references[new_ref] = old_ref
+                cell.setAttribute("r", new_ref)
+            sheet_data.appendChild(row)
+    merges = document.getElementsByTagNameNS(MAIN_NS, "mergeCells")[0]
+    for merge in tuple(merges.getElementsByTagNameNS(MAIN_NS, "mergeCell")):
+        if split_range(merge.getAttribute("ref"))[0] > original.header_row:
+            merges.removeChild(merge)
+    for day in target.days:
+        merge = _append(merges, "mergeCell")
+        merge.setAttribute("ref", f"{day.label_cell}:{make_cell_reference(day.rows[-1], target.day_column)}")
+    merges.setAttribute("count", str(len(merges.getElementsByTagNameNS(MAIN_NS, "mergeCell"))))
+    for dimension in document.getElementsByTagNameNS(MAIN_NS, "dimension"):
+        start_row, start_column, _, end_column = split_range(dimension.getAttribute("ref"))
+        dimension.setAttribute("ref", (
+            f"{make_cell_reference(start_row, start_column)}:"
+            f"{make_cell_reference(target.days[-1].rows[-1], end_column)}"
+        ))
+    return source_references
 
 
 def _validate_generated_copy(
@@ -755,6 +879,8 @@ def write_program_from_template(
     output_path: str | Path,
     program: Program,
     schema: ProgramTemplateSchema,
+    *,
+    resize_workouts: bool = False,
 ) -> dict[str, Any]:
     template = Path(template_path)
     output = Path(output_path)
@@ -764,11 +890,13 @@ def write_program_from_template(
         raise WorkbookError("Output path must differ from the template")
     if output.exists():
         raise WorkbookError(f"Output already exists; choose a new path: {output}")
+    source_schema = schema
+    schema = prepare_program_schema(template, schema, program, resize_workouts=resize_workouts)
     issues = template_generation_issues(program, schema, sheet_name=program.name)
     if issues:
         raise WorkbookError("Program is not safe to generate: " + issues[0].message)
     changes = _program_changes(program, schema)
-    updated_sheet, updated_strings = _rewrite_package_parts(template, schema, changes)
+    updated_sheet, updated_strings = _rewrite_package_parts(template, schema, changes, source_schema)
     output.parent.mkdir(parents=True, exist_ok=True)
     file_descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{output.stem}-", suffix=".xlsx", dir=output.parent

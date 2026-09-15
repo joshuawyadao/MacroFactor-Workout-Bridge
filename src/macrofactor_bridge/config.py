@@ -72,7 +72,26 @@ def _load_program_config(
     defaults_payload = payload.get("defaults", {})
     if not isinstance(defaults_payload, dict):
         raise ConfigError("program.defaults must be an object")
+    default_set_type = defaults_payload.get("set_type")
+    if default_set_type not in (None, "standard"):
+        raise ConfigError("program.defaults.set_type must be standard or null")
+    policy_values = {}
+    for key, choices, default in (
+        ("sheet_order", ("left_to_right", "right_to_left"), "left_to_right"),
+        ("rest_range_policy", ("block", "upper"), "block"),
+    ):
+        value = payload.get(key, default)
+        if value not in choices:
+            raise ConfigError(f"program.{key} must be one of {choices}")
+        policy_values[key] = value
+    for key in ("allow_blank_targets", "preserve_coach_notes", "exclude_warmups", "exclude_cardio",
+                "resize_template_workouts"):
+        value = payload.get(key, False)
+        if not isinstance(value, bool):
+            raise ConfigError(f"program.{key} must be a boolean")
+        policy_values[key] = value
     defaults = ProgramDefaults(
+        set_type=default_set_type,
         rep_min=_optional_int(defaults_payload, "rep_min", "program.defaults", minimum=1),
         rep_max=_optional_int(defaults_payload, "rep_max", "program.defaults", minimum=1),
         rir=_optional_int(defaults_payload, "rir", "program.defaults", minimum=0),
@@ -126,6 +145,10 @@ def _load_program_config(
             "program",
         ),
         defaults=defaults,
+        variation_header_labels=_string_list(
+            payload, "variation_header_labels", ProgramConfig.variation_header_labels, "program"
+        ),
+        **policy_values,
     )
 
 

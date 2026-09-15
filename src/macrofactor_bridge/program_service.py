@@ -8,6 +8,7 @@ from .ooxml import WorkbookError, file_sha256
 from .program_models import ProgramIssue, ProgramPreviewReport
 from .program_template import (
     inspect_program_template,
+    prepare_program_schema,
     template_generation_issues,
     write_program_from_template,
 )
@@ -41,6 +42,7 @@ def build_program_preview(
         skipped_items=list(parsed.skipped_items),
         source_hash_before=before_hash,
         source_hash_after=after_hash,
+        resize_template_workouts=config.program.resize_template_workouts,
     )
     if before_hash != after_hash:
         report.issues.append(
@@ -84,6 +86,10 @@ def build_program_preview(
         report.template_hash = file_sha256(template)
         try:
             schema = inspect_program_template(template)
+            schema = prepare_program_schema(
+                template, schema, parsed.program,
+                resize_workouts=report.resize_template_workouts,
+            )
         except WorkbookError as exc:
             report.issues.append(
                 ProgramIssue(
@@ -142,7 +148,10 @@ def generate_program(
         raise WorkbookError("MacroFactor template changed after preview; run preview again")
 
     schema = inspect_program_template(template)
-    validation = write_program_from_template(template, output, report.program, schema)
+    validation = write_program_from_template(
+        template, output, report.program, schema,
+        resize_workouts=report.resize_template_workouts,
+    )
     source_after = file_sha256(source)
     template_after = file_sha256(template)
     if source_after != report.source_hash_before or template_after != report.template_hash:

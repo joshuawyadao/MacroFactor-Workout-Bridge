@@ -184,9 +184,33 @@ The preview contains discovered days and exercises, exact mapping outcomes, per-
 
 Parsing is deliberately allow-listed. Base sets must be positive integers, reps must be a single value or an unambiguous range such as `8-12` or `8 to 12 reps`, and rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. Text such as `Read week`, `your choice`, RPE or AMRAP instructions, prescribed weights, substitutions, and progression prose remains raw and blocking for human review.
 
-The coach `Style` column is preserved as raw classification text. It supplies a MacroFactor set type only when the complete value exactly matches an allow-listed set-type alias such as `Straight Sets` or `Superset`; labels such as exercise-slot categories are not reinterpreted. Within a discovered day, the exercise table begins at the first exercise and ends at the first structurally blank row, so later blank-separated goals, notes, and reference tables are not mistaken for program exercises.
+The coach `Style` column is preserved as raw classification text. The separate `Variation` column is retained and used for exact exercise matching and context. A specific variation must match an exact alias/canonical name or a category alias with matching configured context; an unqualified category mapping from another block cannot replace it. A single block-wide week header may serve later days with matching base columns and proven plan/result pairs. Header inheritance stops when day numbers reset or the base layout changes.
+
+Within a discovered day, the exercise table begins at the first exercise and ends when all base columns are blank. Standalone weekly footer notes do not extend the exercise table into later reference sections. Review discovered boundaries before generation.
 
 The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
+
+For an import that carries coaching instructions in notes and leaves unspecified targets editable, these opt-in settings are available:
+
+```json
+{
+  "program": {
+    "week_pair_layout": "plan_then_result",
+    "sheet_order": "right_to_left",
+    "rest_range_policy": "upper",
+    "allow_blank_targets": true,
+    "preserve_coach_notes": true,
+    "exclude_warmups": true,
+    "exclude_cardio": true,
+    "resize_template_workouts": true,
+    "defaults": {"set_type": "standard"}
+  }
+}
+```
+
+`right_to_left` lists the last worksheet first; it does not infer dates from worksheet names. All discovered days and optional exercises remain included unless explicitly excluded. `upper` selects the upper end of an exact rest range and identifies that choice in field provenance and notes. `allow_blank_targets` leaves missing reps, RIR, and rest blank when no explicit configured default is present. With `preserve_coach_notes`, `Read week` rep instructions remain deferred, unsupported rep instructions stay in notes with blank targets, and full base/selected-week coaching text is retained in the template's exercise Notes field. RPE is never converted to RIR. Bare numbers in weekly cells are retained as instructions rather than interpreted as rep targets, because they may be weights. Excel date-formatted rep cells are flagged and never emitted as serial-number rep targets.
+
+The standard-set default is explicit and visible. Myo/drop/superset instructions override the default and stay subject to verified template support; explicit configured superset membership supplies the group and order. Set-count ranges, unresolved exercise identities, and conflicting exact values remain blockers. These settings do not change Part 1 or weaken the strict parser configuration used by existing workflows.
 
 Part 2 reuses each exercise rule's exact `coach_aliases` and `canonical` MacroFactor name. These optional fields add review behavior without changing Part 1:
 
@@ -218,7 +242,9 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-generate \
 
 The generator writes only to a new `.xlsx` path. It rechecks both inputs after preview, preserves their bytes, retains the template worksheet layout and formatting, rebuilds shared strings so replaced template content is not carried forward, and verifies every unrelated OOXML package member byte-for-byte.
 
-The verified export proves one repeated cycle layout. Generation therefore requires all selected coach weeks to resolve to identical set count, type, rep range, RIR, rest, and notes for each exercise. The included day count and per-day exercise counts must match the template row groups, sets must fit its discovered capacity, RIR must be an exact integer from 0 through 6, and only standard sets or explicitly grouped supersets are currently writable. A periodized program with different cycle prescriptions needs a direct export that demonstrates that richer layout before support can be implemented.
+The verified export proves one repeated cycle layout, including active sets with blank rep, RIR, and rest targets. Generation requires all selected coach weeks to resolve to identical set count, type, rep range, RIR, rest, and notes for each exercise. The included day count must match the template and sets must fit its discovered capacity. Provided RIR values must be integers from 0 through 6; blank targets require explicit policy provenance. Only standard sets or explicitly grouped supersets are currently writable. A program with different cycle prescriptions or myo/drop set encoding needs a direct export demonstrating that structure before support can be implemented.
+
+By default, per-day exercise counts must also match the template. Opt-in `resize_template_workouts` can resize existing contiguous workout row groups while preserving headers, set columns, row styles, and workout-label merges. It cannot add/remove days or set columns, and requires at least two source and target exercises per day. Templates with formulas, defined names, trailing rows, non-workout body merges, or unsupported worksheet features are refused. Resized outputs undergo the same structural round-trip and unrelated-member integrity checks.
 
 The generated workbook remains unverified for MacroFactor compatibility until it imports successfully through **New Program → Import From File**. Keep the pull request draft and do not treat structural validation as import confirmation.
 
@@ -393,7 +419,7 @@ The suite uses small anonymized workbooks and verifies Part 1 parsing, formattin
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.
-- Fuzzy exercise matching remains outside the project scope. Part 2 can generate only the verified single-layout, shape-matched subset described above. Periodized cycle layouts remain blocked, and compatibility cannot be claimed until a generated file is manually imported successfully.
+- Fuzzy exercise matching remains outside the project scope. Part 2 can generate only the verified single-layout subset and guarded workout-row resizing described above. Periodized cycle layouts remain blocked, and compatibility cannot be claimed until a generated file is manually imported successfully.
 - The desktop app remains Part 1-only until the Part 2 parser, generator, and manual import validation are complete.
 
 ## Contributing

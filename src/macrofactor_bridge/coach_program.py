@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import re
+import zipfile
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from .config import normalize_name
 from .models import BridgeConfig, CellData, ExerciseRule
 from .ooxml import (
     WorkbookError,
+    MAIN_NS,
     XlsxPackage,
     make_cell_reference,
     split_cell_reference,
@@ -198,13 +201,9 @@ def _day_table_end(
     header_row: int,
     provisional_end_row: int,
     columns: dict[str, int],
-    weeks: tuple[_WeekLayout, ...],
 ) -> int:
-    relevant_columns = tuple(columns.values()) + tuple(
-        column
-        for week in weeks
-        for column in (week.plan_column, *week.completed_columns)
-    )
+    # Standalone weekly notes below a table do not extend its exercise rows.
+    relevant_columns = tuple(columns.values())
     exercise_column = columns["exercise"]
     found_exercise = False
     for row in range(header_row + 1, provisional_end_row + 1):
@@ -250,6 +249,9 @@ def _discover_sheet_layouts(
         }
         if any(column is None for column in columns.values()):
             continue
+        variation_column = _header_column(values, config.program.variation_header_labels)
+        if variation_column is not None:
+            columns["variation"] = variation_column
         label, match = day_matches[0]
         assert match is not None
         candidates.append(
@@ -275,13 +277,39 @@ def _discover_sheet_layouts(
             week_pattern,
             config.program.week_pair_layout,
         )
+        # A block may label its week columns only above its first day.
+        # Never inherit across a day-number reset or a changed base layout.
+        inherited_weeks = False
+        if not weeks and provisional:
+            previous = provisional[-1]
+            if number > previous.number and columns == previous.columns:
+                weeks = previous.weeks
+                inherited_weeks = bool(weeks)
         end_row = _day_table_end(
             snapshot,
             header_row=row,
             provisional_end_row=end_row,
             columns=columns,
-            weeks=weeks,
         )
+        if inherited_weeks:
+            weeks = tuple(
+                _WeekLayout(
+                    label=week.label,
+                    header_cell=week.header_cell,
+                    plan_column=week.plan_column,
+                    completed_columns=week.completed_columns,
+                    safe=week.safe and any(
+                        all(
+                            make_cell_reference(data_row, column) in snapshot.cells
+                            for column in (week.plan_column, *week.completed_columns)
+                        )
+                        for data_row in range(row + 1, end_row + 1)
+                        if _raw(snapshot.cells.get(make_cell_reference(data_row, columns["exercise"])))
+                    ),
+                    reason="Inherited week pair requires cells in this day table",
+                )
+                for week in weeks
+            )
         provisional.append(
             _DayLayout(
                 label=label,
@@ -345,9 +373,12 @@ def discover_program_blocks(
     path: str | Path, config: BridgeConfig
 ) -> tuple[ProgramBlockOption, ...]:
     package = XlsxPackage(path)
+    sheets = package.sheets
+    if config.program.sheet_order == "right_to_left":
+        sheets = tuple(reversed(sheets))
     return tuple(
         layout.option
-        for sheet in package.sheets
+        for sheet in sheets
         for layout in _discover_sheet_layouts(package, sheet, config)
     )
 
@@ -376,11 +407,13 @@ def _parse_reps(raw: str | None) -> tuple[int, int] | None:
     return minimum, maximum
 
 
-def _parse_rest(raw: str | None) -> int | None:
+def _parse_rest(raw: str | None, range_policy: str = "block") -> int | None:
     if raw is None:
         return None
     match = re.fullmatch(
-        r"(\d+)\s*(s|sec|secs|second|seconds|min|mins|minute|minutes)(?:\s*rest)?",
+        r"(\d+)(?:\s*(?:[-–]|to)\s*(\d+))?\s*"
+        r"(s|sec|secs|second|seconds|m|min|mins|minute|minutes)"
+        r"(?:\s*rest)?(?:\s*\(timed\))?",
         raw,
         re.IGNORECASE,
     )
@@ -389,7 +422,12 @@ def _parse_rest(raw: str | None) -> int | None:
     amount = int(match.group(1))
     if amount < 1:
         return None
-    return amount * 60 if match.group(2).casefold().startswith("m") else amount
+    if match.group(2):
+        upper = int(match.group(2))
+        if range_policy != "upper" or upper < amount:
+            return None
+        amount = upper
+    return amount * 60 if match.group(3).casefold().startswith("m") else amount
 
 
 def _parse_rir(raw: str) -> int | None:
@@ -461,6 +499,52 @@ def _matching_rules(
             continue
         matches.append(rule)
     return matches
+
+
+def _exercise_rules(
+    coach_name: str, variation: str | None, context: tuple[str, ...], config: BridgeConfig
+) -> list[ExerciseRule]:
+    if variation and normalize_name(variation) != normalize_name(coach_name):
+        detailed = _matching_rules(variation, context, config)
+        if detailed:
+            return detailed
+        exact_names = [
+            rule for rule in config.rules
+            if normalize_name(variation) == normalize_name(rule.canonical)
+            and (not rule.coach_context_aliases or {normalize_name(v) for v in context}.intersection(
+                normalize_name(alias) for alias in rule.coach_context_aliases
+            ))
+        ]
+        if exact_names:
+            return exact_names
+    generic = _matching_rules(coach_name, context, config)
+    if variation and normalize_name(variation) != normalize_name(coach_name):
+        # A generic alias from another block must not erase a specific variation.
+        return [rule for rule in generic if rule.coach_context_aliases]
+    return generic
+
+
+def _date_style_ids(path: str | Path) -> set[str]:
+    with zipfile.ZipFile(path) as archive:
+        if "xl/styles.xml" not in archive.namelist():
+            return set()
+        root = ET.fromstring(archive.read("xl/styles.xml"))
+    custom = {
+        item.get("numFmtId"): item.get("formatCode", "")
+        for item in root.iter(f"{{{MAIN_NS}}}numFmt")
+    }
+    styles = root.find(f"{{{MAIN_NS}}}cellXfs")
+    if styles is None:
+        return set()
+    result = set()
+    for index, style in enumerate(styles):
+        number = int(style.get("numFmtId", "0"))
+        code = re.sub(r'"[^"]*"|\\.|\[[^]]*\]', "", custom.get(str(number), ""))
+        if number in {*range(14, 23), *range(27, 37), *range(45, 48), *range(50, 59)} or re.search(
+            r"[ydh]", code, re.IGNORECASE
+        ):
+            result.add(str(index))
+    return result
 
 
 def _valid_superset_rules(rules: list[ExerciseRule]) -> bool:
@@ -560,6 +644,7 @@ def _resolve_field(
     cycle: str,
     issues: list[ProgramIssue],
     suppress_blockers: bool,
+    allow_blank: bool = False,
 ) -> PrescriptionField:
     if base_value is not None and week_value is not None and base_value != week_value:
         if not suppress_blockers:
@@ -598,9 +683,10 @@ def _resolve_field(
     if not suppress_blockers:
         issues.append(
             ProgramIssue(
-                severity="blocking",
-                code="missing_prescription_field",
-                message=f"No supported {name} value was provided",
+                severity="warning" if allow_blank else "blocking",
+                code="blank_target_requested" if allow_blank else "missing_prescription_field",
+                message=(f"Leave {name} blank under the configured import policy" if allow_blank
+                         else f"No supported {name} value was provided"),
                 sheet=sheet,
                 cell=week_cell,
                 day=day,
@@ -608,7 +694,7 @@ def _resolve_field(
                 cycle=cycle,
             )
         )
-    return _field(None, "missing", None, None)
+    return _field(None, "blank_by_policy" if allow_blank else "missing", None, None)
 
 
 def _base_value_issue(
@@ -650,6 +736,8 @@ def _prescriptions(
     config: BridgeConfig,
     issues: list[ProgramIssue],
     suppress_blockers: bool,
+    configured_superset: bool = False,
+    date_styles: set[str] | None = None,
 ) -> tuple[CyclePrescription, ...]:
     cells = {
         key: make_cell_reference(row, day.columns[key])
@@ -657,7 +745,12 @@ def _prescriptions(
     }
     set_count = _parse_integer(base_raw.get("sets"))
     rep_range = _parse_reps(base_raw.get("reps"))
-    rest_seconds = _parse_rest(base_raw.get("rest"))
+    rep_cell = snapshot.cells.get(cells["reps"])
+    date_rep = bool(rep_cell and rep_cell.style in (date_styles or set())
+                    and isinstance(rep_cell.value, (int, float)))
+    if date_rep:
+        rep_range = None
+    rest_seconds = _parse_rest(base_raw.get("rest"), config.program.rest_range_policy)
     set_type = SET_TYPE_ALIASES.get(normalize_name(base_raw.get("style", "")))
     if set_count is None:
         _base_value_issue(
@@ -665,7 +758,17 @@ def _prescriptions(
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
             suppress_blockers=suppress_blockers,
         )
-    if rep_range is None:
+    notes_policy = config.program.preserve_coach_notes
+    blank_targets = config.program.allow_blank_targets
+    if date_rep and not suppress_blockers:
+        issues.append(ProgramIssue(
+            severity="warning" if notes_policy and blank_targets else "blocking",
+            code="date_formatted_rep_target",
+            message="Rep cell is stored as an Excel date; review the original target",
+            sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
+            raw_text=base_raw.get("reps"),
+        ))
+    if rep_range is None and not (notes_policy and blank_targets):
         _base_value_issue(
             field_name="rep target", raw_text=base_raw.get("reps"), cell=cells["reps"],
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
@@ -687,13 +790,17 @@ def _prescriptions(
         week_cell = make_cell_reference(row, week.plan_column)
         raw_week = _raw(snapshot.cells.get(week_cell))
         parsed_week = _parse_week(raw_week)
+        if notes_policy and raw_week and re.fullmatch(r"\d+(?:\.\d+)?", raw_week):
+            # Unlabelled numbers in coach weeks can be weights, not rep targets.
+            parsed_week = None
         raw_unparsed = raw_week if raw_week is not None and parsed_week is None else None
         if raw_unparsed is not None and not suppress_blockers:
             issues.append(
                 ProgramIssue(
-                    severity="blocking",
-                    code="unsupported_week_instruction",
-                    message="Selected-week text is not a fully supported prescription",
+                    severity="warning" if notes_policy else "blocking",
+                    code="coach_instruction_in_notes" if notes_policy else "unsupported_week_instruction",
+                    message=("Selected-week instruction retained verbatim in exercise notes" if notes_policy
+                             else "Selected-week text is not a fully supported prescription"),
                     sheet=sheet,
                     cell=week_cell,
                     day=day.label,
@@ -704,13 +811,68 @@ def _prescriptions(
             )
         parsed_week = parsed_week or _ParsedWeek()
         minimum, maximum = rep_range or (None, None)
+        explicit_types = {
+            kind for kind, pattern in (
+                ("myo", r"\bmyo(?:[ -]?reps?|[ -]?sets?)?\b"),
+                ("drop", r"\bdrop[ -]?sets?\b"),
+                ("superset", r"\bsuper[ -]?sets?\b"),
+            )
+            if re.search(pattern, " ".join((*base_raw.values(), raw_week or "")), re.IGNORECASE)
+        }
+        effective_type = next(iter(explicit_types)) if len(explicit_types) == 1 else set_type
+        if (len(explicit_types) > 1 or (set_type and explicit_types
+                                      and set_type not in explicit_types)) and not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="blocking", code="mixed_set_types",
+                message="Multiple set types need individual-set review", sheet=sheet,
+                day=day.label, exercise=exercise, cycle=week_label,
+            ))
+        default_type = config.program.defaults.set_type
+        if configured_superset and effective_type is None and default_type == "standard":
+            effective_type = "superset"
         resolved_set_type = _resolve_field(
-            name="set type", base_value=set_type, base_cell=cells["style"],
+            name="set type", base_value=effective_type, base_cell=cells["style"],
             base_raw=base_raw.get("style"), week_value=None, week_cell=week_cell,
-            week_raw=raw_week, default_value=None, sheet=sheet, day=day.label,
+            week_raw=raw_week, default_value=default_type, sheet=sheet, day=day.label,
             exercise=exercise, cycle=week_label, issues=issues,
             suppress_blockers=suppress_blockers,
         )
+        if configured_superset and set_type is None and not explicit_types and effective_type:
+            resolved_set_type = _field(effective_type, "config_superset", None, None)
+        elif len(explicit_types) == 1:
+            # Point review back to the actual instruction, not the category cell.
+            pattern = {
+                "myo": r"\bmyo(?:[ -]?reps?|[ -]?sets?)?\b",
+                "drop": r"\bdrop[ -]?sets?\b",
+                "superset": r"\bsuper[ -]?sets?\b",
+            }[effective_type]
+            if raw_week and re.search(pattern, raw_week, re.IGNORECASE):
+                resolved_set_type = _field(effective_type, "coach_week", week_cell, raw_week)
+            else:
+                key = next(key for key, value in base_raw.items()
+                           if re.search(pattern, value, re.IGNORECASE))
+                resolved_set_type = _field(
+                    effective_type, "coach_base",
+                    make_cell_reference(row, day.columns.get(key, day.columns["exercise"])),
+                    base_raw[key],
+                )
+        deferred_reps = bool(notes_policy and blank_targets and re.fullmatch(
+            r"(?:read|check)\s+(?:the\s+)?week\)?", base_raw.get("reps", ""), re.IGNORECASE
+        ))
+        if deferred_reps:
+            parsed_week = _ParsedWeek(
+                set_count=parsed_week.set_count, rir=parsed_week.rir,
+                rest_seconds=parsed_week.rest_seconds,
+            )
+        notes = tuple(f"Coach {key}: {value}" for key, value in base_raw.items()) if notes_policy else ()
+        if notes_policy and raw_week:
+            notes += (f"{week_label}: {raw_week}",)
+        if notes_policy and date_rep:
+            notes += ("Rep target needs review: Excel stored the coach rep cell as a date.",)
+        if notes_policy and rest_seconds is not None and _parse_rest(base_raw.get("rest")) is None:
+            notes += (f"Import setting: use upper rest duration ({rest_seconds} seconds).",)
+        if notes_policy and resolved_set_type.source == "config_default":
+            notes += ("Import setting: standard sets unless another set type is specified.",)
         prescription = CyclePrescription(
             cycle=week_label,
             set_count=_resolve_field(
@@ -728,6 +890,7 @@ def _prescriptions(
                 default_value=config.program.defaults.rep_min, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
+                allow_blank=blank_targets,
             ),
             rep_max=_resolve_field(
                 name="maximum reps", base_value=maximum, base_cell=cells["reps"],
@@ -736,6 +899,7 @@ def _prescriptions(
                 default_value=config.program.defaults.rep_max, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
+                allow_blank=blank_targets,
             ),
             rir=_resolve_field(
                 name="RIR", base_value=None, base_cell=None, base_raw=None,
@@ -743,6 +907,7 @@ def _prescriptions(
                 week_raw=raw_week, default_value=config.program.defaults.rir,
                 sheet=sheet, day=day.label, exercise=exercise, cycle=week_label,
                 issues=issues, suppress_blockers=suppress_blockers,
+                allow_blank=blank_targets,
             ),
             rest_seconds=_resolve_field(
                 name="rest", base_value=rest_seconds, base_cell=cells["rest"],
@@ -751,11 +916,18 @@ def _prescriptions(
                 default_value=config.program.defaults.rest_seconds, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
+                allow_blank=blank_targets,
             ),
-            notes=(raw_unparsed,) if raw_unparsed else (),
+            notes=notes if notes_policy else ((raw_unparsed,) if raw_unparsed else ()),
             raw_week_text=raw_week,
             raw_unparsed_text=raw_unparsed,
         )
+        if (rest_seconds is not None and _parse_rest(base_raw.get("rest")) is None
+                and prescription.rest_seconds.source != "conflict"):
+            prescription = replace(prescription, rest_seconds=_field(
+                prescription.rest_seconds.value, "coach_range_upper_by_policy",
+                cells["rest"], base_raw.get("rest"),
+            ))
         prescriptions.append(prescription)
     return tuple(prescriptions)
 
@@ -792,6 +964,7 @@ def parse_coach_program(
         )
     selected_weeks = tuple(available[normalize_name(label)] for label in included_weeks)
     snapshot = package.sheet_snapshot(sheet)
+    date_styles = _date_style_ids(path)
     issues: list[ProgramIssue] = []
     skipped: list[dict[str, object]] = []
     workout_days: list[WorkoutDay] = []
@@ -813,11 +986,31 @@ def parse_coach_program(
                 )
                 is not None
             }
-            raw_base["variation"] = coach_name
+            variation_column = day.columns.get("variation", day.columns["exercise"])
+            raw_base["variation"] = _raw(
+                snapshot.cells.get(make_cell_reference(row, variation_column))
+            ) or coach_name
             context = tuple(raw_base.values())
-            rules = _matching_rules(coach_name, context, config)
+            week_texts = tuple(
+                _raw(snapshot.cells.get(make_cell_reference(row, week.plan_column))) or ""
+                for week in day.weeks if normalize_name(week.label) in normalized_weeks
+            )
+            # Week text is context only, never a completed-result column.
+            rules = _exercise_rules(coach_name, raw_base["variation"], context + week_texts, config)
+            style = raw_base.get("style")
+            optional, warmup, cardio = _classification(
+                day.label, " ".join((*context, *week_texts)), coach_name
+            )
+            category_exclusion = (
+                "Warmup excluded by program policy" if warmup and config.program.exclude_warmups
+                else "Cardio excluded by program policy" if cardio and config.program.exclude_cardio
+                else None
+            )
             mapping_status = "exact"
-            if not rules:
+            if category_exclusion:
+                mapping_status = "excluded"
+                rules_for_output: list[ExerciseRule | None] = [rules[0] if len(rules) == 1 else None]
+            elif not rules:
                 mapping_status = "unmatched"
                 issues.append(
                     ProgramIssue(
@@ -830,7 +1023,7 @@ def parse_coach_program(
                         exercise=coach_name,
                     )
                 )
-                rules_for_output: list[ExerciseRule | None] = [None]
+                rules_for_output = [None]
             elif len(rules) > 1 and _valid_superset_rules(rules):
                 mapping_status = "exact_superset"
                 rules_for_output = sorted(rules, key=lambda rule: rule.superset_order)
@@ -851,19 +1044,18 @@ def parse_coach_program(
             else:
                 rules_for_output = [rules[0]]
 
-            style = raw_base.get("style")
-            optional, warmup, cardio = _classification(day.label, style, coach_name)
             for rule in rules_for_output:
                 exercise_order += 1
-                excluded = bool(rule and rule.program_excluded)
+                excluded = bool(category_exclusion or (rule and rule.program_excluded))
+                exclusion_reason = category_exclusion or (rule.program_exclusion_reason if rule else None)
                 if excluded:
                     mapping_status_for_rule = "excluded"
                     skipped.append(
                         {
                             "day": day.label,
                             "exercise": coach_name,
-                            "canonical": rule.canonical,
-                            "reason": rule.program_exclusion_reason,
+                            "canonical": rule.canonical if rule else None,
+                            "reason": exclusion_reason,
                         }
                     )
                 else:
@@ -931,6 +1123,8 @@ def parse_coach_program(
                     config=config,
                     issues=issues,
                     suppress_blockers=excluded,
+                    configured_superset=bool(rule and rule.superset_group),
+                    date_styles=date_styles,
                 )
                 superset = (
                     SupersetMembership(rule.superset_group, rule.superset_order)
@@ -949,7 +1143,7 @@ def parse_coach_program(
                         prescriptions=prescriptions,
                         superset=superset,
                         excluded=excluded,
-                        exclusion_reason=(rule.program_exclusion_reason if rule else None),
+                        exclusion_reason=exclusion_reason,
                         custom_exercise=bool(rule and rule.macrofactor_custom),
                         macrofactor_available=bool(rule and rule.macrofactor_available),
                         optional=optional,

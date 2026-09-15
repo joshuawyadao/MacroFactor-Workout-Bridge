@@ -10,6 +10,7 @@ class ProgramDefaults:
     rep_max: int | None = None
     rir: int | None = None
     rest_seconds: int | None = None
+    set_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,14 @@ class ProgramConfig:
     reps_header_labels: tuple[str, ...] = ("Reps", "Rep Target")
     rest_header_labels: tuple[str, ...] = ("Rest",)
     defaults: ProgramDefaults = field(default_factory=ProgramDefaults)
+    variation_header_labels: tuple[str, ...] = ("Variation",)
+    sheet_order: str = "left_to_right"
+    rest_range_policy: str = "block"
+    allow_blank_targets: bool = False
+    preserve_coach_notes: bool = False
+    exclude_warmups: bool = False
+    exclude_cardio: bool = False
+    resize_template_workouts: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,6 +151,7 @@ class ProgramPreviewReport:
     template_hash: str | None = None
     template_hash_after: str | None = None
     template_schema_verified: bool = False
+    resize_template_workouts: bool = False
     manual_import_verified: bool = False
     generation_safe: bool = False
     output_file: str | None = None
