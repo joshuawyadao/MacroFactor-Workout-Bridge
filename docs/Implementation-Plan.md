@@ -11,9 +11,16 @@ Correct history mapping for coach sheets containing copied historical columns an
 [x] Resolve layouts once for counts, date ranges, summaries, and desktop week selection; reject stale headers, duplicate columns, invalid anchors, and missing configured blocks.
 [x] Cover copied columns, date-labelled weeks, multi-row merged headers (found during real-data validation), missing workouts, calendar boundaries, legacy files, invalid layouts, and desktop save/reload preservation.
 [x] Update README and Local-File-Workflow with configuration, compatibility, calendar semantics, and correction steps.
-[ ] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
-[ ] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification.
+[x] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
+[x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (98 tests passed; signed 0.4.1 bundle smoke-tested and installed with the previous app retained).
 [ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
+
+## Validation and review ledger
+- Real-input validation exposed two-row merged headers; adjusted validation and the synthetic fixture before publication. Both source hashes stayed unchanged.
+- Packaging smoke verification exposed a stale bundle version; aligned package, runtime, and bundle metadata at 0.4.1.
+- Private layout saved only after the compatible app was installed, with verified before/after backups and all unrelated context preserved.
+- Implementation saved in `4a8846c` on `codex/history-week-layout`; PR #15 opened for review.
+- Brooks PR review: sampled the highest-risk changes, no actionable decay findings (100/100; prior run 90). Layout policy stays isolated from Weekly Bridge, and tests cover boundary and persistence behavior. Codex review and CI remain pending.
 
 ## Open questions
 - None. The user confirmed Monday–Sunday weeks and authorized the export-supported irregular-block mapping. Personal dates and source annotations stay private; repository examples remain synthetic.
