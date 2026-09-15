@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -13,12 +13,16 @@ from typing import Any
 
 from .config import normalize_name, source_rule_index
 from .importers import ExerciseLogImport, load_exercise_log_with_diagnostics
+from .history_layout import (
+    HistoryLayoutError, HistoryWeek, parse_week_layout, resolve_week_layout,
+    week_layout_payload,
+)
 from .models import BridgeConfig, ExerciseRule, SetRecord, SheetOptions
 from .ooxml import XlsxPackage
 from .workbook import discover_workbook, target_rows
 
 
-ANNOTATION_SCHEMA_VERSION = 1
+ANNOTATION_SCHEMA_VERSION = 2
 BLOCK_TYPE_OPTIONS = (
     ("unspecified", "Unspecified"),
     ("volume_hypertrophy", "Volume / hypertrophy"),
@@ -66,6 +70,7 @@ class BlockAnnotation:
     start_date: date | None = None
     notes: str = ""
     weeks: dict[str, WeekAnnotation] = field(default_factory=dict)
+    week_layout: tuple[HistoryWeek, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -240,11 +245,16 @@ def _parse_block_annotation(value: object, label: str) -> BlockAnnotation:
             week_value, f"{label}.weeks[{name!r}]"
         )
     notes = _validated_text(value.get("notes", ""), f"{label}.notes")
+    try:
+        week_layout = parse_week_layout(value.get("week_layout"))
+    except HistoryLayoutError as exc:
+        raise HistoryError(f"{label}: {exc}") from exc
     return BlockAnnotation(
         block_type=block_type,
         start_date=start_date,
         notes=notes,
         weeks=weeks,
+        week_layout=week_layout,
     )
 
 
@@ -264,7 +274,8 @@ def load_dashboard_annotations(
         raise HistoryError(f"Could not read dashboard annotations {source}: {exc}") from exc
     if not isinstance(payload, dict):
         raise HistoryError("Dashboard annotations must contain a JSON object")
-    if payload.get("schema_version") != ANNOTATION_SCHEMA_VERSION:
+    version = payload.get("schema_version")
+    if type(version) is not int or version not in (1, ANNOTATION_SCHEMA_VERSION):
         raise HistoryError(
             "Dashboard annotations use an unsupported schema version"
         )
@@ -279,6 +290,8 @@ def load_dashboard_annotations(
         blocks[name] = _parse_block_annotation(
             block_value, f"blocks[{name!r}]"
         )
+        if version == 1 and blocks[name].week_layout is not None:
+            raise HistoryError("Annotations with a week_layout require schema_version 2")
     return DashboardAnnotations(blocks=blocks)
 
 
@@ -299,7 +312,12 @@ def _annotation_payload(annotations: DashboardAnnotations) -> dict[str, Any]:
                 for week_name, week in block.weeks.items()
             },
         }
-    return {"schema_version": ANNOTATION_SCHEMA_VERSION, "blocks": blocks}
+        if block.week_layout is not None:
+            blocks[name]["week_layout"] = week_layout_payload(block.week_layout)
+    version = ANNOTATION_SCHEMA_VERSION if any(
+        block.week_layout is not None for block in annotations.blocks.values()
+    ) else 1
+    return {"schema_version": version, "blocks": blocks}
 
 
 def save_dashboard_annotations(
@@ -358,6 +376,7 @@ def update_block_annotation(
         start_date=start_date,
         notes=notes.strip(),
         weeks=dict(existing.weeks),
+        week_layout=existing.week_layout,
     )
     return DashboardAnnotations(blocks=blocks)
 
@@ -392,6 +411,7 @@ def update_week_annotation(
         start_date=existing.start_date,
         notes=existing.notes,
         weeks=weeks,
+        week_layout=existing.week_layout,
     )
     return DashboardAnnotations(blocks=blocks)
 
@@ -464,17 +484,34 @@ def _load_history_sources(
     export_path: str | Path,
     workbook_path: str | Path,
     config: BridgeConfig,
+    annotations: DashboardAnnotations,
 ) -> _HistorySources:
     imported = load_exercise_log_with_diagnostics(export_path)
     records = tuple(record for record in imported.records if _record_is_usable(record))
     if not records:
         raise HistoryError("The MacroFactor export contains no usable completed sets")
     workbook = XlsxPackage(workbook_path)
-    blocks = tuple(
-        sheet
-        for sheet in discover_workbook(workbook_path, config)
-        if sheet.exercise_column is not None and sheet.weeks
-    )
+    discovered = discover_workbook(workbook_path, config)
+    configured = {name for name, block in annotations.blocks.items() if block.week_layout is not None}
+    missing = configured - {sheet.name for sheet in discovered}
+    if missing:
+        raise HistoryError(f"Configured history sheets are missing: {', '.join(sorted(missing))}")
+    resolved: list[SheetOptions] = []
+    for sheet in discovered:
+        layout = annotations.blocks.get(sheet.name, BlockAnnotation()).week_layout
+        if layout is not None:
+            try:
+                sheet = resolve_week_layout(workbook, sheet, layout)
+            except HistoryLayoutError as exc:
+                raise HistoryError(f"History layout for {sheet.name!r}: {exc}") from exc
+        else:
+            discovered_labels = tuple(week.label for week in sheet.weeks)
+            labels = _ordered_week_labels(discovered_labels)
+            if labels != discovered_labels:
+                sheet = replace(sheet, weeks=tuple(sorted(sheet.weeks, key=lambda w: labels.index(w.label))))
+        if sheet.exercise_column is not None and sheet.weeks:
+            resolved.append(sheet)
+    blocks = tuple(resolved)
     if not blocks:
         raise HistoryError("The coach workbook contains no usable block worksheets")
     return _HistorySources(imported, records, workbook, blocks)
@@ -516,7 +553,7 @@ def _dated_block_intervals(
         annotation = annotations.blocks.get(block.name, BlockAnnotation())
         if annotation.start_date is None:
             continue
-        labels = _ordered_week_labels(tuple(week.label for week in block.weeks))
+        labels = tuple(week.label for week in block.weeks)
         intervals.append(
             _BlockInterval(
                 name=block.name,
@@ -731,15 +768,14 @@ def _block_summaries(
             or week.reason != "unspecified"
             or bool(week.affected_movements)
             or bool(week.notes)
-            for week in annotation.weeks.values()
+            for label, week in annotation.weeks.items()
+            if label in {item.label for item in block.weeks}
         )
         summaries.append(
             BlockSummary(
                 name=block.name,
                 position=position,
-                week_labels=_ordered_week_labels(
-                    tuple(week.label for week in block.weeks)
-                ),
+                week_labels=tuple(week.label for week in block.weeks),
                 completed_results=completed,
                 programmed_results=programmed,
                 block_type=annotation.block_type,
@@ -759,12 +795,15 @@ def build_history_dashboard(
     annotations: DashboardAnnotations | None = None,
 ) -> HistoryDashboard:
     annotation_state = annotations or DashboardAnnotations()
-    sources = _load_history_sources(export_path, workbook_path, config)
+    sources = _load_history_sources(export_path, workbook_path, config, annotation_state)
     warnings = (
         [f"{len(sources.imported.skipped_rows)} malformed export row(s) were excluded."]
         if sources.imported.skipped_rows
         else []
     )
+    for block in sources.blocks:
+        if annotation_state.blocks.get(block.name, BlockAnnotation()).week_layout is not None:
+            warnings.append(f"{block.name}: using a private history layout with {len(block.weeks)} weeks.")
     marker_text = (
         normalize_name(config.empty_day_marker.text)
         if config.empty_day_marker is not None

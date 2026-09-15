@@ -66,6 +66,38 @@ The stable MacroFactor file under `current/` is selected for the weekly bridge: 
 
 The annotation file stores worksheet names, optional block dates/types/notes, and optional week status, reason, affected movements, and notes. It does not copy set-by-set workout history. Vacation and injury are stored separately from accumulated fatigue so future analysis cannot silently reinterpret every reduced week as a recovery-driven deload. The file is replaced atomically, and a symlinked annotation destination is refused.
 
+### Irregular coach week layouts
+
+App version 0.4.1 supports an optional `week_layout` in each block's private annotation. Use it only after checking which source columns belong to that block. It is configured in JSON, not through a layout editor in the desktop app. Ordinary sheets still use automatically discovered numbered weeks in numeric order; the Weekly Bridge always keeps its existing discovery behavior.
+
+This synthetic example selects two normal headers and one date-labelled header, omitting any copied historical columns elsewhere in the worksheet:
+
+```json
+{
+  "schema_version": 2,
+  "blocks": {
+    "Training Block": {
+      "start_date": "2026-08-03",
+      "week_layout": [
+        {"label": "Week 10", "header_cell": "I3", "expected_header": "Week 10"},
+        {"label": "Week 11", "header_cell": "K3", "expected_header": "Week 11"},
+        {"label": "Week 12", "header_cell": "M3", "expected_header": "Train on 8/18"}
+      ]
+    }
+  }
+}
+```
+
+Array order is chronological, regardless of label numbering or column order. The first entry starts on the confirmed `start_date`; each next entry starts seven days later. A Monday start gives Monday–Sunday block weeks. Empty weeks remain in the calendar: absence of a logged workout does not shift dates, create a workout, mark a skip, or imply injury or fatigue. The block ends after its selected weeks; a worksheet title alone cannot add more weeks.
+
+Each entry requires a unique non-empty label, an uppercase A1 header reference, and the exact header text (surrounding whitespace is ignored). A header must be a literal cell after the exercise header, anchored at the top left of its range if merged. Multi-row merged headers are supported, including single-column vertical merges. Results use the rightmost merged column, or the next column for an unmerged header. Duplicate result columns, results overlapping another selected header range, invalid anchors, missing configured sheets, and changed header text stop dashboard loading with a correction message.
+
+Before editing, close the app and back up the annotation JSON privately. Preserve every existing block and week note; add the layout to the intended worksheet and set `schema_version` to `2`. Reload in version 0.4.1 or newer and verify selected week labels, counts, and date boundaries before saving further notes. Desktop block/week saves preserve the layout. Notes for excluded weeks remain stored but are not counted or shown in the selected-week editor. To correct a stale layout, inspect the current workbook and update the anchors/text deliberately; do not edit the source workbook just to satisfy the annotation.
+
+Schema 1 files remain supported and remain schema 1 when saved without a layout. Files with layouts use schema 2, which older apps reject so they cannot silently discard this mapping. If reverting to an older app, restore the matching private annotation backup too; do not merely change the schema number. To return to automatic discovery in the new app, remove `week_layout` (or set it to `null`) and reload, understanding that copied numbered columns will be included again.
+
+### Export context and archive behavior
+
 When an `.xlsx` export contains MacroFactor's `Active Program` table, the preview reports non-empty exercise-level notes for exercises performed in the selected dates. This can carry context such as equipment choice or a misload explanation when entered in the exercise note. The current export's `Workout Log` table does not include program-level or session-level note columns, so those note types cannot be recovered. Reported notes remain review-only and are never inserted into coach result cells automatically.
 
 The archive command copies files; it never moves, changes, or deletes inbox files. An invalid file remains in the inbox, is recorded as an error in the run manifest, and is not copied into the archive.

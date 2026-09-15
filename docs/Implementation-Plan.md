@@ -1,26 +1,32 @@
 # Plan
 
-Harden pull request #14 before merge by preventing private annotations from being saved against stale History inputs and by splitting the new history aggregation pipeline into named, typed stages. Preserve the milestone's calculations, UI, privacy boundaries, and source-file immutability while adding focused regression protection.
+Correct history mapping for coach sheets containing copied historical columns and date-labelled training weeks. Store an explicit, validated week layout in private annotations so the dashboard counts and dates only the selected weeks.
 
 ## Scope
-- In: History-source invalidation in the desktop workflow, typed aggregation state and extracted analysis helpers in `history.py`, regression tests, the complete test suite, and a focused review-fix commit on `codex/workout-dashboard-mvp`.
-- Out: new dashboard metrics, visual redesign, recovery or deload prediction, source-file writes, annotation schema changes, and unrelated cleanup in the existing Weekly Bridge workflow.
+- In: ordered history week layouts, source-header validation, consistent calendar mapping and counts, desktop save preservation, synthetic tests, documentation, real-data verification and backups, app rebuild, and PR preparation.
+- Out: inferred injury labels, source workbook edits, Weekly Bridge changes, automatic date guessing, and milestone-two comparisons.
 
 ## Action items
-[x] Add an offscreen GUI regression test proving that changing any History input clears the loaded dashboard and disables annotation saving.
-[x] Connect History source, mapping, and annotation path changes to a single invalidation boundary without disrupting fields while the dashboard is loading.
-[x] Replace the untyped weekly aggregation dictionary with an explicit accumulator and extract block counting, date mapping, trend construction, duration summarization, and final block-summary stages from `build_history_dashboard`.
-[x] Verify the refactor preserves existing calendar-week, block mapping, estimated-1RM, RIR, duration, warning, and annotation behavior through the focused History and GUI tests.
-[x] Record that no README or other durable user documentation changes are required because this fixes stale UI state and internal structure without changing the documented workflow or data format.
-[x] Run the complete `./scripts/test.sh` suite, source compilation, `git diff --check`, and source GUI smoke test.
-[x] Commit and push only the review-remediation files; keep private data and ignored build artifacts out of Git.
-[x] Integrate the completed dependency-audit tooling changes from `main` and re-run the combined branch verification.
+[x] Add typed ordered week-layout entries with labels and verified source anchors; read legacy annotations and prevent older apps dropping layout data.
+[x] Resolve layouts once for counts, date ranges, summaries, and desktop week selection; reject stale headers, duplicate columns, invalid anchors, and missing configured blocks.
+[x] Cover copied columns, date-labelled weeks, multi-row merged headers (found during real-data validation), missing workouts, calendar boundaries, legacy files, invalid layouts, and desktop save/reload preservation.
+[x] Update README and Local-File-Workflow with configuration, compatibility, calendar semantics, and correction steps.
+[x] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
+[x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (102 tests passed after review fixes; signed 0.4.1 bundle smoke-tested with the previous app retained).
+[ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
+[x] Address Codex P2: distinguish single-column vertical merges from unmerged headers; added a regression, validated 11 layout tests, and saved/reacted (`bf019d3`, comment 4019341775).
+[x] Address Codex P2: reject result columns overlapping another selected header span; added an order-independent regression, validated 12 layout tests, and saved/reacted (`593cf93`, comment 4019341785).
+[x] Address Codex P2: reject shared-formula headers even with empty formula text; preserve formula presence in OOXML snapshots, add cached/uncached regressions, validate all 102 tests, and save/react (`c33419a`, comment 4019341799).
 
-## Codex review follow-up
-- [x] Invalidate a loaded dashboard whenever any History input changes so annotations cannot be saved against stale data.
-- [x] Make the non-workspace fallback annotation filename match the repository's private-file ignore rule, with regression coverage.
-- [x] Restrict estimated 1RM calculations to normalized standard-set records, with regression coverage for warm-up sets.
-- [x] Re-run the complete combined local verification after all Codex fixes; use GitHub CI as the final external merge gate.
+## Validation and review ledger
+- Final compatibility inspection found that sorting by label position could reorder repeated legacy labels. Preserved original discovery order when the numeric-label helper declines sorting; the new regression and full 99-test suite pass. Real-data desktop loading still verifies.
+- Real-input validation exposed two-row merged headers; adjusted validation and the synthetic fixture before publication. Both source hashes stayed unchanged.
+- Packaging smoke verification exposed a stale bundle version; aligned package, runtime, and bundle metadata at 0.4.1.
+- Private layout saved only after the compatible app was installed, with verified before/after backups and all unrelated context preserved.
+- Implementation saved in `4a8846c` on `codex/history-week-layout`; PR #15 opened for review.
+- Brooks PR review: sampled the highest-risk changes, no actionable decay findings at that pass (100/100; prior run 90). Layout policy stays isolated from Weekly Bridge discovery, and tests cover boundary and persistence behavior. The subsequent compatibility inspection found and fixed the legacy-order edge case above (`ab7a800`).
+- Codex review completed with three P2 findings, all fixed and acknowledged individually above. No feedback was deferred. Shared-formula presence now also correctly marks uncached formula cells occupied.
+- CI Verify passed before the review-fix pushes; final-head CI and permission to resolve the three addressed threads remain the readiness gates. No merge conflicts observed. The PR will remain unmerged.
 
 ## Open questions
-- None.
+- None. The user confirmed Monday–Sunday weeks and authorized the export-supported irregular-block mapping. Personal dates and source annotations stay private; repository examples remain synthetic.
