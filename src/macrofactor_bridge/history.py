@@ -505,8 +505,10 @@ def _load_history_sources(
             except HistoryLayoutError as exc:
                 raise HistoryError(f"History layout for {sheet.name!r}: {exc}") from exc
         else:
-            labels = _ordered_week_labels(tuple(week.label for week in sheet.weeks))
-            sheet = replace(sheet, weeks=tuple(sorted(sheet.weeks, key=lambda w: labels.index(w.label))))
+            discovered_labels = tuple(week.label for week in sheet.weeks)
+            labels = _ordered_week_labels(discovered_labels)
+            if labels != discovered_labels:
+                sheet = replace(sheet, weeks=tuple(sorted(sheet.weeks, key=lambda w: labels.index(w.label))))
         if sheet.exercise_column is not None and sheet.weeks:
             resolved.append(sheet)
     blocks = tuple(resolved)

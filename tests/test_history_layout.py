@@ -110,6 +110,12 @@ class HistoryLayoutTests(unittest.TestCase):
         block = next(b for b in self.dashboard(annotations.blocks['Training Block']).blocks if b.name == 'Training Block')
         self.assertEqual(block.week_labels, ('Week 8', 'Week 9', 'Week 10', 'Week 11'))
 
+    def test_repeated_legacy_labels_preserve_original_discovery_order(self):
+        irregular_workbook(self.coach, extra_cells={'U3': 'Week 10'})
+        discovered = next(s for s in discover_workbook(self.coach, self.config) if s.name == 'Training Block')
+        block = next(b for b in self.dashboard(BlockAnnotation()).blocks if b.name == 'Training Block')
+        self.assertEqual(block.week_labels, tuple(w.label for w in discovered.weeks))
+
     def test_invalid_layout_files_are_rejected(self):
         first = week_layout_payload(LAYOUT)[0]
         invalid = [[], {}, [None], [first, first],

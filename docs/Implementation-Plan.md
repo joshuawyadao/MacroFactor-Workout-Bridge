@@ -12,10 +12,11 @@ Correct history mapping for coach sheets containing copied historical columns an
 [x] Cover copied columns, date-labelled weeks, multi-row merged headers (found during real-data validation), missing workouts, calendar boundaries, legacy files, invalid layouts, and desktop save/reload preservation.
 [x] Update README and Local-File-Workflow with configuration, compatibility, calendar semantics, and correction steps.
 [x] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
-[x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (98 tests passed; signed 0.4.1 bundle smoke-tested and installed with the previous app retained).
+[x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (99 tests passed after the compatibility fix; signed 0.4.1 bundle smoke-tested and installed with the previous app retained).
 [ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
 
 ## Validation and review ledger
+- Final compatibility inspection found that sorting by label position could reorder repeated legacy labels. Preserved original discovery order when the numeric-label helper declines sorting; the new regression and full 99-test suite pass. Real-data desktop loading still verifies.
 - Real-input validation exposed two-row merged headers; adjusted validation and the synthetic fixture before publication. Both source hashes stayed unchanged.
 - Packaging smoke verification exposed a stale bundle version; aligned package, runtime, and bundle metadata at 0.4.1.
 - Private layout saved only after the compatible app was installed, with verified before/after backups and all unrelated context preserved.
