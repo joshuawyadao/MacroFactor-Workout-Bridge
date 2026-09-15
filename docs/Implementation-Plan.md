@@ -36,6 +36,17 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 ## Open questions
 - None.
 
+## Verified mixed-set candidate
+
+A second direct program export demonstrates one standard set followed by two `Myo Set` values, with blank targets. Its all-blank rep targets omit rep-range columns entirely. Use that file only as read-only encoding evidence; retain the earlier full-layout export as the generation template. Do not expand support to sparse template layouts, drop sets, or periodization in this slice.
+
+[x] Add ordered per-set type fields to the prescription model and explicit, exact-rule Part 2 configuration for the approved mixed-type sequence and blank rep targets; preserve raw coach instructions and policy provenance.
+[x] Write only the proved standard/myo labels into the existing template set columns, checking sequence length, coach conflicts, unsupported types, supersets, and cycle consistency before generation.
+[x] Add minimal synthetic mixed-type fixtures and regression tests for blank targets, preview visibility, round trips, immutability, non-overwrite, conflict and invalid-configuration gates; preserve all existing assertions.
+[x] Apply the approved policy to the private exact mapping, generate a distinct earliest-block first-cycle candidate through the CLI, inspect its output and all input hashes, and leave manual MacroFactor import unverified.
+[x] Update README, local workflow guidance and this plan, run targeted/canonical tests, compilation and privacy/diff checks, and save the feature-branch checkpoint without private artifacts. Keep PR #13 draft and issue #12 open for remaining validation.
+[ ] Receive manual import confirmation, including exercise identities, mixed set types, blank targets, notes and preserved workout structure. Do not mark Part 2 complete or merge before that validation.
+
 ## Earliest-block conversion policy
 
 The user clarified that chronological selection starts with the last worksheet and moves right to left. Exercise category and detailed variation must both remain available for exact mapping; the coach side of each weekly pair is planned input. Keep all days and optional exercises, honor explicit supersets, and exclude warmups and cardio. Use standard sets by explicit default, upper-bound rest ranges, no invented RIR, deferred rep targets for `Read week`, and full coaching detail in exercise notes. Unknown exercise identities, ambiguous set counts, special set encodings absent from the direct export, and unproved layouts remain concrete generation blockers.
@@ -46,7 +57,7 @@ The user clarified that chronological selection starts with the last worksheet a
 [x] Verify blank active-set rep/RIR/rest cells in the direct export and support that structural contract in the generator with anonymized round-trip tests.
 [x] Add opt-in resizing of existing workout row groups, rejecting reference-bearing or irregular templates; preserve header/set-column structure, styles, source bytes, and unrelated OOXML parts with structural round-trip tests.
 [x] Preview the earliest worksheet under the approved policies and produce an ignored private decision list with proposed exact exercise names found in local history; do not use completed results as prescription data or apply unconfirmed mappings.
-[ ] Generate the first candidate after exercise identities and ranged set counts are confirmed and a direct export demonstrates required special-set encoding. No actual coach-program candidate has yet been generated or manually imported.
+[x] Generate the first candidate after exercise identities and ranged set counts are confirmed and a direct export demonstrates required special-set encoding. The candidate is generated privately; manual import is still pending.
 [x] Run targeted tests, the canonical suite, compilation and privacy/diff checks; update README and local workflow documentation.
 [x] Save the feature branch checkpoint with the policy/resizing validation evidence; leave the draft PR and manual-import gate open.
 
@@ -54,7 +65,7 @@ The user clarified that chronological selection starts with the last worksheet a
 
 ### Approved set ranges and mappings
 
-The user approved upper-bound set counts and the private exercise-match proposals. Implement an opt-in upper-bound base set-count policy with visible provenance and retained raw ranges, and apply approved identities only in ignored Part 2 configuration. The completed-result `+` notation is not evidence of native program myo-set encoding; that existing template gate remains in force.
+The user approved upper-bound set counts and the private exercise-match proposals. Implement an opt-in upper-bound base set-count policy with visible provenance and retained raw ranges, and apply approved identities only in ignored Part 2 configuration. The completed-result `+` notation is not evidence of native program myo-set encoding; the subsequent direct-export evidence resolves that gate for explicit standard/myo sequences only.
 
 [x] Add strict-by-default base set-count range handling; preserve exact weekly conflicts, malformed-value blockers, and template capacity checks.
 [x] Add anonymized parsing, provenance, conflict, capacity, and output round-trip tests without changing existing assertions.
@@ -69,6 +80,9 @@ The user approved upper-bound set counts and the private exercise-match proposal
 - The verified export repeats one distinct cycle layout. It does not prove the OOXML layout for different prescriptions in different cycles, so periodized generation remains blocked pending a richer direct export or manual evidence.
 
 ## Verification
+- Mixed-set checkpoint: 54 targeted Part 2 tests and all 130 canonical tests passed. Eight new anonymized tests cover native labels, ordered sequences, blank targets, CLI/report visibility, immutable-input/non-overwrite round trips, sequence length/conflicts, invalid configuration, differing-cycle order and independent RIR safety. Existing assertions remain unchanged.
+- The first private CLI-generated candidate passed a fresh 482-cell structural round trip against the current code. The coach source, full-layout template and mixed-set reference all retained their hashes. Native mixed types, blank rep/RIR cells, full coach notes, and unchanged unrelated OOXML members were checked. Output, evidence, reports and mappings remain ignored and uncommitted. Manual import is pending; no compatibility claim is made.
+- Compilation, example/bundled configuration parity, ignored-path checks and `git diff --check` passed for this checkpoint. Spreadsheet tooling was used only for read-only reference inspection; production remains Python/OOXML.
 - Approved-range checkpoint: 46 targeted Part 2 tests and all 122 canonical tests passed. Six additional anonymized tests cover upper-count provenance and round trips, malformed ranges, weekly conflicts, exact weekly provenance, template capacity, and invalid configuration. Input hashes, compilation, configuration parity, privacy and diff checks passed. No actual program candidate or manual import is claimed.
 - `PYTHONPATH=src python3 -m unittest tests.test_program_generation tests.test_program_preview -v`: 20 passed.
 - `PYTHONPATH=src python3 -m unittest discover -s tests -v`: 96 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.

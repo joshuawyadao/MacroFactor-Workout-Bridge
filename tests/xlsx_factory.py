@@ -145,11 +145,14 @@ def write_macrofactor_program_template(
     *,
     day_row_counts: tuple[int, ...] = (2,),
     max_sets: int = 4,
+    set_types: tuple[str, ...] = (),
 ) -> None:
     if not day_row_counts or any(count < 1 for count in day_row_counts):
         raise ValueError("day_row_counts must contain positive values")
     if max_sets < 1:
         raise ValueError("max_sets must be positive")
+    if len(set_types) > max_sets:
+        raise ValueError("set_types exceeds fixture capacity")
 
     shared_values: list[str] = []
     shared_indexes: dict[str, int] = {}
@@ -208,6 +211,13 @@ def write_macrofactor_program_template(
                 7: 2,
                 8: 90,
             }
+            if set_types:
+                # Minimal mixed-type values proved by a direct program export;
+                # all names/metadata and package parts remain synthetic.
+                for number, kind in enumerate(set_types):
+                    column = 5 + number * 4
+                    row_values[row_number].update({column: kind, column + 1: None,
+                                                  column + 2: None, column + 3: None})
             row_number += 1
         merges.append(f"A{start_row}:A{row_number - 1}")
 

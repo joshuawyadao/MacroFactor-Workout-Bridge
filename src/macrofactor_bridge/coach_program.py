@@ -735,6 +735,46 @@ def _base_value_issue(
     )
 
 
+def _apply_set_layout(
+    prescription: CyclePrescription,
+    *,
+    set_types: tuple[str, ...],
+    blank_reps: bool,
+    sheet: str,
+    day: str,
+    exercise: str,
+    issues: list[ProgramIssue],
+    suppress_blockers: bool,
+) -> CyclePrescription:
+    notes = prescription.notes
+    if set_types:
+        if len(set_types) != prescription.set_count.value and not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="blocking", code="set_type_sequence_length_mismatch",
+                message="Explicit per-set types must match the resolved total set count",
+                sheet=sheet, day=day, exercise=exercise, cycle=prescription.cycle,
+            ))
+        coach_type = prescription.set_type.value
+        if (prescription.set_type.source.startswith("coach") and coach_type not in set_types
+                and not suppress_blockers):
+            issues.append(ProgramIssue(
+                severity="blocking", code="conflicting_set_type_sequence",
+                message="Explicit per-set types omit the coach-provided set type",
+                sheet=sheet, day=day, exercise=exercise, cycle=prescription.cycle,
+            ))
+        notes += ("Import setting: ordered set types = " + ", ".join(set_types) + ".",)
+        prescription = replace(prescription, set_types=tuple(
+            _field(kind, "config_set_sequence", None, None) for kind in set_types
+        ))
+    if blank_reps:
+        notes += ("Import setting: leave rep targets blank; retain coach targets in notes.",)
+        prescription = replace(prescription,
+            rep_min=_field(None, "blank_by_policy", None, prescription.rep_min.raw_text),
+            rep_max=_field(None, "blank_by_policy", None, prescription.rep_max.raw_text),
+        )
+    return replace(prescription, notes=notes)
+
+
 def _prescriptions(
     *,
     snapshot,
@@ -749,6 +789,8 @@ def _prescriptions(
     suppress_blockers: bool,
     configured_superset: bool = False,
     date_styles: set[str] | None = None,
+    set_types: tuple[str, ...] = (),
+    blank_rep_targets: bool = False,
 ) -> tuple[CyclePrescription, ...]:
     cells = {
         key: make_cell_reference(row, day.columns[key])
@@ -772,15 +814,16 @@ def _prescriptions(
         )
     notes_policy = config.program.preserve_coach_notes
     blank_targets = config.program.allow_blank_targets
+    blank_reps_allowed = blank_targets or blank_rep_targets
     if date_rep and not suppress_blockers:
         issues.append(ProgramIssue(
-            severity="warning" if notes_policy and blank_targets else "blocking",
+            severity="warning" if notes_policy and blank_reps_allowed else "blocking",
             code="date_formatted_rep_target",
             message="Rep cell is stored as an Excel date; review the original target",
             sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
             raw_text=base_raw.get("reps"),
         ))
-    if rep_range is None and not (notes_policy and blank_targets):
+    if rep_range is None and not (notes_policy and blank_reps_allowed):
         _base_value_issue(
             field_name="rep target", raw_text=base_raw.get("reps"), cell=cells["reps"],
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
@@ -868,7 +911,7 @@ def _prescriptions(
                     make_cell_reference(row, day.columns.get(key, day.columns["exercise"])),
                     base_raw[key],
                 )
-        deferred_reps = bool(notes_policy and blank_targets and re.fullmatch(
+        deferred_reps = bool(notes_policy and blank_reps_allowed and re.fullmatch(
             r"(?:read|check)\s+(?:the\s+)?week\)?", base_raw.get("reps", ""), re.IGNORECASE
         ))
         if deferred_reps:
@@ -904,7 +947,7 @@ def _prescriptions(
                 default_value=config.program.defaults.rep_min, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
-                allow_blank=blank_targets,
+                allow_blank=blank_reps_allowed,
             ),
             rep_max=_resolve_field(
                 name="maximum reps", base_value=maximum, base_cell=cells["reps"],
@@ -913,7 +956,7 @@ def _prescriptions(
                 default_value=config.program.defaults.rep_max, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
-                allow_blank=blank_targets,
+                allow_blank=blank_reps_allowed,
             ),
             rir=_resolve_field(
                 name="RIR", base_value=None, base_cell=None, base_raw=None,
@@ -946,7 +989,11 @@ def _prescriptions(
             prescription = replace(prescription, set_count=_field(
                 set_count, "coach_range_upper_by_policy", cells["sets"], base_raw.get("sets"),
             ))
-        prescriptions.append(prescription)
+        prescriptions.append(_apply_set_layout(
+            prescription, set_types=set_types, blank_reps=blank_rep_targets,
+            sheet=sheet, day=day.label, exercise=exercise, issues=issues,
+            suppress_blockers=suppress_blockers,
+        ))
     return tuple(prescriptions)
 
 
@@ -1143,6 +1190,8 @@ def parse_coach_program(
                     suppress_blockers=excluded,
                     configured_superset=bool(rule and rule.superset_group),
                     date_styles=date_styles,
+                    set_types=rule.program_set_types if rule else (),
+                    blank_rep_targets=bool(rule and rule.program_blank_rep_targets),
                 )
                 superset = (
                     SupersetMembership(rule.superset_group, rule.superset_order)

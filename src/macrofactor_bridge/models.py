@@ -22,6 +22,8 @@ class ExerciseRule:
     program_exclusion_reason: str | None = None
     macrofactor_custom: bool = False
     macrofactor_available: bool = True
+    program_set_types: tuple[str, ...] = ()
+    program_blank_rep_targets: bool = False
 
 
 @dataclass(frozen=True)

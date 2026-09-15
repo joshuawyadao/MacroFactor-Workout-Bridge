@@ -174,6 +174,11 @@ def _print_program_report(report) -> None:
                         f"rest={rest_value} [{prescription.rest_seconds.source}]"
                     )
                     print(f"      {prescription.cycle}: {fields}")
+                    if prescription.set_types:
+                        print("        ordered set types: " + ", ".join(
+                            f"{index}: {field.value} [{field.source}]"
+                            for index, field in enumerate(prescription.set_types, start=1)
+                        ))
                     if prescription.raw_unparsed_text:
                         print(f"        review raw text: {prescription.raw_unparsed_text}")
     blockers = report.blocking_issues

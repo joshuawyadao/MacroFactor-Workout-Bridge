@@ -257,6 +257,18 @@ def load_config(path: str | Path) -> BridgeConfig:
             )
         macrofactor_custom = raw.get("macrofactor_custom", False)
         macrofactor_available = raw.get("macrofactor_available", True)
+        set_types = raw.get("program_set_types", [])
+        if (not isinstance(set_types, list)
+                or any(not isinstance(value, str) or value not in {"standard", "myo"}
+                       for value in set_types)):
+            raise ConfigError(f"Exercise rule {canonical!r} program_set_types must list standard/myo types")
+        blank_reps = raw.get("program_blank_rep_targets", False)
+        if not isinstance(blank_reps, bool):
+            raise ConfigError(f"Exercise rule {canonical!r} program_blank_rep_targets must be a boolean")
+        if set_types and group:
+            raise ConfigError("Per-set type sequences combined with supersets are not yet supported")
+        if blank_reps and not program_config.preserve_coach_notes:
+            raise ConfigError("Blank rep overrides require program.preserve_coach_notes")
         if not isinstance(macrofactor_custom, bool):
             raise ConfigError(f"Exercise rule {canonical!r} macrofactor_custom must be a boolean")
         if not isinstance(macrofactor_available, bool):
@@ -291,6 +303,8 @@ def load_config(path: str | Path) -> BridgeConfig:
                 ),
                 macrofactor_custom=macrofactor_custom,
                 macrofactor_available=macrofactor_available,
+                program_set_types=tuple(set_types),
+                program_blank_rep_targets=blank_reps,
             )
         )
 

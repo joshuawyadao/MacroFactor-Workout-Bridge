@@ -472,6 +472,7 @@ def _prescription_signature(prescription: CyclePrescription) -> tuple[object, ..
         prescription.rir.value,
         prescription.rest_seconds.value,
         prescription.notes,
+        tuple(field.value for field in prescription.set_types),
     )
 
 
@@ -553,10 +554,22 @@ def template_generation_issues(
                         exercise=exercise.coach_name,
                     )
                     break
-                if set_type not in {"standard", "superset"}:
+                if prescription.set_types:
+                    sequence = tuple(field.value for field in prescription.set_types)
+                    if len(sequence) != set_count or any(kind not in {"standard", "myo"} for kind in sequence):
+                        block("invalid_set_type_sequence",
+                              "Per-set types must match the set count and use verified standard/myo types",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                    if exercise.superset is not None or (set_type not in sequence and set_type is not None):
+                        block("conflicting_set_type_sequence",
+                              "Per-set types conflict with the exercise type or superset membership",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                elif set_type not in {"standard", "superset"}:
                     block(
                         "unsupported_template_set_type",
-                        "The verified template proves only standard sets and explicit superset membership",
+                        "Myo prescriptions need an explicit ordered sequence; other special types remain unverified",
                         day=day.label,
                         exercise=exercise.coach_name,
                     )
@@ -653,8 +666,12 @@ def _program_changes(
             assert isinstance(set_count, int)
             for group in schema.sets:
                 populated = group.number <= set_count
+                kind = (
+                    prescription.set_types[group.number - 1].value
+                    if populated and prescription.set_types else "standard"
+                )
                 changes[make_cell_reference(row, group.set_type)] = (
-                    "Standard Set" if populated else None
+                    {"standard": "Standard Set", "myo": "Myo Set"}[kind] if populated else None
                 )
                 changes[make_cell_reference(row, group.rep_range)] = (
                     f"{prescription.rep_min.value} - {prescription.rep_max.value}"

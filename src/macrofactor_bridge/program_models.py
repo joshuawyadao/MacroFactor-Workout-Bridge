@@ -73,6 +73,7 @@ class CyclePrescription:
     notes: tuple[str, ...]
     raw_week_text: str | None
     raw_unparsed_text: str | None
+    set_types: tuple[PrescriptionField, ...] = ()
 
 
 @dataclass(frozen=True)
