@@ -14,6 +14,9 @@ Correct history mapping for coach sheets containing copied historical columns an
 [x] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
 [x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (99 tests passed after the compatibility fix; signed 0.4.1 bundle smoke-tested and installed with the previous app retained).
 [ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
+[ ] Address Codex P2: distinguish single-column vertical merges from unmerged headers; add a regression and save/react.
+[ ] Address Codex P2: reject result columns overlapping another selected header span; add a regression and save/react.
+[ ] Address Codex P2: reject shared-formula headers even with empty formula text; add a regression and save/react.
 
 ## Validation and review ledger
 - Final compatibility inspection found that sorting by label position could reorder repeated legacy labels. Preserved original discovery order when the numeric-label helper declines sorting; the new regression and full 99-test suite pass. Real-data desktop loading still verifies.

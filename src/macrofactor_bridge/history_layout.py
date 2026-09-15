@@ -76,14 +76,15 @@ def resolve_week_layout(
         if row < exercise_row or column <= block.exercise_column:
             raise HistoryLayoutError("History week headers must follow the exercise header")
         last_column = column
+        result_column = column + 1
         for merge in snapshot.merges:
             r1, c1, r2, c2 = split_range(merge)
             if r1 <= row <= r2 and c1 <= column <= c2:
                 if (row, column) != (r1, c1):
                     raise HistoryLayoutError("History headers must anchor the top left of a merged range")
                 last_column = c2
+                result_column = c2
                 break
-        result_column = last_column if last_column > column else column + 1
         if result_column > 16384 or result_column in result_columns:
             raise HistoryLayoutError("History weeks must select distinct valid result columns")
         result_columns.add(result_column)

@@ -78,6 +78,12 @@ class HistoryLayoutTests(unittest.TestCase):
         block = next(b for b in self.dashboard().blocks if b.name == 'Training Block')
         self.assertEqual((block.completed_results, block.programmed_results), (3, 9))
 
+    def test_vertical_only_merges_read_their_own_result_column(self):
+        irregular_workbook(self.coach, extra_cells={'I5': '200 x 5'},
+            header_merges=('I3:I4', 'K3:K4', 'M3:M4'))
+        block = next(b for b in self.dashboard().blocks if b.name == 'Training Block')
+        self.assertEqual((block.completed_results, block.programmed_results), (1, 9))
+
     def test_layout_can_supply_weeks_without_any_automatic_header_match(self):
         self.config = replace(self.config, week_header_pattern=r'Never a week header')
         self.assertTrue(all(not sheet.weeks for sheet in discover_workbook(self.coach, self.config)))
