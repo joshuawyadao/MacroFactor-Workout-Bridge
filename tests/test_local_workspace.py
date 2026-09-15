@@ -31,11 +31,12 @@ class LocalWorkspaceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "local-data"
             created = setup_workspace(root)
-            self.assertEqual(len(created), 8)
+            self.assertEqual(len(created), 9)
             self.assertTrue((root / "inbox" / "coach").is_dir())
             self.assertTrue((root / "archive" / "macrofactor").is_dir())
             self.assertTrue((root / "current").is_dir())
             self.assertTrue((root / "generated" / "reports").is_dir())
+            self.assertTrue((root / "annotations").is_dir())
 
     def test_custom_workspace_managed_data_is_ignored_by_git(self) -> None:
         for location in ("workout-data", "nested/workouts", "."):
@@ -61,12 +62,15 @@ class LocalWorkspaceTests(unittest.TestCase):
                 result = archive_inbox(root, CONFIG, now=NOW)
                 report = root / "generated" / "reports" / "private-review.json"
                 report.write_text('{"private": "synthetic"}', encoding="utf-8")
+                annotation = root / "annotations" / "workout-history.json"
+                annotation.write_text('{"schema_version": 1}', encoding="utf-8")
                 paths = (
                     source,
                     Path(result["manifest"]),
                     Path(result["entries"][0]["archive"]),
                     Path(result["current"]["macrofactor"]["current"]),
                     report,
+                    annotation,
                 )
 
                 ignored = subprocess.run(
@@ -82,6 +86,7 @@ class LocalWorkspaceTests(unittest.TestCase):
                 self.assertEqual(len(ignored.stdout.splitlines()), len(paths))
                 self.assertNotIn("ingest.json", status.stdout)
                 self.assertNotIn("private-review.json", status.stdout)
+                self.assertNotIn("workout-history.json", status.stdout)
                 self.assertNotIn("log.csv", status.stdout)
 
     def test_workspace_setup_refuses_symlinked_ignore_file(self) -> None:

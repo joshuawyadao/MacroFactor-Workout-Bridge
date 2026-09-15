@@ -63,6 +63,43 @@ def _parse_decimal(value: object) -> Decimal | None:
         raise ImportError(f"Invalid numeric value: {value!r}") from exc
 
 
+def _parse_rir(value: object) -> Decimal | None:
+    parsed = _parse_decimal(value)
+    if parsed is None:
+        return None
+    if not parsed.is_finite() or not Decimal("0") <= parsed <= Decimal("10"):
+        raise ImportError(f"RIR must be a finite value from 0 through 10: {value!r}")
+    return parsed
+
+
+def _parse_duration_seconds(value: object) -> Decimal | None:
+    if value is None or not str(value).strip():
+        return None
+    text = str(value).strip()
+    if ":" in text:
+        pieces = text.split(":")
+        if len(pieces) not in {2, 3}:
+            raise ImportError(f"Unsupported workout duration: {value!r}")
+        try:
+            numbers = [Decimal(piece) for piece in pieces]
+        except InvalidOperation as exc:
+            raise ImportError(f"Unsupported workout duration: {value!r}") from exc
+        if len(numbers) == 2:
+            hours = Decimal("0")
+            minutes, seconds = numbers
+        else:
+            hours, minutes, seconds = numbers
+        parsed = hours * Decimal("3600") + minutes * Decimal("60") + seconds
+    else:
+        parsed = _parse_decimal(value)
+        assert parsed is not None
+    if not parsed.is_finite() or parsed < 0:
+        raise ImportError(
+            f"Workout duration must be a finite non-negative number of seconds: {value!r}"
+        )
+    return parsed
+
+
 def _parse_date(value: object) -> date:
     if isinstance(value, (int, float)):
         return date(1899, 12, 30) + timedelta(days=float(value))
@@ -84,6 +121,10 @@ def _record_from_mapping(row_number: int, row: dict[str, object]) -> SetRecord:
         set_type=str(row.get("Set Type") or "").strip(),
         weight=_parse_decimal(row.get("Weight (lbs)")),
         reps=_parse_decimal(row.get("Reps")),
+        rir=_parse_rir(row.get("RIR")),
+        workout_duration_seconds=_parse_duration_seconds(
+            row.get("Workout Duration")
+        ),
     )
 
 

@@ -26,6 +26,7 @@ DIRECTORIES = (
     "current",
     "generated/workbooks",
     "generated/reports",
+    "annotations",
     "manifests",
 )
 

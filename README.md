@@ -5,13 +5,13 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://www.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-MacroFactor Workout Bridge is a conservative local macOS application that copies completed workout results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook. It includes a double-clickable graphical app and an optional command-line interface.
+MacroFactor Workout Bridge is a conservative local macOS application for weekly workbook transfer and read-only workout-history review. It copies completed results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook, and it can summarize an all-time export alongside the workbook's training-block worksheets. It includes a double-clickable graphical app and an optional command-line interface for the transfer workflow.
 
-The supported direction is intentionally narrow:
+The supported write direction remains intentionally narrow:
 
 **MacroFactor exercise log → coach `.xlsx` workbook**
 
-It does not create or import MacroFactor programs.
+The Workout History tab never changes either source. The app does not create or import MacroFactor programs.
 
 > **Project status:** Source-first personal utility. It processes files locally, has no hosted backend, and does not distribute a signed or notarized binary.
 
@@ -23,6 +23,8 @@ It does not create or import MacroFactor programs.
 - **Conservative matching:** exercise names use exact normalized aliases, with no fuzzy or inferred matches.
 - **Reviewable ambiguity:** duplicates, occupied cells, zero-rep rows, unsupported data, and unmatched exercises are reported instead of guessed.
 - **Local-first privacy:** the app and CLI do not upload workout or workbook data and have no runtime network dependency.
+- **Read-only history:** coach worksheets become ordered block summaries while MacroFactor sets remain grouped by their recorded calendar weeks.
+- **Explicit context:** private local annotations distinguish planned, fatigue, vacation, injury, illness, and other modified weeks without guessing why training changed.
 - **Reproducible verification:** anonymized fixtures cover parsing, formatting, workbook integrity, desktop behavior, and packaged-app smoke behavior.
 
 ## Architecture
@@ -36,10 +38,14 @@ flowchart LR
     OOXML --> Service
     Service --> Preview["Human-reviewable preview"]
     Preview -->|explicit apply| Output["New workbook copy"]
+    Importer --> History["Read-only history analysis"]
+    OOXML --> History
+    Annotations["Private local annotations"] --> History
+    History --> Dashboard["Block and exercise trends"]
 ```
 
 ```text
-src/macrofactor_bridge/  Import, matching, formatting, OOXML, service, CLI, and desktop workflow
+src/macrofactor_bridge/  Import, history, annotations, matching, OOXML, service, CLI, and desktop workflows
 packaging/               PyInstaller entry point, specification, and icon generation
 scripts/                 Reproducible local macOS application build
 config/                  Synthetic example exercise mapping
@@ -48,7 +54,7 @@ tests/                   Unit, integration, GUI, and anonymized workbook fixture
 
 ## Privacy and security
 
-- Real MacroFactor exports, coach workbooks, generated reports, application outputs, local mappings, and local workspaces are excluded from Git.
+- Real MacroFactor exports, coach workbooks, dashboard annotations, generated reports, application outputs, local mappings, and local workspaces are excluded from Git.
 - Only deliberately anonymized fixtures under `tests/fixtures/` may be committed.
 - The application processes selected files on the local machine and does not transmit their contents.
 - The build script downloads declared Python build dependencies, but the built application has no runtime network integration.
@@ -68,6 +74,8 @@ See the [Security Policy](SECURITY.md) to report a vulnerability privately. Neve
 - Exercise matching is exact after case and whitespace normalization plus configured aliases. There is no fuzzy matching.
 - When enabled in the mapping, a programmed day with no matched session receives a yellow `Skip` review marker. It is a visual prompt to confirm the absence, not proof that MacroFactor recorded a skip.
 - Zero-rep rows are ignored and reported.
+- Workout History reads the selected export and workbook without writing to either one. Its only write is an explicitly saved private annotation JSON file.
+- Missing block dates and RIR values remain missing. The dashboard reports reduced coverage instead of inferring them.
 
 The application never changes the MacroFactor export.
 
@@ -87,7 +95,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace archive \
 PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace status
 ```
 
-Every validated copy starts with its UTC upload/intake date for easy searching. MacroFactor names also include their workout-date range, and all archive names include a content hash. Stable files under `local-data/current/` always point to the versions to select in the app. Every run creates a JSON manifest, identical content is deduplicated, and inbox files are never moved, deleted, renamed, or changed. Save app outputs under `local-data/generated/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, naming examples, weekly routine, privacy rules, and recovery limitations.
+Every validated copy starts with its UTC upload/intake date for easy searching. MacroFactor names also include their workout-date range, and all archive names include a content hash. Stable files under `local-data/current/` point to the current weekly-transfer inputs. Every run creates a JSON manifest, identical content is deduplicated, and inbox files are never moved, deleted, renamed, or changed. Save app outputs under `local-data/generated/` and dashboard context under `local-data/annotations/`. See [Local File Workflow](docs/Local-File-Workflow.md) for the directory layout, naming examples, weekly and history routines, privacy rules, and recovery limitations.
 
 Exports must contain at least one usable completed set. Malformed history entries are skipped, and moving the whole workspace preserves archive selection and status paths. Custom `--root` locations receive local Git ignore rules for all managed data directories, including private manifests and reports; existing tracked files are not automatically untracked.
 
@@ -101,7 +109,7 @@ dist/MacroFactor Workout Bridge.app
 
 Open Finder, navigate to `dist`, and double-click **MacroFactor Workout Bridge**. The app is self-contained; using the built app does not require Python or Terminal.
 
-The app guides one workflow:
+The **Weekly Bridge** tab guides the safe workbook workflow:
 
 1. Choose the MacroFactor `.csv` or `.xlsx` exercise-log export.
 2. Choose the coach `.xlsx` workbook.
@@ -113,6 +121,23 @@ The app guides one workflow:
 8. Optionally save the full review and validation report as JSON.
 
 The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file outside the repository, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
+
+### Review workout history
+
+The **Workout History** tab is a separate read-only workflow:
+
+1. Choose an all-time MacroFactor exercise-log export, the newest coach workbook, and the exercise mapping.
+2. Leave the suggested private annotation path under `local-data/annotations/`, or select an existing annotation JSON file.
+3. Click **Load history dashboard**. The overview reports usable sets, workout and training-day counts, RIR coverage, and workout duration without changing either source.
+4. Review coach worksheets as blocks in their existing Excel tab order. Each block reports its discovered weeks and populated result cells.
+5. Choose an exercise to review calendar-week training days, sets, top load, Epley estimated 1RM, volume load, average recorded RIR, and a compact estimated-strength trend.
+6. Optionally confirm a block type and start date, then annotate a coach week as normal, deload/re-entry, or modified. Reasons distinguish planned or fatigue-driven changes from vacation, injury, illness, and other context.
+
+Block dates are never inferred from worksheet names or gaps in training. Until a start date is confirmed, dated workouts remain visible by calendar week but are not assigned to that block. When a start is known, consecutive seven-day ranges map to the workbook's discovered week labels.
+
+Estimated 1RM is a descriptive Epley estimate from weighted standard sets of 1–12 reps. Drop, mini, and myo sets are excluded from that estimate; all completed positive-rep sets still contribute to set, repetition, and per-exercise volume summaries. It is not an injury assessment, readiness score, work-capacity prescription, or deload prediction.
+
+MacroFactor's `RIR` and `Workout Duration` columns are optional. RIR coverage is reported rather than imputed, and numeric workout duration is interpreted as seconds and counted once per workout even though the export repeats it on each set row. The export does not contain a separate actual-RPE column.
 
 ### Requirements
 
@@ -320,6 +345,9 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - One source exercise may appear in only one workout session within the selected date range. Repeated sessions are reported as ambiguous rather than merged.
 - Superset exercises must share one configured target and superset group, contain the same number of completed standard sets, and are paired by set position in configured exercise order.
 - Current MacroFactor `.xlsx` exports expose exercise-level notes in `Active Program`, but the `Workout Log` table does not expose program-level or session-level notes. Exercise notes appear in review output only and represent the current active-program value rather than a historical note attached to one completed set.
+- Workout History requires the user to select an all-time export when long-range trends are desired. The stable current MacroFactor link may intentionally point to a narrower, more recent export used by the weekly bridge.
+- Worksheet titles identify blocks, but exact block-to-calendar mapping requires a confirmed start date in the private annotation file.
+- Recovery context is descriptive only. The app does not predict deload timing, infer whether a change was caused by fatigue, or treat vacation and injury as evidence of exceeded work capacity.
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.

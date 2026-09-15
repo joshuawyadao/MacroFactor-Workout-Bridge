@@ -1,35 +1,26 @@
 # Plan
 
-Make the CI vulnerability-audit bootstrap reproducible by reviewing and hash-locking the complete `pip-audit` tool closure. Keep application and build dependencies unchanged while aligning CI, contributor documentation, and dependency-integrity tests with the new audit-tool lock.
+Harden pull request #14 before merge by preventing private annotations from being saved against stale History inputs and by splitting the new history aggregation pipeline into named, typed stages. Preserve the milestone's calculations, UI, privacy boundaries, and source-file immutability while adding focused regression protection.
 
 ## Scope
-- In: a binary-only SHA-256 audit-tool lock, CI installation and cache configuration, dependency-integrity regression tests, contributor verification documentation, validation, commit, push, and PR preparation.
-- Out: application runtime behavior, app-build or GUI-test dependency upgrades, advisory policy changes, macOS packaging behavior, and merging the pull request.
+- In: History-source invalidation in the desktop workflow, typed aggregation state and extracted analysis helpers in `history.py`, regression tests, the complete test suite, and a focused review-fix commit on `codex/workout-dashboard-mvp`.
+- Out: new dashboard metrics, visual redesign, recovery or deload prediction, source-file writes, annotation schema changes, and unrelated cleanup in the existing Weekly Bridge workflow.
 
 ## Action items
-[x] Resolve the complete `pip-audit==2.10.1` closure for CI's Python 3.11 Linux environment and record exact wheel hashes in `requirements/audit.lock`.
-[x] Update `.github/workflows/ci-verify.yml` to cache and install the reviewed audit-tool lock with binary-only and hash verification before scanning the product locks.
-[x] Extend `tests/test_build_dependencies.py` to enforce the audit lock's direct version, complete hashes, and CI installation contract.
-[x] Update `CONTRIBUTING.md` and `README.md` so local verification installs the same reviewed audit tooling used by CI.
-[x] Verify lock installation in an isolated environment, run the dependency audit, focused dependency tests, complete suite, source compilation, and diff checks.
-[x] Review the final diff for unchanged product dependencies and document the rollback boundary as the audit lock plus its CI/docs/test wiring.
-[x] Commit and push `feature/hash-lock-pip-audit`, then run the full PR review cycle without merging.
+[x] Add an offscreen GUI regression test proving that changing any History input clears the loaded dashboard and disables annotation saving.
+[x] Connect History source, mapping, and annotation path changes to a single invalidation boundary without disrupting fields while the dashboard is loading.
+[x] Replace the untyped weekly aggregation dictionary with an explicit accumulator and extract block counting, date mapping, trend construction, duration summarization, and final block-summary stages from `build_history_dashboard`.
+[x] Verify the refactor preserves existing calendar-week, block mapping, estimated-1RM, RIR, duration, warning, and annotation behavior through the focused History and GUI tests.
+[x] Record that no README or other durable user documentation changes are required because this fixes stale UI state and internal structure without changing the documented workflow or data format.
+[x] Run the complete `./scripts/test.sh` suite, source compilation, `git diff --check`, and source GUI smoke test.
+[x] Commit and push only the review-remediation files; keep private data and ignored build artifacts out of Git.
+[x] Integrate the completed dependency-audit tooling changes from `main` and re-run the combined branch verification.
 
-## Verification
-- The 29-package lock installed from the reviewed Apple-silicon macOS wheel set, and `pip check` reported no broken requirements.
-- A Python 3.11 Linux x86-64 download resolved all 29 locked packages from only the reviewed Linux wheel set with hash verification enabled.
-- `pip-audit` reported no known vulnerabilities across `requirements/audit.lock`, `requirements/app-build.lock`, and `requirements/test.lock`.
-- All 14 focused build-dependency tests and all 75 GUI-enabled repository tests passed.
-- Source compilation and `git diff --check` passed.
-- `pyproject.toml`, `requirements/app-build.lock`, and `requirements/test.lock` are unchanged. Rollback is limited to the new audit lock and its CI, documentation, test, and implementation-plan wiring.
+## Codex review follow-up
+- [x] Invalidate a loaded dashboard whenever any History input changes so annotations cannot be saved against stale data.
+- [x] Make the non-workspace fallback annotation filename match the repository's private-file ignore rule, with regression coverage.
+- [x] Restrict estimated 1RM calculations to normalized standard-set records, with regression coverage for warm-up sets.
+- [x] Re-run the complete combined local verification after all Codex fixes; use GitHub CI as the final external merge gate.
 
 ## Open questions
 - None.
-
-## Brooks review follow-up
-- [x] Remove the duplicated `pip-audit` version literal from `tests/test_build_dependencies.py` while retaining the invariant that exactly one exact `pip-audit` requirement is present in the audit lock.
-- [x] Re-run the focused dependency tests and diff checks before saving the review fix.
-
-## Codex review follow-up
-- [x] Pin the documented local audit environment to Python 3.11, matching the interpreter-specific Linux and macOS hashes in `requirements/audit.lock` and CI.
-- [x] Add regression coverage for the documented interpreter command, then re-run focused and complete verification before saving the fix.
