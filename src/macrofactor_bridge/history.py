@@ -133,6 +133,7 @@ class HistoryDashboard:
     exercises: tuple[ExerciseSummary, ...]
     weekly_trends: tuple[WeeklyExerciseTrend, ...]
     warnings: tuple[str, ...]
+    overlapping_blocks: frozenset[str] = frozenset()
 
     def trends_for(self, exercise: str) -> tuple[WeeklyExerciseTrend, ...]:
         return tuple(
@@ -844,6 +845,7 @@ def build_history_dashboard(
         exercises=_exercise_summaries(weekly_trends),
         weekly_trends=weekly_trends,
         warnings=tuple(warnings),
+        overlapping_blocks=overlapping,
     )
 
 

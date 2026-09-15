@@ -60,7 +60,12 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
 2. In the app's **Workout History** tab, choose that all-time export directly, plus the newest coach workbook and local exercise mapping.
 3. Use `local-data/annotations/workout-history.json` for the suggested private annotation file.
 4. Load the dashboard to review calendar-week exercise trends and workbook worksheets as blocks. This step is read-only for both source files.
-5. Add block types, confirmed start dates, and optional week context gradually. A block without a confirmed date remains an ordered workbook summary and is not assigned dated MacroFactor workouts.
+5. In **Block context**, add block types, confirmed start dates, and optional week context gradually. A block without a confirmed date remains an ordered workbook summary and is not assigned dated MacroFactor workouts.
+6. In **Compare blocks** (version 0.5.0), choose one exercise and two blocks with confirmed Monday starts. Review relative-week alignment, original labels/dates, per-exercise sets/days/loads, and saved context. Overlapping dates or ambiguous week labels must be corrected before comparison; the app does not guess a correction.
+
+The comparison reads only the loaded history and saved annotations. Unsaved note edits do not appear until **Save private annotation** reloads the dashboard. Existing annotation schemas and custom week layouts are unchanged. For a fresher comparison, choose the newer all-time export and click **Load history dashboard**; changing the source path invalidates the previous comparison immediately. No export is downloaded automatically.
+
+Missing exercise logs stay unavailable, not zero or confirmed skipped. Known skips can be written explicitly in week notes; the comparison displays that note without interpreting workbook Skip review markers as confirmations. A week outside the export's observed date range and the tail of a shorter block have separate labels. A partial date range is a coverage warning, not proof that workouts are missing. The chart uses a common scale including zero and breaks lines at missing values; no average-improvement ranking, recovery score, or deload prediction is produced.
 
 The stable MacroFactor file under `current/` is selected for the weekly bridge: when exports end on the same workout date, the narrower later-starting export wins. It therefore may not be the all-time file needed for History. Choose the all-time inbox or archive file explicitly rather than assuming the current link contains the longest range.
 

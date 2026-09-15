@@ -1,32 +1,31 @@
 # Plan
 
-Correct history mapping for coach sheets containing copied historical columns and date-labelled training weeks. Store an explicit, validated week layout in private annotations so the dashboard counts and dates only the selected weeks.
+Finish post-merge synchronization and add a read-only, two-block comparison for one exercise. Reuse the verified history metrics and explicit week layouts, align by relative block week while retaining calendar dates, and keep absent logs and saved context visible.
 
 ## Scope
-- In: ordered history week layouts, source-header validation, consistent calendar mapping and counts, desktop save preservation, synthetic tests, documentation, real-data verification and backups, app rebuild, and PR preparation.
-- Out: inferred injury labels, source workbook edits, Weekly Bridge changes, automatic date guessing, and milestone-two comparisons.
+- In: synchronize clean main/primary checkouts to merged PR #15; record its completion; compare weekly sets, training days, top load, and estimated 1RM for one exercise in two blocks; show notes, coverage, and gaps; tests, docs, local app build, commit and push.
+- Out: source-file edits, inferred skips/injury/fatigue, automatic date correction, recovery/deload predictions, group-of-block analysis, new export acquisition, and PR creation/merge unless requested.
 
 ## Action items
-[x] Add typed ordered week-layout entries with labels and verified source anchors; read legacy annotations and prevent older apps dropping layout data.
-[x] Resolve layouts once for counts, date ranges, summaries, and desktop week selection; reject stale headers, duplicate columns, invalid anchors, and missing configured blocks.
-[x] Cover copied columns, date-labelled weeks, multi-row merged headers (found during real-data validation), missing workouts, calendar boundaries, legacy files, invalid layouts, and desktop save/reload preservation.
-[x] Update README and Local-File-Workflow with configuration, compatibility, calendar semantics, and correction steps.
-[x] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
-[x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (102 tests passed after review fixes; signed 0.4.1 bundle smoke-tested with the previous app retained).
-[ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
-[x] Address Codex P2: distinguish single-column vertical merges from unmerged headers; added a regression, validated 11 layout tests, and saved/reacted (`bf019d3`, comment 4019341775).
-[x] Address Codex P2: reject result columns overlapping another selected header span; added an order-independent regression, validated 12 layout tests, and saved/reacted (`593cf93`, comment 4019341785).
-[x] Address Codex P2: reject shared-formula headers even with empty formula text; preserve formula presence in OOXML snapshots, add cached/uncached regressions, validate all 102 tests, and save/react (`c33419a`, comment 4019341799).
+[x] Verify clean checkouts and synchronize them to merged main without changing private data; create `codex/block-comparison` from main.
+[x] Add a pure comparison model using existing history summaries; preserve explicit ordering, unequal lengths, missing metrics, and export-range coverage; reject ambiguous/undated/non-Monday blocks.
+[x] Add a comparison panel with exercise/two-block selectors, shared-scale trend chart, paired weekly rows, calendar dates, and saved block/week context; reset stale results and preserve selections on reload.
+[x] Test alignment, shared chart scales, absent logs, partial/out-of-range weeks, ambiguous dates, exact exercise selection, context, and immutable inputs using synthetic data; cover desktop selection/reload/error behavior.
+[x] Update README and Local-File-Workflow with comparison semantics, limitations, and refresh steps; preserve the prior PR completion record below.
+[x] Run focused and full tests, compilation, diff checks, real-data read-only GUI verification, visual inspection, and a signed app build/smoke test.
+[x] Commit and push only scoped code/tests/docs with save-branch; leave the working tree clean and report the feature branch.
 
-## Validation and review ledger
-- Final compatibility inspection found that sorting by label position could reorder repeated legacy labels. Preserved original discovery order when the numeric-label helper declines sorting; the new regression and full 99-test suite pass. Real-data desktop loading still verifies.
-- Real-input validation exposed two-row merged headers; adjusted validation and the synthetic fixture before publication. Both source hashes stayed unchanged.
-- Packaging smoke verification exposed a stale bundle version; aligned package, runtime, and bundle metadata at 0.4.1.
-- Private layout saved only after the compatible app was installed, with verified before/after backups and all unrelated context preserved.
-- Implementation saved in `4a8846c` on `codex/history-week-layout`; PR #15 opened for review.
-- Brooks PR review: sampled the highest-risk changes, no actionable decay findings at that pass (100/100; prior run 90). Layout policy stays isolated from Weekly Bridge discovery, and tests cover boundary and persistence behavior. The subsequent compatibility inspection found and fixed the legacy-order edge case above (`ab7a800`).
-- Codex review completed with three P2 findings, all fixed and acknowledged individually above. No feedback was deferred. Shared-formula presence now also correctly marks uncached formula cells occupied.
-- CI Verify passed before the review-fix pushes; final-head CI and permission to resolve the three addressed threads remain the readiness gates. No merge conflicts observed. The PR will remain unmerged.
+## Prior milestone completion
+- PR #15 merged into main as `7e3bf5b` after CI Verify passed and all three addressed review threads were resolved with user approval.
+- The old feature branch was deleted locally and remotely. Version 0.4.1 and verified private week layouts were installed with recoverable backups; source workbook and export remained unchanged.
 
 ## Open questions
-- None. The user confirmed Monday–Sunday weeks and authorized the export-supported irregular-block mapping. Personal dates and source annotations stay private; repository examples remain synthetic.
+- None. Use confirmed Monday–Sunday block dates and the existing export. Missing logs remain unknown; explicit skip information can remain in saved notes, but workbook Skip review markers are not treated as confirmations. A newer all-time export can be selected later.
+
+## Verification notes
+- Source, config, and annotation hashes stayed unchanged during real-input GUI comparison checks.
+- Visual inspection found the source controls crowding out comparison rows; successful loads now collapse those controls behind Show sources, and long block notes scroll inside a bounded read-only field.
+- Actual Qt rendering caught a collision with QWidget's metric method; renamed the chart field and selector and retained a render regression test.
+- Long real-world week notes initially expanded rows enough to obscure the comparison. Rows now stay compact and expose the complete context in tooltips; a long-note regression guards this behavior.
+- All 113 tests pass, including 11 new comparison/model and desktop regressions. Compilation, diff checks, real-input source hash checks, normal/minimum-window visual checks, and the 0.5.0 bundle signature/smoke test pass. The previous 0.4.1 bundle is retained as a private local backup.
+- No workbook, export, private annotation, generated app, or screenshot is included in the feature branch. PR creation and merge remain separate follow-up actions.

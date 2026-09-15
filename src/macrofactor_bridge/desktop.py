@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__
 from .config import load_config
+from .comparison_view import BlockComparisonPanel
 from .desktop_model import (
     bundled_config_path,
     copy_mapping,
@@ -268,6 +269,7 @@ class BridgeWindow(QMainWindow):
         outer.addWidget(subtitle)
 
         inputs = QGroupBox("History sources")
+        self.history_sources = inputs
         grid = QGridLayout(inputs)
         grid.setColumnStretch(1, 1)
         self.history_export_path = QLineEdit()
@@ -313,6 +315,11 @@ class BridgeWindow(QMainWindow):
         self.history_overview = QLabel("Choose the two source files to summarize your history.")
         self.history_overview.setWordWrap(True)
         actions.addWidget(self.history_load_button)
+        self.history_sources_toggle = QPushButton("Hide sources")
+        self.history_sources_toggle.setCheckable(True)
+        self.history_sources_toggle.setChecked(True)
+        self.history_sources_toggle.toggled.connect(self._toggle_history_sources)
+        actions.addWidget(self.history_sources_toggle)
         actions.addWidget(self.history_overview, 1)
         outer.addLayout(actions)
 
@@ -387,7 +394,11 @@ class BridgeWindow(QMainWindow):
         exercise_layout.addWidget(self.history_trend_table)
         analysis.addWidget(exercise_frame)
         analysis.setSizes([570, 500])
-        outer.addWidget(analysis, 1)
+        self.history_analysis_tabs = QTabWidget()
+        self.history_analysis_tabs.addTab(analysis, "Overview & trends")
+        self.history_comparison = BlockComparisonPanel()
+        self.history_analysis_tabs.addTab(self.history_comparison, "Compare blocks")
+        outer.addWidget(self.history_analysis_tabs, 1)
 
         annotations = QGroupBox("Private block and week context")
         annotation_grid = QGridLayout(annotations)
@@ -453,7 +464,7 @@ class BridgeWindow(QMainWindow):
         privacy.setWordWrap(True)
         annotation_grid.addWidget(self.history_save_annotation_button, 4, 0, 1, 2)
         annotation_grid.addWidget(privacy, 4, 2, 1, 4)
-        outer.addWidget(annotations)
+        self.history_analysis_tabs.addTab(annotations, "Block context")
 
         self.history_status = QLabel(
             "Recovery and deload prediction are intentionally outside this milestone."
@@ -482,6 +493,10 @@ class BridgeWindow(QMainWindow):
         ):
             field.textChanged.connect(self._invalidate_history)
         return tab
+
+    def _toggle_history_sources(self, visible: bool) -> None:
+        self.history_sources.setVisible(visible)
+        self.history_sources_toggle.setText("Hide sources" if visible else "Show sources")
 
     def _choose_export(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -555,6 +570,7 @@ class BridgeWindow(QMainWindow):
     def _clear_history_dashboard(self, status: str) -> None:
         self._history_dashboard = None
         self._history_annotations = DashboardAnnotations()
+        self.history_comparison.set_history(None)
         self.history_save_annotation_button.setEnabled(False)
         self.history_overview.setText("Load the selected files to summarize your history.")
         self.history_block_table.setRowCount(0)
@@ -609,6 +625,7 @@ class BridgeWindow(QMainWindow):
         self._history_annotations = annotations
         self._history_dashboard = dashboard
         self._display_history_dashboard(dashboard)
+        self.history_sources_toggle.setChecked(False)
         self.history_save_annotation_button.setEnabled(True)
 
         if selected_block:
@@ -671,6 +688,7 @@ class BridgeWindow(QMainWindow):
         self.history_exercise_combo.blockSignals(False)
         self._history_block_changed(self.history_block_combo.currentText())
         self._display_history_exercise(self.history_exercise_combo.currentText())
+        self.history_comparison.set_history(dashboard, self._history_annotations)
 
     def _display_history_exercise(self, exercise: str) -> None:
         dashboard = self._history_dashboard
@@ -801,6 +819,7 @@ class BridgeWindow(QMainWindow):
             self._show_history_error("Annotation could not be saved", exc)
 
     def _show_history_error(self, title: str, error: Exception) -> None:
+        self.history_sources_toggle.setChecked(True)
         QMessageBox.critical(self, title, str(error))
         self.history_status.setText(str(error))
 

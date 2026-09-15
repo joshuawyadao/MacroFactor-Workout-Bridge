@@ -1,0 +1,231 @@
+"""Desktop presentation of one exercise across two independently dated blocks."""
+
+from decimal import Decimal
+
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtWidgets import (
+    QComboBox, QGridLayout, QHeaderView, QLabel, QPlainTextEdit, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
+)
+
+from .comparison import METRICS, BlockComparison, ComparisonError, compare_blocks
+from .history import (
+    BLOCK_TYPE_OPTIONS, WEEK_REASON_OPTIONS, WEEK_STATUS_OPTIONS,
+    DashboardAnnotations, HistoryDashboard, decimal_text, option_label,
+)
+
+
+class ComparisonChart(QWidget):
+    """One shared scale including zero; missing points break the connecting line."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setMinimumHeight(135)
+        self.comparison: BlockComparison | None = None
+        self.metric_name = METRICS[0][1]
+        self.setAccessibleName("Block comparison trend chart; values also appear in the table")
+
+    def set_comparison(self, comparison: BlockComparison | None, metric: str) -> None:
+        self.comparison, self.metric_name = comparison, metric
+        self.update()
+
+    def plot_values(self) -> tuple[tuple[Decimal | None, ...], ...]:
+        if self.comparison is None:
+            return ()
+        return tuple(tuple(week.metric(self.metric_name) for week in series.weeks)
+                     for series in (self.comparison.first, self.comparison.second))
+
+    def value_range(self) -> tuple[Decimal, Decimal]:
+        available = [value for series in self.plot_values() for value in series if value is not None]
+        return min([Decimal(0), *available]), max([Decimal(1), *available])
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(self.palette().text().color())
+        values = self.plot_values()
+        available = [value for series in values for value in series if value is not None]
+        if not available:
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No logged values to plot")
+            return
+        minimum, maximum = self.value_range()
+        span = maximum - minimum
+        count = max(map(len, values))
+        area = QRectF(66, 18, max(1, self.width() - 90), max(1, self.height() - 45))
+        for fraction in (Decimal(0), Decimal("0.5"), Decimal(1)):
+            y = area.bottom() - float(fraction) * area.height()
+            painter.setPen(QPen(self.palette().mid().color(), 1))
+            painter.drawLine(QPointF(area.left(), y), QPointF(area.right(), y))
+            painter.setPen(self.palette().text().color())
+            painter.drawText(QRectF(0, y - 9, 60, 18), Qt.AlignmentFlag.AlignRight,
+                             decimal_text(minimum + span * fraction, places=1))
+        step = max(1, (count + 7) // 8)
+        for index in range(count):
+            if index % step and index != count - 1:
+                continue
+            x = area.left() + index * area.width() / max(1, count - 1)
+            painter.drawText(QRectF(x - 18, area.bottom() + 5, 36, 18),
+                             Qt.AlignmentFlag.AlignCenter, str(index + 1))
+        for number, series in enumerate(values):
+            color = QColor("#1976b9" if number == 0 else "#b85b00")
+            pen = QPen(color, 2)
+            if number == 1:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(color)
+            previous = None
+            for index, value in enumerate(series):
+                if value is None:
+                    previous = None
+                    continue
+                point = QPointF(area.left() + index * area.width() / max(1, count - 1),
+                                area.bottom() - float((value - minimum) / span) * area.height())
+                if previous is not None:
+                    painter.drawLine(previous, point)
+                painter.drawEllipse(point, 3, 3)
+                previous = point
+
+
+class BlockComparisonPanel(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        self._dashboard: HistoryDashboard | None = None
+        self._annotations = DashboardAnnotations()
+        self._selection = ("", "", "")
+        outer = QVBoxLayout(self)
+        controls = QGridLayout()
+        self.exercise = QComboBox()
+        self.first_block = QComboBox()
+        self.second_block = QComboBox()
+        self.metric_selector = QComboBox()
+        for label, value in METRICS:
+            self.metric_selector.addItem(label, value)
+        for row, (label, combo) in enumerate((
+            ("Exercise", self.exercise), ("A · blue solid", self.first_block),
+            ("B · orange dashed", self.second_block), ("Chart metric", self.metric_selector),
+        )):
+            # Two rows keep the table usable at the app's minimum height.
+            controls.addWidget(QLabel(label), row // 2, (row % 2) * 2)
+            controls.addWidget(combo, row // 2, (row % 2) * 2 + 1)
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            combo.setMinimumContentsLength(12)
+            combo.currentIndexChanged.connect(self._refresh)
+        controls.setColumnStretch(1, 1)
+        controls.setColumnStretch(3, 1)
+        outer.addLayout(controls)
+        self.status = QLabel()
+        self.status.setTextFormat(Qt.TextFormat.PlainText)
+        self.status.setWordWrap(True)
+        outer.addWidget(self.status)
+        self.chart = ComparisonChart()
+        outer.addWidget(self.chart)
+        self.table = QTableWidget(0, 9)
+        self.table.setHorizontalHeaderLabels([
+            "Relative week", "Block", "Coach week / dates", "Days", "Sets", "Top lb",
+            "Est. 1RM lb", "Logged data", "Saved week context",
+        ])
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setWordWrap(False)
+        self.table.horizontalHeaderItem(8).setToolTip("Full saved context is available by hovering over a cell; edit in Block context.")
+        header = self.table.horizontalHeader()
+        for column in range(8):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(8, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().hide()
+        outer.addWidget(self.table, 1)
+        self.block_notes = QPlainTextEdit()
+        self.block_notes.setReadOnly(True)
+        self.block_notes.setMaximumHeight(58)
+        self.block_notes.setAccessibleName("Saved block types and notes for A and B")
+        outer.addWidget(self.block_notes)
+        note = QLabel("X-axis: relative block week. Dates stay in the table. Missing values break chart lines. "
+                      "No logged sets is not a confirmed skip. Coverage describes export dates, not completeness.")
+        note.setWordWrap(True)
+        outer.addWidget(note)
+        self.set_history(None)
+
+    def set_history(
+        self, dashboard: HistoryDashboard | None,
+        annotations: DashboardAnnotations | None = None,
+    ) -> None:
+        selectors = (self.exercise, self.first_block, self.second_block)
+        current = tuple(combo.currentText() for combo in selectors)
+        if any(current):
+            self._selection = current
+        self._dashboard = dashboard
+        self._annotations = annotations or DashboardAnnotations()
+        for combo in selectors:
+            combo.blockSignals(True)
+            combo.clear()
+            combo.setEnabled(dashboard is not None)
+        self.metric_selector.setEnabled(dashboard is not None)
+        if dashboard is not None:
+            self.exercise.addItems(item.exercise for item in dashboard.exercises)
+            names = [block.name for block in dashboard.blocks]
+            self.first_block.addItems(names)
+            self.second_block.addItems(names)
+            eligible = [block.name for block in dashboard.blocks
+                        if block.start_date and block.start_date.weekday() == 0
+                        and block.name not in dashboard.overlapping_blocks]
+            logged = [block.name for block in dashboard.blocks if block.mapped_set_count and block.name in eligible]
+            preferred = logged + [name for name in eligible if name not in logged]
+            defaults = (self.exercise.currentText(),
+                        preferred[0] if preferred else self.first_block.currentText(),
+                        preferred[1] if len(preferred) > 1 else names[-1] if names else "")
+            for combo, saved, default in zip(selectors, self._selection, defaults):
+                combo.setCurrentText(saved if combo.findText(saved) >= 0 else default)
+        for combo in selectors:
+            combo.blockSignals(False)
+        self._refresh()
+
+    def _refresh(self, *_args: object) -> None:
+        self.table.setRowCount(0)
+        self.block_notes.clear()
+        self.chart.set_comparison(None, str(self.metric_selector.currentData()))
+        if self._dashboard is None:
+            self.status.setText("Load history to compare two blocks.")
+            return
+        try:
+            comparison = compare_blocks(self._dashboard, self._annotations, self.exercise.currentText(),
+                                        self.first_block.currentText(), self.second_block.currentText())
+        except ComparisonError as exc:
+            self.status.setText(str(exc))
+            return
+        self.status.setText("A and B share one scale. Counts and weights are per exercise, not whole-block totals.")
+        self.chart.set_comparison(comparison, str(self.metric_selector.currentData()))
+        pairs = comparison.paired_weeks()
+        self.table.setRowCount(len(pairs) * 2)
+        for index, pair in enumerate(pairs):
+            for side, week in enumerate(pair):
+                values = self._row_values(index, side, week)
+                for column, value in enumerate(values):
+                    item = QTableWidgetItem(value)
+                    item.setToolTip(value)
+                    self.table.setItem(index * 2 + side, column, item)
+        self.table.resizeRowsToContents()
+        self.block_notes.setPlainText("\n".join(
+            f"{label}: {option_label(BLOCK_TYPE_OPTIONS, series.block.block_type)}"
+            + (f" — {series.notes}" if series.notes else " — no saved block notes")
+            for label, series in (("A", comparison.first), ("B", comparison.second))
+        ))
+
+    @staticmethod
+    def _row_values(index, side, week) -> tuple[str, ...]:
+        prefix = (str(index + 1), "A" if side == 0 else "B")
+        if week is None:
+            return (*prefix, "Outside this block", "—", "—", "—", "—", "Not applicable", "—")
+        context = week.context
+        text = "No saved week context"
+        if context is not None:
+            text = f"{option_label(WEEK_STATUS_OPTIONS, context.status)}; {option_label(WEEK_REASON_OPTIONS, context.reason)}"
+            if context.affected_movements:
+                text += "; movements: " + ", ".join(context.affected_movements)
+            if context.notes:
+                text += "; " + context.notes
+        return (*prefix, f"{week.label}\n{week.start.isoformat()} – {week.end.isoformat()}",
+                decimal_text(week.metric("training_days"), places=0),
+                decimal_text(week.metric("set_count"), places=0),
+                decimal_text(week.metric("top_weight")), decimal_text(week.metric("estimated_1rm")),
+                week.coverage, text)

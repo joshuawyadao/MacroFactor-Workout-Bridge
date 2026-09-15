@@ -128,10 +128,15 @@ The **Workout History** tab is a separate read-only workflow:
 
 1. Choose an all-time MacroFactor exercise-log export, the newest coach workbook, and the exercise mapping.
 2. Leave the suggested private annotation path under `local-data/annotations/`, or select an existing annotation JSON file.
-3. Click **Load history dashboard**. The overview reports usable sets, workout and training-day counts, RIR coverage, and workout duration without changing either source.
+3. Click **Load history dashboard**. The overview reports usable sets, workout and training-day counts, RIR coverage, and workout duration without changing either source. Loaded source controls collapse to leave room for analysis; click **Show sources** to choose different files.
 4. Review coach worksheets as blocks in their existing Excel tab order. Each block reports its discovered weeks and populated result cells.
 5. Choose an exercise to review calendar-week training days, sets, top load, Epley estimated 1RM, volume load, average recorded RIR, and a compact estimated-strength trend.
 6. Optionally confirm a block type and start date, then annotate a coach week as normal, deload/re-entry, or modified. Reasons distinguish planned or fatigue-driven changes from vacation, injury, illness, and other context.
+7. In **Compare blocks**, select one exercise and two different blocks. The chart shares one scale for A and B; choose estimated 1RM, top weight, logged sets, or training days. Paired rows retain each coach week label and its Monday–Sunday dates, alongside saved week context. Hover over a context cell to read its full notes; long notes do not expand rows. Edit context in **Block context** and save to refresh the comparison.
+
+Comparisons align relative week 1 with week 1, even when the coach labels start at a different number. Shorter blocks are not padded with invented training. Missing exercise logs appear as `No logged sets`, with unavailable metrics shown as dashes and gaps in the chart—not zeroes or confirmed skips. A logged zero remains zero. Weeks outside or partly within the export's observed date range are labelled accordingly; that range does not prove workout completeness. Known skips can be recorded explicitly in week notes; workbook `Skip` review prompts are not treated as confirmations.
+
+Block comparisons require confirmed Monday starts, distinct week labels, and date ranges that do not overlap any other dated block. The app explains invalid selections without changing dates or source files. It compares the same canonical exercise only, does not combine similar movements, and does not rank blocks of different lengths or infer recovery from reduced training. Block types, notes, and vacation/injury context remain descriptive. Reloading preserves comparison selections when they still exist; changing source paths clears stale results until the next successful load.
 
 Block dates are never inferred from worksheet names or gaps in training. Until a start date is confirmed, dated workouts remain visible by calendar week but are not assigned to that block. When a start is known, consecutive seven-day ranges map to the workbook's discovered week labels. Calendar trends use Monday–Sunday; confirming a Monday start aligns block weeks with those trends. A missing workout never shifts later weeks or becomes an inferred skip.
 
