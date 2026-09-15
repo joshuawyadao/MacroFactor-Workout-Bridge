@@ -84,6 +84,13 @@ class HistoryLayoutTests(unittest.TestCase):
         block = next(b for b in self.dashboard().blocks if b.name == 'Training Block')
         self.assertEqual((block.completed_results, block.programmed_results), (1, 9))
 
+    def test_adjacent_headers_reject_overlapping_results_in_either_order(self):
+        irregular_workbook(self.coach, extra_cells={'J3': 'Another week'}, header_merges=())
+        layout = (LAYOUT[0], HistoryWeek('Next', 'J3', 'Another week'))
+        for ordered in (layout, tuple(reversed(layout))):
+            with self.subTest(layout=ordered), self.assertRaisesRegex(HistoryError, 'overlaps'):
+                self.dashboard(replace(self.annotation, week_layout=ordered))
+
     def test_layout_can_supply_weeks_without_any_automatic_header_match(self):
         self.config = replace(self.config, week_header_pattern=r'Never a week header')
         self.assertTrue(all(not sheet.weeks for sheet in discover_workbook(self.coach, self.config)))

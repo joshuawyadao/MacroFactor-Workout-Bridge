@@ -89,4 +89,10 @@ def resolve_week_layout(
             raise HistoryLayoutError("History weeks must select distinct valid result columns")
         result_columns.add(result_column)
         weeks.append(WeekOption(entry.label, entry.header_cell, row, column, last_column, result_column))
+    for week in weeks:
+        if any(
+            other is not week and other.first_column <= week.result_column <= other.last_column
+            for other in weeks
+        ):
+            raise HistoryLayoutError("A history result column overlaps another selected header range")
     return replace(block, weeks=tuple(weeks))
