@@ -79,6 +79,7 @@ def _load_program_config(
     for key, choices, default in (
         ("sheet_order", ("left_to_right", "right_to_left"), "left_to_right"),
         ("rest_range_policy", ("block", "upper"), "block"),
+        ("set_count_range_policy", ("block", "upper"), "block"),
     ):
         value = payload.get(key, default)
         if value not in choices:

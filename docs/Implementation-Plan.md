@@ -51,6 +51,17 @@ The user clarified that chronological selection starts with the last worksheet a
 [x] Save the feature branch checkpoint with the policy/resizing validation evidence; leave the draft PR and manual-import gate open.
 
 ## Baseline and tracking
+
+### Approved set ranges and mappings
+
+The user approved upper-bound set counts and the private exercise-match proposals. Implement an opt-in upper-bound base set-count policy with visible provenance and retained raw ranges, and apply approved identities only in ignored Part 2 configuration. The completed-result `+` notation is not evidence of native program myo-set encoding; that existing template gate remains in force.
+
+[x] Add strict-by-default base set-count range handling; preserve exact weekly conflicts, malformed-value blockers, and template capacity checks.
+[x] Add anonymized parsing, provenance, conflict, capacity, and output round-trip tests without changing existing assertions.
+[x] Apply the approved private mappings separately from the Part 1 configuration, regenerate preview, and verify the remaining gate and unchanged input hashes. Only unsupported special-set encoding remains blocking for the selected first-cycle candidate.
+[x] Update README/local workflow guidance and run targeted/canonical tests, compilation, configuration parity and privacy/diff checks; save the validated feature-branch checkpoint without private inputs or mappings.
+
+### Historical baseline
 - PR #10 merged as `11fd219`, establishing Part 1 version 0.3.0 with its recorded 75-test, compile, diff, app-build, signature, and smoke verification.
 - `origin/main` advanced during discovery to `d3b8a23` through merged PR #11. That dependency-audit-only change raised the pre-Part-2 collected test count to 76 without changing application behavior.
 - Issues #1–#4 were reviewed acceptance criterion by acceptance criterion, received public completion evidence, and were closed after the current canonical suite passed.
@@ -58,6 +69,7 @@ The user clarified that chronological selection starts with the last worksheet a
 - The verified export repeats one distinct cycle layout. It does not prove the OOXML layout for different prescriptions in different cycles, so periodized generation remains blocked pending a richer direct export or manual evidence.
 
 ## Verification
+- Approved-range checkpoint: 46 targeted Part 2 tests and all 122 canonical tests passed. Six additional anonymized tests cover upper-count provenance and round trips, malformed ranges, weekly conflicts, exact weekly provenance, template capacity, and invalid configuration. Input hashes, compilation, configuration parity, privacy and diff checks passed. No actual program candidate or manual import is claimed.
 - `PYTHONPATH=src python3 -m unittest tests.test_program_generation tests.test_program_preview -v`: 20 passed.
 - `PYTHONPATH=src python3 -m unittest discover -s tests -v`: 96 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.
 - `./scripts/test.sh`: all 96 tests passed, including the offscreen GUI tests.

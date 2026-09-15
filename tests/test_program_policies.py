@@ -9,7 +9,7 @@ from xml.etree import ElementTree as ET
 
 from macrofactor_bridge.coach_program import discover_program_blocks
 from macrofactor_bridge.config import ConfigError, load_config
-from macrofactor_bridge.ooxml import XlsxPackage, file_sha256
+from macrofactor_bridge.ooxml import XlsxPackage, file_sha256, make_cell_reference
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
@@ -266,6 +266,88 @@ class ProgramPolicyTests(unittest.TestCase):
         self.write(cells)
         report = self.preview()
         self.assertIn("mixed_set_types", {issue.code for issue in report.blocking_issues})
+
+    def test_upper_set_counts_retain_ranges_and_fill_total_set_slots(self):
+        self.payload["program"]["set_count_range_policy"] = "upper"
+        cells = {}
+        add_day_header(cells, row=5, day="Day 1")
+        self.row(cells, sets="2 to 3", week_one="Technique notes")
+        self.row(cells, row=8, sets="3–4 sets", week_one="Keep the first sets easy")
+        self.write(cells)
+        template = self.root / "template.xlsx"
+        write_macrofactor_program_template(template, day_row_counts=(2,))
+        report = self.preview(template=template)
+        self.assertTrue(report.generation_safe, report.blocking_issues)
+        for exercise, raw, count, cell in zip(report.program.days[0].exercises,
+                                            ("2 to 3", "3–4 sets"), (3, 4), ("F7", "F8")):
+            rx = exercise.prescriptions[0]
+            self.assertEqual(rx.set_count.value, count)
+            self.assertEqual(rx.set_count.source, "coach_range_upper_by_policy")
+            self.assertEqual((rx.set_count.source_cell, rx.set_count.raw_text), (cell, raw))
+            self.assertIn(f"Coach sets: {raw}", rx.notes)
+            self.assertIn(f"Import setting: use upper set count ({count} sets).", rx.notes)
+        hashes = file_sha256(self.coach), file_sha256(template)
+        output = self.root / "upper-counts.xlsx"
+        generate_program(report, template, output)
+        schema = inspect_program_template(output)
+        snapshot = XlsxPackage(output).sheet_snapshot(schema.sheet_name)
+        for row, count in zip(schema.days[0].rows, (3, 4)):
+            types = [snapshot.cells[make_cell_reference(row, group.set_type)].value
+                     for group in schema.sets]
+            self.assertEqual(types, ["Standard Set"] * count + [None] * (len(schema.sets) - count))
+        self.assertEqual(hashes, (file_sha256(self.coach), file_sha256(template)))
+
+    def test_upper_set_policy_does_not_accept_malformed_ranges_or_prose(self):
+        self.payload["program"]["set_count_range_policy"] = "upper"
+        for raw in ("3 to 2", "0-3", "2.5-3", "2 to 3 if ready", "2+3", "2/3", "your choice"):
+            with self.subTest(raw=raw):
+                cells = {}
+                add_day_header(cells, row=5, day="Day 1")
+                self.row(cells, sets=raw, week_one="Technique notes")
+                self.write(cells)
+                report = self.preview()
+                self.assertIsNone(report.program.days[0].exercises[0].prescriptions[0].set_count.value)
+                self.assertIn("unsupported_base_value", {issue.code for issue in report.blocking_issues})
+
+    def test_upper_set_policy_keeps_weekly_conflicts_blocking(self):
+        self.payload["program"]["set_count_range_policy"] = "upper"
+        cells = {}
+        add_day_header(cells, row=5, day="Day 1")
+        self.row(cells, sets="2-3", week_one="2 sets")
+        self.write(cells)
+        report = self.preview()
+        field = report.program.days[0].exercises[0].prescriptions[0].set_count
+        self.assertEqual((field.value, field.source), (None, "conflict"))
+        self.assertIn("conflicting_base_and_week", {issue.code for issue in report.blocking_issues})
+
+    def test_matching_exact_week_count_keeps_weekly_provenance(self):
+        self.payload["program"]["set_count_range_policy"] = "upper"
+        cells = {}
+        add_day_header(cells, row=5, day="Day 1")
+        self.row(cells, sets="2-3", week_one="3 sets")
+        self.write(cells)
+        field = self.preview().program.days[0].exercises[0].prescriptions[0].set_count
+        self.assertEqual((field.value, field.source, field.source_cell), (3, "coach_week", "J7"))
+
+    def test_upper_set_count_cannot_exceed_template_capacity(self):
+        self.payload["program"]["set_count_range_policy"] = "upper"
+        cells = {}
+        add_day_header(cells, row=5, day="Day 1")
+        for row in (7, 8):
+            self.row(cells, row=row, sets="3 to 5 sets", week_one="Technique notes")
+        self.write(cells)
+        template = self.root / "template.xlsx"
+        write_macrofactor_program_template(template, day_row_counts=(2,))
+        report = self.preview(template=template)
+        self.assertFalse(report.generation_safe)
+        self.assertIn("template_set_capacity_exceeded", {issue.code for issue in report.blocking_issues})
+
+    def test_invalid_set_count_policy_is_rejected(self):
+        for policy in (True, 3, "average", "lower"):
+            with self.subTest(policy=policy):
+                self.payload["program"]["set_count_range_policy"] = policy
+                with self.assertRaises(ConfigError):
+                    self.config()
 
     def test_blank_targets_round_trip_as_blank_active_sets(self):
         cells = {}

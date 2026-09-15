@@ -390,6 +390,17 @@ def _parse_integer(raw: str | None) -> int | None:
     return value if value > 0 else None
 
 
+def _parse_set_count(raw: str | None, range_policy: str = "block") -> int | None:
+    exact = _parse_integer(raw)
+    if exact is not None or raw is None or range_policy != "upper":
+        return exact
+    match = re.fullmatch(r"(\d+)\s*(?:[-–]|to)\s*(\d+)(?:\s*sets?)?", raw, re.IGNORECASE)
+    if not match:
+        return None
+    lower, upper = int(match.group(1)), int(match.group(2))
+    return upper if 1 <= lower <= upper else None
+
+
 def _parse_reps(raw: str | None) -> tuple[int, int] | None:
     if raw is None:
         return None
@@ -743,7 +754,8 @@ def _prescriptions(
         key: make_cell_reference(row, day.columns[key])
         for key in ("style", "sets", "reps", "rest")
     }
-    set_count = _parse_integer(base_raw.get("sets"))
+    set_count = _parse_set_count(base_raw.get("sets"), config.program.set_count_range_policy)
+    ranged_sets = set_count is not None and _parse_integer(base_raw.get("sets")) is None
     rep_range = _parse_reps(base_raw.get("reps"))
     rep_cell = snapshot.cells.get(cells["reps"])
     date_rep = bool(rep_cell and rep_cell.style in (date_styles or set())
@@ -871,6 +883,8 @@ def _prescriptions(
             notes += ("Rep target needs review: Excel stored the coach rep cell as a date.",)
         if notes_policy and rest_seconds is not None and _parse_rest(base_raw.get("rest")) is None:
             notes += (f"Import setting: use upper rest duration ({rest_seconds} seconds).",)
+        if notes_policy and ranged_sets:
+            notes += (f"Import setting: use upper set count ({set_count} sets).",)
         if notes_policy and resolved_set_type.source == "config_default":
             notes += ("Import setting: standard sets unless another set type is specified.",)
         prescription = CyclePrescription(
@@ -927,6 +941,10 @@ def _prescriptions(
             prescription = replace(prescription, rest_seconds=_field(
                 prescription.rest_seconds.value, "coach_range_upper_by_policy",
                 cells["rest"], base_raw.get("rest"),
+            ))
+        if ranged_sets and prescription.set_count.source == "coach_base":
+            prescription = replace(prescription, set_count=_field(
+                set_count, "coach_range_upper_by_policy", cells["sets"], base_raw.get("sets"),
             ))
         prescriptions.append(prescription)
     return tuple(prescriptions)

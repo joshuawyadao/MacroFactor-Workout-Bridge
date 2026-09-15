@@ -29,6 +29,7 @@ class ProgramConfig:
     variation_header_labels: tuple[str, ...] = ("Variation",)
     sheet_order: str = "left_to_right"
     rest_range_policy: str = "block"
+    set_count_range_policy: str = "block"
     allow_blank_targets: bool = False
     preserve_coach_notes: bool = False
     exclude_warmups: bool = False
