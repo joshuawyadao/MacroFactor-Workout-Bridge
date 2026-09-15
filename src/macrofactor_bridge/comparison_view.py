@@ -2,22 +2,23 @@
 
 from decimal import Decimal
 
-from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QGridLayout, QHeaderView, QLabel, QPlainTextEdit, QPushButton, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from .comparison import METRICS, BlockComparison, ComparisonError, compare_blocks
-from .desktop_theme import SERIES_COLORS, SURFACE
+from .desktop_theme import SERIES_COLORS
+from .trend_chart import TrendChart
 from .history import (
     BLOCK_TYPE_OPTIONS, WEEK_REASON_OPTIONS, WEEK_STATUS_OPTIONS,
     DashboardAnnotations, HistoryDashboard, decimal_text, option_label,
 )
 
 
-class ComparisonChart(QWidget):
+class ComparisonChart(TrendChart):
     """One shared scale including zero; missing points break the connecting line."""
 
     def __init__(self) -> None:
@@ -36,60 +37,6 @@ class ComparisonChart(QWidget):
             return ()
         return tuple(tuple(week.metric(self.metric_name) for week in series.weeks)
                      for series in (self.comparison.first, self.comparison.second))
-
-    def value_range(self) -> tuple[Decimal, Decimal]:
-        available = [value for series in self.plot_values() for value in series if value is not None]
-        return min([Decimal(0), *available]), max([Decimal(1), *available])
-
-    def paintEvent(self, event) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(SURFACE))
-        painter.drawRoundedRect(QRectF(self.rect()), 9, 9)
-        painter.setPen(self.palette().text().color())
-        values = self.plot_values()
-        available = [value for series in values for value in series if value is not None]
-        if not available:
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No logged values to plot")
-            return
-        minimum, maximum = self.value_range()
-        span = maximum - minimum
-        count = max(map(len, values))
-        area = QRectF(66, 18, max(1, self.width() - 90), max(1, self.height() - 45))
-        for fraction in (Decimal(0), Decimal("0.5"), Decimal(1)):
-            y = area.bottom() - float(fraction) * area.height()
-            painter.setPen(QPen(self.palette().mid().color(), 1))
-            painter.drawLine(QPointF(area.left(), y), QPointF(area.right(), y))
-            painter.setPen(self.palette().text().color())
-            painter.drawText(QRectF(0, y - 9, 60, 18), Qt.AlignmentFlag.AlignRight,
-                             decimal_text(minimum + span * fraction, places=1))
-        step = max(1, (count + 7) // 8)
-        for index in range(count):
-            if index % step and index != count - 1:
-                continue
-            x = area.left() + index * area.width() / max(1, count - 1)
-            painter.drawText(QRectF(x - 18, area.bottom() + 5, 36, 18),
-                             Qt.AlignmentFlag.AlignCenter, str(index + 1))
-        for number, series in enumerate(values):
-            color = QColor(SERIES_COLORS[number])
-            pen = QPen(color, 2)
-            if number == 1:
-                pen.setStyle(Qt.PenStyle.DashLine)
-            painter.setPen(pen)
-            painter.setBrush(color)
-            previous = None
-            for index, value in enumerate(series):
-                if value is None:
-                    previous = None
-                    continue
-                point = QPointF(area.left() + index * area.width() / max(1, count - 1),
-                                area.bottom() - float((value - minimum) / span) * area.height())
-                if previous is not None:
-                    painter.drawLine(previous, point)
-                painter.drawEllipse(point, 3, 3)
-                previous = point
-
 
 class BlockComparisonPanel(QWidget):
     def __init__(self) -> None:

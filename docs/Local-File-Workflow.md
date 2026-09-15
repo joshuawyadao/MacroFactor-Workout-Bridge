@@ -56,6 +56,10 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
 
 ## Workout History workflow
 
+Version 0.6.0 opens on **Dashboard**. After loading, main-lift cards and the chronological block table summarize the selected squat/bench/deadlift variations. Choose a variation on each card or click **Explore** to view it across all calendar weeks, with no block selectors. **Explore exercise** also supports name search, family filters, chart metrics, and all-history/4/12/24-week ranges anchored to the export's last workout week. Earlier gaps and unmapped weeks remain visible; short exports prompt you to select all-time history. The existing overview is now **Block details**, and the relative-week comparison is **Compare two blocks**.
+
+Cards display the selected variation's latest logged-week estimate; the block table displays its best estimate per block. These are different summaries, not recovery scores. Variations never combine automatically, and family navigation does not change aliases or workbook matching. Explorer shading supplies calendar context, including for weeks with no exercise logs; it does not create sets or infer skips. Existing saved week notes remain available in table tooltips. Source selection is still explicit and no files or annotations are automatically rewritten.
+
 1. Keep an all-time MacroFactor exercise-log export in the private MacroFactor inbox. The archive can retain it alongside narrower weekly exports.
 2. In the app's **Workout History** tab, choose that all-time export directly, plus the newest coach workbook and local exercise mapping.
 3. Use `local-data/annotations/workout-history.json` for the suggested private annotation file.

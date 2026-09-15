@@ -104,7 +104,7 @@ class ComparisonGuiTests(unittest.TestCase):
         self.window.history_block_table.selectRow(1)
         self.window.history_context_button.click()
         self.assertEqual(self.window.history_block_combo.currentText(), "Archive")
-        self.assertEqual(self.window.history_analysis_tabs.currentIndex(), 2)
+        self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.window.history_context_page)
         self.window.history_export_path.setText("changed.csv")
         self.assertEqual([card.value.text() for card in self.window.history_cards], ["—"] * 4)
         self.assertFalse(self.window.history_context_button.isEnabled())

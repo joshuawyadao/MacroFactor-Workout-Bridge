@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 from . import __version__
 from .config import load_config
 from .comparison_view import BlockComparisonPanel
+from .explorer_view import ExerciseExplorer, HistoryHome
 from .desktop_theme import SummaryCard, apply_dark_theme, style_calendar
 from .desktop_model import (
     bundled_config_path,
@@ -220,6 +221,7 @@ class BridgeWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.addTab(bridge_tab, "Weekly Bridge")
         self.tabs.addTab(self._build_history_ui(), "Workout History")
+        self.tabs.setCurrentIndex(1)
         self.setCentralWidget(self.tabs)
 
         self.sheet_combo.currentTextChanged.connect(self._sheet_changed)
@@ -397,6 +399,11 @@ class BridgeWindow(QMainWindow):
         analysis.addWidget(exercise_frame)
         analysis.setSizes([160, 240])
         self.history_analysis_tabs = QTabWidget()
+        self.history_home = HistoryHome()
+        self.history_explorer = ExerciseExplorer()
+        self.history_home.explore.connect(self._explore_history_exercise)
+        self.history_analysis_tabs.addTab(self.history_home, "Dashboard")
+        self.history_analysis_tabs.addTab(self.history_explorer, "Explore exercise")
         overview = QWidget()
         overview_layout = QVBoxLayout(overview)
         overview_layout.setContentsMargins(0, 10, 0, 0)
@@ -407,12 +414,13 @@ class BridgeWindow(QMainWindow):
             cards.addWidget(card, 1)
         overview_layout.addLayout(cards)
         overview_layout.addWidget(analysis, 1)
-        self.history_analysis_tabs.addTab(overview, "Overview && trends")
+        self.history_analysis_tabs.addTab(overview, "Block details")
         self.history_comparison = BlockComparisonPanel()
-        self.history_analysis_tabs.addTab(self.history_comparison, "Compare blocks")
+        self.history_analysis_tabs.addTab(self.history_comparison, "Compare two blocks")
         outer.addWidget(self.history_analysis_tabs, 1)
 
         annotations = QGroupBox("Private block and week context")
+        self.history_context_page = annotations
         annotation_grid = QGridLayout(annotations)
         annotation_grid.setColumnStretch(1, 1)
         annotation_grid.setColumnStretch(3, 1)
@@ -583,6 +591,8 @@ class BridgeWindow(QMainWindow):
         self._history_dashboard = None
         self._history_annotations = DashboardAnnotations()
         self.history_comparison.set_history(None)
+        self.history_home.set_history(None)
+        self.history_explorer.set_history(None)
         self.history_save_annotation_button.setEnabled(False)
         self.history_overview.setText("Load the selected files to summarize your history.")
         self.history_overview.setToolTip("")
@@ -722,6 +732,12 @@ class BridgeWindow(QMainWindow):
         self._history_block_changed(self.history_block_combo.currentText())
         self._display_history_exercise(self.history_exercise_combo.currentText())
         self.history_comparison.set_history(dashboard, self._history_annotations)
+        self.history_home.set_history(dashboard)
+        self.history_explorer.set_history(dashboard, self._history_annotations)
+
+    def _explore_history_exercise(self, exercise: str) -> None:
+        self.history_explorer.open_exercise(exercise)
+        self.history_analysis_tabs.setCurrentWidget(self.history_explorer)
 
     def _display_history_exercise(self, exercise: str) -> None:
         dashboard = self._history_dashboard
@@ -761,7 +777,7 @@ class BridgeWindow(QMainWindow):
         item = self.history_block_table.item(row, 0)
         if item is not None and self._history_dashboard is not None:
             self.history_block_combo.setCurrentText(item.text())
-            self.history_analysis_tabs.setCurrentIndex(2)
+            self.history_analysis_tabs.setCurrentWidget(self.history_context_page)
             self.history_block_combo.setFocus()
 
     def _history_block_changed(self, block_name: str) -> None:
