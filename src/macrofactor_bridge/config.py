@@ -7,7 +7,10 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .models import BridgeConfig, EmptyDayMarker, ExerciseRule
-from .program_models import BasePrescriptionOverride, ProgramConfig, ProgramDefaults
+from .program_models import (
+    BasePrescriptionOverride, ProgramConfig, ProgramDefaults,
+    VERIFIED_PROGRAM_COLORS, VERIFIED_PROGRAM_ICONS,
+)
 
 
 class ConfigError(ValueError):
@@ -82,6 +85,9 @@ def _load_program_config(
         ("set_count_range_policy", ("block", "upper"), "block"),
         ("prescription_source", ("selected_week", "base"), "selected_week"),
         ("notes_mode", ("full", "concise"), "full"),
+        ("minimum_rep_policy", ("block", "notes_only"), "block"),
+        ("color", (None, *VERIFIED_PROGRAM_COLORS), None),
+        ("icon", (None, *VERIFIED_PROGRAM_ICONS), None),
     ):
         value = payload.get(key, default)
         if value not in choices:
@@ -93,6 +99,10 @@ def _load_program_config(
         if not isinstance(value, bool):
             raise ConfigError(f"program.{key} must be a boolean")
         policy_values[key] = value
+    if policy_values["minimum_rep_policy"] == "notes_only" and not (
+        policy_values["allow_blank_targets"] and policy_values["preserve_coach_notes"]
+    ):
+        raise ConfigError("program.minimum_rep_policy notes_only requires allow_blank_targets and preserve_coach_notes")
     defaults = ProgramDefaults(
         set_type=default_set_type,
         rep_min=_optional_int(defaults_payload, "rep_min", "program.defaults", minimum=1),

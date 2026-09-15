@@ -140,6 +140,145 @@ class ProgramCorrectionTests(unittest.TestCase):
                 self.assertIsNone(rx.rep_min.value)
                 self.assertIn(raw, " ".join(rx.notes))
 
+    def test_notes_only_minimum_keeps_raw_intent_and_blank_targets_in_both_note_modes(self):
+        self.cells["G7"] = "14+ reps"
+        self.payload["program"]["minimum_rep_policy"] = "notes_only"
+        self.payload["program"]["defaults"].update(rep_min=6, rep_max=20)
+        self.payload["exercises"][0]["program_notes"] = []
+        for mode in ("full", "concise"):
+            with self.subTest(mode=mode):
+                self.payload["program"]["notes_mode"] = mode
+                report = self.preview()
+                self.assertTrue(report.generation_safe, report.blocking_issues)
+                rx = self.first(report)
+                self.assertEqual((rx.rep_min.value, rx.rep_max.value), (None, None))
+                self.assertEqual(rx.rep_min.source, "blank_by_policy")
+                self.assertEqual(rx.rep_min.raw_text, "14+ reps")
+                self.assertIn("Coach rep minimum: 14+ reps (set target manually).", rx.notes)
+                self.assertIn("minimum_reps_in_notes", {i.code for i in report.issues})
+        generate_program(report, self.template, self.output)
+        cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
+        self.assertTrue(all(cells[ref].value is None for ref in ("F4", "J4", "N4", "R4")))
+        self.assertIn("14+ reps", cells["D4"].value)
+
+    def test_minimum_policy_does_not_change_exact_range_or_ordered_targets(self):
+        self.payload["program"]["minimum_rep_policy"] = "notes_only"
+        for raw, expected in [(15, (15, 15)), ("8-12", (8, 12)), ("6,7,8,9", (6, 6))]:
+            with self.subTest(raw=raw):
+                self.cells["G7"] = raw
+                report = self.preview()
+                rx = self.first(report)
+                self.assertEqual((rx.rep_min.value, rx.rep_max.value), expected)
+                self.assertNotIn("minimum_reps_in_notes", {i.code for i in report.issues})
+
+    def test_minimum_policy_cannot_bypass_week_conflicts_or_explicit_blank_layout(self):
+        self.payload["program"]["minimum_rep_policy"] = "notes_only"
+        self.cells["G7"] = "14+ reps"
+        self.payload["program"]["prescription_source"] = "selected_week"
+        self.cells["J7"] = "4 x 8-12 @ 2 RIR, 120 sec rest"
+        self.assertIn("conflicting_base_and_week", {i.code for i in self.preview(("Week 1",)).blocking_issues})
+        self.payload["program"]["prescription_source"] = "base"
+        self.payload["exercises"][0].update(program_set_types=["standard", "myo", "myo", "myo"],
+                                               program_blank_rep_targets=True)
+        report = self.preview()
+        rx = self.first(report)
+        self.assertTrue(report.generation_safe, report.blocking_issues)
+        self.assertIsNone(rx.rep_min.value)
+        self.assertEqual([t.value for t in rx.set_types], ["standard", "myo", "myo", "myo"])
+        self.assertIn("14+ reps", " ".join(rx.notes))
+
+    def test_minimum_policy_requires_both_blank_and_note_approval(self):
+        self.payload["program"]["minimum_rep_policy"] = "notes_only"
+        for key in ("allow_blank_targets", "preserve_coach_notes"):
+            self.payload["program"][key] = False
+            with self.assertRaisesRegex(ConfigError, "notes_only requires"):
+                self.config()
+            self.payload["program"][key] = True
+
+    def test_appearance_and_minimum_config_reject_unverified_values(self):
+        for key, values in {"color": ["Purple", True, []], "icon": ["Dumbbell", 1, {}],
+                            "minimum_rep_policy": ["fixed", True, []]}.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    self.payload["program"][key] = value
+                    with self.assertRaises(ConfigError):
+                        self.config()
+            del self.payload["program"][key]
+
+    def test_appearance_preserves_template_by_default(self):
+        report = self.preview()
+        self.assertIsNone(report.program.color)
+        self.assertIsNone(report.program.icon)
+        generate_program(report, self.template, self.output)
+        cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
+        self.assertEqual((cells["D1"].value, cells["E1"].value), ("Color: Blue", "Icon: Circle"))
+
+    def test_appearance_cli_round_trip_preserves_inputs_styles_and_non_overwrite(self):
+        self.payload["program"].update(color="Red", icon="Rocket", minimum_rep_policy="notes_only")
+        self.cells["G7"] = "14+ reps"
+        self.preview()
+        before = file_sha256(self.coach), file_sha256(self.template)
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            result = main(["program-generate", "--workbook", str(self.coach), "--config", str(self.config_path),
+                           "--sheet", "Synthetic Block", "--block", "block-1", "--template", str(self.template),
+                           "--output", str(self.output)])
+        self.assertEqual(result, 0, stdout.getvalue())
+        self.assertIn("color=Red; icon=Rocket (configured overrides)", stdout.getvalue())
+        self.assertIn("minimum_reps_in_notes", stdout.getvalue())
+        self.assertEqual(before, (file_sha256(self.coach), file_sha256(self.template)))
+        cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
+        self.assertEqual((cells["D1"].value, cells["E1"].value), ("Color: Red", "Icon: Rocket"))
+        with zipfile.ZipFile(self.output) as output, zipfile.ZipFile(self.template) as template:
+            self.assertEqual(set(output.namelist()), set(template.namelist()))
+            for member in template.namelist():
+                if member not in {"xl/sharedStrings.xml", "xl/worksheets/sheet1.xml"}:
+                    self.assertEqual(output.read(member), template.read(member), member)
+        digest = file_sha256(self.output)
+        with self.assertRaisesRegex(WorkbookError, "Output already exists"):
+            generate_program(self.preview(), self.template, self.output)
+        self.assertEqual(digest, file_sha256(self.output))
+
+    def test_appearance_cells_are_discovered_not_hardcoded(self):
+        self.payload["program"].update(color="Red", icon="Rocket")
+        def move_metadata(data):
+            root = ET.fromstring(data)
+            for cell in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c"):
+                swaps = {"D1": "F1", "F1": "D1", "E1": "G1", "G1": "E1"}
+                if cell.get("r") in swaps:
+                    cell.set("r", swaps[cell.get("r")])
+            return ET.tostring(root)
+        rewrite_zip_member(self.template, "xl/worksheets/sheet1.xml", move_metadata)
+        report = self.preview()
+        schema = inspect_program_template(self.template)
+        self.assertEqual((schema.color_cell, schema.icon_cell), ("F1", "G1"))
+        generate_program(report, self.template, self.output)
+        cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
+        self.assertEqual((cells["F1"].value, cells["G1"].value), ("Color: Red", "Icon: Rocket"))
+
+    def test_missing_appearance_cells_only_block_when_override_requested(self):
+        def remove_color(data):
+            root = ET.fromstring(data)
+            for row in root.iter("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row"):
+                for cell in list(row):
+                    if cell.get("r") == "D1":
+                        row.remove(cell)
+            return ET.tostring(root)
+        rewrite_zip_member(self.template, "xl/worksheets/sheet1.xml", remove_color)
+        self.assertTrue(self.preview().generation_safe)
+        self.payload["program"]["color"] = "Red"
+        self.assertIn("missing_appearance_metadata", {i.code for i in self.preview().blocking_issues})
+
+    def test_ambiguous_metadata_and_direct_unverified_program_override_block(self):
+        report = self.preview()
+        issues = template_generation_issues(replace(report.program, color="Invented"),
+                                            inspect_program_template(self.template), sheet_name=report.sheet)
+        self.assertIn("unverified_program_appearance", {i.code for i in issues})
+        rewrite_zip_member(self.template, "xl/sharedStrings.xml",
+                           lambda data: data.replace(b"Icon: Circle", b"Color: Red"))
+        with self.assertRaisesRegex(WorkbookError, "ambiguous color"):
+            inspect_program_template(self.template)
+
     def test_weekly_mode_still_blocks_conflicts_with_per_set_targets(self):
         self.payload["program"]["prescription_source"] = "selected_week"
         self.cells["J7"] = "4 x 6 @ 2 RIR, 120 sec rest"

@@ -137,6 +137,8 @@ def _print_program_report(report) -> None:
     if report.program is not None:
         print(f"Prescription source: {report.program.prescription_source}; "
               f"{len(report.program.cycles)} cycle(s). {report.program.cycle_name}")
+        print(f"Program appearance: color={report.program.color or 'preserve template'}; "
+              f"icon={report.program.icon or 'preserve template'} (configured overrides)")
         print(
             f"Discovered: {len(report.program.days)} day(s), "
             f"{sum(len(day.exercises) for day in report.program.days)} exercise mapping(s)"

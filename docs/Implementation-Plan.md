@@ -34,7 +34,19 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
 
 ## Open questions
-- None for the available correction slice. The user confirmed a repeated base-table program with weekly updates handled separately, supplied the remaining exact identity, and confirmed the canonical-name entry imported correctly. Minimum-only output remains an evidence gate, not permission to invent its encoding; implement its neutral representation and explicit blocker while completing independent corrections.
+- None for this slice. The user approved equal lower/upper targets for exact rep counts and blank structured targets for minimum-only prescriptions, retaining the original minimum text in exercise notes for manual entry. This is an explicit fallback, not native minimum-only encoding support.
+
+## Program appearance and target-format follow-up
+
+The latest reference was inspected read-only using spreadsheet tooling and the production OOXML reader. Its rep-range cells contain bounded equal targets, with no formulas or separate unbounded field. It does not resolve native minimum-only encoding. Its metadata independently confirms the existing Red and Rocket values. Choose those values for growth-oriented programs in the private configuration; preserve template metadata by default for other users and do not infer an unsupported color/icon catalog.
+
+[x] Inspect the new reference values and a rendered target range, verify its hash is unchanged, and distinguish the observed bounded encoding from the requested minimum-only semantics.
+[x] Resolve the rep-target fallback with the user: exact N becomes N–N; N+ remains in notes with blank targets. Add an opt-in notes-only minimum policy, retain strict blocking by default, and never alter the original coach source.
+[x] Add optional program color/icon configuration and preview provenance. Discover unique metadata cells dynamically, write only verified values, and preserve template defaults when no override is configured.
+[x] Add synthetic tests for metadata preservation/overrides, invalid or ambiguous metadata, rep fallback provenance and notes, output integrity, immutable inputs and non-overwrite. Keep native minimum-only support gated and preserve existing assertions.
+[x] Apply the approved target policy and chosen appearance to ignored configuration, then generate and structurally inspect one distinct corrected candidate through the production CLI.
+[x] Update README, local workflow guidance and this plan; run 86 targeted tests, all 162 canonical tests, compilation and privacy/diff checks.
+Final save: use `save-branch` to commit and push only the feature branch, update the existing blocker/draft PR with redacted evidence, and request a manual import test without merging or claiming completion.
 
 ## Manual-import feedback correction slice
 
@@ -48,13 +60,13 @@ The user has reported content defects after testing the first candidate: insuffi
 [x] Extend the neutral model and conservative parser for per-set rep lists, explicitly understood unilateral suffixes, and minimum-only targets. Preserve raw text, set-count/list-length checks, weekly conflicts and visible provenance; do not turn arbitrary numeric prose or date serials into targets.
 [x] Add exact-rule, reviewed corrections for ambiguous source values and narrow inclusion exceptions, with preview warnings showing when a correction differs from the source. Preserve global warmup/cardio exclusions elsewhere.
 [x] Separate concise exported exercise notes from full raw review data. Keep meaningful tempo, equipment, unilateral, progression and unsupported instructions without redundant field dumps; preserve the existing detailed-notes option and its safety behavior.
-[x] Implement the user-approved repeated-base workflow without inferring differing-cycle encoding. Keep minimum-only output blocked until a direct reference proves it.
-[ ] Verify native minimum-only rep encoding from a new direct export and add its generation tests before producing a replacement candidate.
+[x] Implement the user-approved repeated-base workflow without inferring differing-cycle encoding. Keep native minimum-only output blocked until a direct reference proves it; the subsequent approved notes-only fallback is separate.
+[ ] Verify native minimum-only encoding if direct native support is pursued later. The approved notes-only fallback removes this prerequisite for the current candidate, without claiming native support.
 [x] Add anonymized regression coverage in the program preview, policy, generation and mixed-set tests for per-set reps, unilateral targets, minimum-only gating, corrections, inclusion exceptions, concise notes, cycle duration and exact output identities. Preserve all existing assertions and Part 1 behavior.
 [x] Update README, local workflow documentation, CLI help where applicable, and this plan with the new policies, verified scope and remaining manual-test gaps.
 [x] Run 76 targeted Part 2 tests and all 152 canonical tests, compilation, configuration parity and diff/privacy checks. Synthetic generation tests verify per-set targets, repeated-cycle metadata, day names, immutable inputs and non-overwrite. All three private input hashes and the prior candidate still match the saved evidence.
-[ ] Generate a distinct private corrected candidate only after minimum-only encoding is verified; leave the existing candidate unchanged.
-Final handoff: save and push the validated feature-branch correction checkpoint with `save-branch` and update tracking with redacted evidence. A new direct export is required before the next candidate/manual test; do not merge or mark Part 2 complete.
+[x] Generate a distinct private corrected candidate using the approved notes-only minimum fallback; leave the existing candidate unchanged.
+Final handoff: save and push the validated feature-branch correction checkpoint with `save-branch` and update tracking with redacted evidence. The replacement candidate now needs manual import/content confirmation; do not merge or mark Part 2 complete.
 
 ## Verified mixed-set candidate
 
@@ -100,6 +112,7 @@ The user approved upper-bound set counts and the private exercise-match proposal
 - The verified export repeats one distinct cycle layout. It does not prove the OOXML layout for different prescriptions in different cycles, so periodized generation remains blocked pending a richer direct export or manual evidence.
 
 ## Verification
+- Appearance/notes-only checkpoint: all 162 canonical tests and 86 targeted Part 2 tests pass, including 10 new anonymized regressions. Exact reps stay bounded; approved minimum-only fallback preserves notes and raw provenance with blank targets. Tests cover default blocking, defaults/conflicts, mixed-set blank overrides, note modes, verified appearance values, shifted/missing/ambiguous metadata, input immutability, unrelated OOXML preservation and output non-overwrite. Compilation, configuration parity and privacy/diff checks passed. A distinct corrected private candidate passed structural and independent expected-target checks; all four input hashes and the previous candidate hash remain unchanged. Read-only spreadsheet inspection confirmed metadata and representative targets/mixed types. Manual import remains unverified for the corrected candidate.
 - Manual-feedback correction checkpoint: all 152 canonical tests and 76 targeted Part 2 tests passed, including 22 new tests in `tests/test_program_corrections.py`. Coverage includes base/weekly separation, repeated duration, per-set reps, unilateral and minimum-only targets, exact-source corrections, concise notes, warmup inclusion, dynamic day designations and output integrity. Compilation, configuration parity, privacy and diff checks passed. The private corrected preview has one remaining minimum-only encoding gate; no replacement workbook is claimed. All three original input hashes and the first candidate hash remain unchanged.
 - Mixed-set checkpoint: 54 targeted Part 2 tests and all 130 canonical tests passed. Eight new anonymized tests cover native labels, ordered sequences, blank targets, CLI/report visibility, immutable-input/non-overwrite round trips, sequence length/conflicts, invalid configuration, differing-cycle order and independent RIR safety. Existing assertions remain unchanged.
 - The first private CLI-generated candidate passed a fresh 482-cell structural round trip against the current code. The coach source, full-layout template and mixed-set reference all retained their hashes. Native mixed types, blank rep/RIR cells, full coach notes, and unchanged unrelated OOXML members were checked. Output, evidence, reports and mappings remain ignored and uncommitted. Manual import is pending; no compatibility claim is made.
@@ -122,4 +135,4 @@ The user approved upper-bound set counts and the private exercise-match proposal
 - `4bc8aba`: recorded validation evidence, reconciled tracking, and opened the reviewable draft.
 - `f7c1682`: tightened result-column isolation, report non-overwrite behavior, superset completeness, mapping status, selected-cycle labels, and exercise ordering.
 - `ca68a77`: added verified template inspection, conservative homogeneous-cycle generation, OOXML integrity checks, synthetic fixtures, tests, and documentation.
-- Draft PR #13 contains the reviewable parser and generator checkpoints and remains blocked by the periodized-template and manual-import gaps recorded on issue #12.
+- Draft PR #13 contains the reviewable parser and generator checkpoints and awaits corrected-candidate manual validation on issue #12. Differing-cycle layouts and native minimum-only encoding remain future schema limits, not prerequisites for the approved repeated-base, notes-only workflow.

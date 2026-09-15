@@ -1096,6 +1096,29 @@ def _prescriptions(
             if raw_week:
                 concise.append(raw_week)
             prescription = replace(prescription, notes=tuple(dict.fromkeys(concise)))
+        if (config.program.minimum_rep_policy == "notes_only"
+                and config.program.allow_blank_targets and notes_policy
+                and type(prescription.rep_min.value) is int
+                and prescription.rep_max.value is None
+                and prescription.rep_min.source != "conflict"
+                and prescription.rep_max.source in {"coach_unbounded", "config_reviewed_override"}):
+            # Preserve minimum intent after concise-note and explicit set-layout policies.
+            # Blank targets are verified; native unbounded targets are not.
+            raw_minimum = base_raw.get("reps") or f"{prescription.rep_min.value}+ reps"
+            note = f"Coach rep minimum: {raw_minimum} (set target manually)."
+            prescription = replace(
+                prescription,
+                rep_min=replace(prescription.rep_min, value=None, source="blank_by_policy"),
+                rep_max=replace(prescription.rep_max, value=None, source="blank_by_policy"),
+                notes=tuple(dict.fromkeys((*prescription.notes, note))),
+            )
+            if not suppress_blockers:
+                issues.append(ProgramIssue(
+                    severity="warning", code="minimum_reps_in_notes",
+                    message="Configured notes-only minimum policy: rep targets blank for manual entry",
+                    sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
+                    cycle=week_label, raw_text=raw_minimum,
+                ))
         prescriptions.append(prescription)
     return tuple(prescriptions)
 
@@ -1382,6 +1405,8 @@ def parse_coach_program(
         ),
         days=tuple(workout_days),
         prescription_source=config.program.prescription_source,
+        color=config.program.color,
+        icon=config.program.icon,
     )
     return ProgramParseResult(
         program=program,

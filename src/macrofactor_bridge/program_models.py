@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+# Tokens observed in direct Export Program references, not an inferred app catalog.
+VERIFIED_PROGRAM_COLORS = ("Orange", "Red")
+VERIFIED_PROGRAM_ICONS = ("Chess Pawn", "Rocket")
+
 
 @dataclass(frozen=True)
 class ProgramDefaults:
@@ -38,6 +42,9 @@ class ProgramConfig:
     prescription_source: str = "selected_week"
     notes_mode: str = "full"
     use_day_designations: bool = False
+    minimum_rep_policy: str = "block"
+    color: str | None = None
+    icon: str | None = None
 
 
 @dataclass(frozen=True)
@@ -137,6 +144,8 @@ class Program:
     cycles: tuple[ProgramCycle, ...]
     days: tuple[WorkoutDay, ...]
     prescription_source: str = "selected_week"
+    color: str | None = None
+    icon: str | None = None
 
 
 @dataclass(frozen=True)

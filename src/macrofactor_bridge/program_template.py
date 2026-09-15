@@ -26,7 +26,9 @@ from .ooxml import (
     split_range,
     validate_copy_integrity,
 )
-from .program_models import CyclePrescription, Program, ProgramIssue
+from .program_models import (
+    CyclePrescription, Program, ProgramIssue, VERIFIED_PROGRAM_COLORS, VERIFIED_PROGRAM_ICONS,
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,8 @@ class ProgramTemplateSchema:
     notes_column: int
     sets: tuple[ProgramTemplateSetColumns, ...]
     days: tuple[ProgramTemplateDay, ...]
+    color_cell: str | None = None
+    icon_cell: str | None = None
 
 
 _SET_HEADER = re.compile(r"set\s+(\d+)\s+(type|rep\s+range|rir|rest)", re.IGNORECASE)
@@ -319,6 +323,13 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
         for reference, value in values.items()
         if split_cell_reference(reference)[0] < header_row
     }
+    appearance_cells = {}
+    for key in ("color", "icon"):
+        matches = [reference for reference, value in above_header.items()
+                   if isinstance(value, str) and re.match(rf"{key}\s*:", value.strip(), re.IGNORECASE)]
+        if len(matches) > 1:
+            raise WorkbookError(f"Program template has ambiguous {key} metadata cells")
+        appearance_cells[f"{key}_cell"] = matches[0] if matches else None
     program_cell = _unique_cell(
         above_header,
         lambda text: bool(text and re.fullmatch(r"program:\s*.+", text, re.IGNORECASE)),
@@ -399,6 +410,7 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
         notes_column=notes_column,
         sets=sets,
         days=tuple(day_groups),
+        **appearance_cells,
     )
 
 
@@ -496,6 +508,13 @@ def template_generation_issues(
 
     if not 1 <= len(program.cycles) <= 52:
         block("unsupported_cycle_count", "MacroFactor programs require 1 to 52 cycles")
+    for key, choices in (("color", VERIFIED_PROGRAM_COLORS), ("icon", VERIFIED_PROGRAM_ICONS)):
+        value = getattr(program, key)
+        if value is not None:
+            if value not in choices:
+                block("unverified_program_appearance", f"Configured program {key} is not a verified export value")
+            if getattr(schema, f"{key}_cell") is None:
+                block("missing_appearance_metadata", f"Template needs a unique {key} metadata cell for the override")
     if not program.name.strip():
         block("missing_program_name", "Program name must not be empty")
     if len(program.days) != len(schema.days):
@@ -660,6 +679,13 @@ def _program_changes(
         schema.program_cell: f"Program: {program.name}",
         schema.cycles_cell: f"Cycles: {len(program.cycles)}",
     }
+    for key in ("color", "icon"):
+        value = getattr(program, key)
+        if value is not None:
+            cell = getattr(schema, f"{key}_cell")
+            if cell is None:
+                raise WorkbookError(f"Cannot override missing {key} metadata")
+            changes[cell] = f"{key.capitalize()}: {value}"
     for day, template_day in zip(program.days, schema.days, strict=True):
         for row in template_day.rows:
             changes[make_cell_reference(row, schema.day_column)] = None
