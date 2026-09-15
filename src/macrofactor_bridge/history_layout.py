@@ -68,7 +68,7 @@ def resolve_week_layout(
     result_columns: set[int] = set()
     for entry in parsed:
         cell = snapshot.cells.get(entry.header_cell)
-        if cell is None or cell.formula or str(cell.value).strip() != entry.expected_header:
+        if cell is None or cell.formula is not None or str(cell.value).strip() != entry.expected_header:
             raise HistoryLayoutError(
                 f"Header {entry.header_cell} changed or is missing; review the private week layout"
             )

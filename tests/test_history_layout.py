@@ -12,7 +12,7 @@ from macrofactor_bridge.history import (
     update_block_annotation, update_week_annotation,
 )
 from macrofactor_bridge.history_layout import HistoryWeek, week_layout_payload
-from macrofactor_bridge.ooxml import file_sha256
+from macrofactor_bridge.ooxml import XlsxPackage, file_sha256
 from macrofactor_bridge.workbook import discover_workbook
 from tests.history_fixture import LAYOUT, irregular_workbook
 
@@ -90,6 +90,17 @@ class HistoryLayoutTests(unittest.TestCase):
         for ordered in (layout, tuple(reversed(layout))):
             with self.subTest(layout=ordered), self.assertRaisesRegex(HistoryError, 'overlaps'):
                 self.dashboard(replace(self.annotation, week_layout=ordered))
+
+    def test_formula_headers_are_rejected_even_with_empty_shared_formula_text(self):
+        for formula in ('CONCAT("Week ",10)', None):
+            with self.subTest(formula=formula):
+                irregular_workbook(self.coach, formulas={'I3': formula, 'J6': None},
+                    extra_cells={'J6': ''})
+                snapshot = XlsxPackage(self.coach).sheet_snapshot('Training Block')
+                self.assertEqual(snapshot.cells['I3'].formula, formula or '')
+                self.assertFalse(snapshot.cells['J6'].is_empty, 'An uncached shared formula is occupied')
+                with self.assertRaisesRegex(HistoryError, 'Header I3'):
+                    self.dashboard()
 
     def test_layout_can_supply_weeks_without_any_automatic_header_match(self):
         self.config = replace(self.config, week_header_pattern=r'Never a week header')

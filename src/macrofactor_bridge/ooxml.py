@@ -197,7 +197,8 @@ class XlsxPackage:
                 continue
             cell_type = element.attrib.get("t")
             formula_node = element.find(qn(MAIN_NS, "f"))
-            formula = formula_node.text if formula_node is not None else None
+            # An empty <f/> still denotes a formula (for example, a shared-formula follower).
+            formula = (formula_node.text or "") if formula_node is not None else None
             value: str | float | int | None = None
             if cell_type == "inlineStr":
                 inline = element.find(qn(MAIN_NS, "is"))

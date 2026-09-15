@@ -18,6 +18,7 @@ LAYOUT = (
 def irregular_workbook(
     destination: Path, *, extra_cells: dict[str, str] | None = None,
     header_merges: tuple[str, ...] = ('I3:J4', 'K3:L4', 'M3:N4', 'Q3:R4', 'S3:T4'),
+    formulas: dict[str, str | None] | None = None,
 ) -> None:
     source = Path(__file__).parent / 'fixtures/coach-template.xlsx'
     part = XlsxPackage(source).sheet_by_name('Training Block').path
@@ -36,9 +37,14 @@ def irregular_workbook(
         row_number, _ = split_cell_reference(reference)
         if row_number not in rows:
             rows[row_number] = ET.SubElement(data, qn(MAIN_NS, 'row'), {'r': str(row_number)})
-        cell = ET.SubElement(rows[row_number], qn(MAIN_NS, 'c'), {'r': reference, 't': 'inlineStr'})
-        inline = ET.SubElement(cell, qn(MAIN_NS, 'is'))
-        ET.SubElement(inline, qn(MAIN_NS, 't')).text = value
+        if formulas is not None and reference in formulas:
+            cell = ET.SubElement(rows[row_number], qn(MAIN_NS, 'c'), {'r': reference, 't': 'str'})
+            ET.SubElement(cell, qn(MAIN_NS, 'f'), {'t': 'shared', 'si': '0'}).text = formulas[reference]
+            ET.SubElement(cell, qn(MAIN_NS, 'v')).text = value
+        else:
+            cell = ET.SubElement(rows[row_number], qn(MAIN_NS, 'c'), {'r': reference, 't': 'inlineStr'})
+            inline = ET.SubElement(cell, qn(MAIN_NS, 'is'))
+            ET.SubElement(inline, qn(MAIN_NS, 't')).text = value
     merges = ET.SubElement(sheet, qn(MAIN_NS, 'mergeCells'), {'count': str(len(header_merges))})
     for reference in header_merges:
         ET.SubElement(merges, qn(MAIN_NS, 'mergeCell'), {'ref': reference})

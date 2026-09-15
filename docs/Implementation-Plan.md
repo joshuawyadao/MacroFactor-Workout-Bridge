@@ -15,7 +15,7 @@ Correct history mapping for coach sheets containing copied historical columns an
 [x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (99 tests passed after the compatibility fix; signed 0.4.1 bundle smoke-tested and installed with the previous app retained).
 [ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
 [x] Address Codex P2: distinguish single-column vertical merges from unmerged headers; added a regression, validated 11 layout tests, and saved/reacted (`bf019d3`, comment 4019341775).
-[ ] Address Codex P2: reject result columns overlapping another selected header span; add a regression and save/react.
+[x] Address Codex P2: reject result columns overlapping another selected header span; added an order-independent regression, validated 12 layout tests, and saved/reacted (`593cf93`, comment 4019341785).
 [ ] Address Codex P2: reject shared-formula headers even with empty formula text; add a regression and save/react.
 
 ## Validation and review ledger
