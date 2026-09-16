@@ -488,8 +488,9 @@ def _load_history_sources(
     workbook_path: str | Path,
     config: BridgeConfig,
     annotations: DashboardAnnotations,
+    imported: ExerciseLogImport | None = None,
 ) -> _HistorySources:
-    imported = load_exercise_log_with_diagnostics(export_path)
+    imported = imported if imported is not None else load_exercise_log_with_diagnostics(export_path)
     records = tuple(record for record in imported.records if _record_is_usable(record))
     if not records:
         raise HistoryError("The MacroFactor export contains no usable completed sets")
@@ -796,9 +797,11 @@ def build_history_dashboard(
     workbook_path: str | Path,
     config: BridgeConfig,
     annotations: DashboardAnnotations | None = None,
+    *,
+    imported: ExerciseLogImport | None = None,
 ) -> HistoryDashboard:
     annotation_state = annotations or DashboardAnnotations()
-    sources = _load_history_sources(export_path, workbook_path, config, annotation_state)
+    sources = _load_history_sources(export_path, workbook_path, config, annotation_state, imported)
     warnings = (
         [f"{len(sources.imported.skipped_rows)} malformed export row(s) were excluded."]
         if sources.imported.skipped_rows

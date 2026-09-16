@@ -396,16 +396,24 @@ def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
     return entries
 
 
+def verified_archives(root: str | Path) -> list[dict[str, Any]]:
+    """Read manifest-backed, hash-verified archive entries after workspace relocation."""
+    return _archived_history_entries(Path(root).resolve())
+
+
 def archive_inbox(
     root: str | Path,
     config_path: str | Path | None = None,
     *,
     now: datetime | None = None,
+    new_only: bool = False,
 ) -> dict[str, Any]:
     workspace = Path(root).resolve()
     setup_workspace(workspace)
     config = Path(config_path).resolve() if config_path else default_config_path().resolve()
     timestamp = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    history = _archived_history_entries(workspace) if new_only else []
+    known = {(entry["kind"], entry["sha256"]) for entry in history}
     date_label = timestamp.date().isoformat()
     manifest: dict[str, Any] = {
         "schema_version": 2,
@@ -444,7 +452,11 @@ def archive_inbox(
                 )
                 continue
             try:
+                if new_only and (source.is_symlink() or not source.resolve().is_relative_to(workspace)):
+                    raise LocalWorkspaceError("Automatic ingestion refuses symlinked or external inbox files")
                 source_hash = file_sha256(source)
+                if new_only and (kind, source_hash) in known:
+                    continue
                 validation = validator(source)
                 if file_sha256(source) != source_hash:
                     raise LocalWorkspaceError(
@@ -474,6 +486,9 @@ def archive_inbox(
                     "validation": validation,
                 }
             )
+    if new_only and not manifest["entries"]:
+        # No new data: do not rewrite current links or emit an empty manifest.
+        return manifest
     try:
         selection_entries = [
             *_archived_history_entries(workspace),

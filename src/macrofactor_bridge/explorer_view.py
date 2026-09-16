@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QLineEdit,
+    QComboBox, QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QLayout,
     QPushButton, QProgressBar, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -262,6 +262,7 @@ class HistoryHome(QScrollArea):
         self.setFrameShape(QFrame.Shape.NoFrame)
         page = QWidget()
         outer = QVBoxLayout(page)
+        outer.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         outer.setContentsMargins(0, 8, 0, 0)
         heading = QHBoxLayout()
         title = _label("Your progress, across blocks")
@@ -289,6 +290,7 @@ class HistoryHome(QScrollArea):
         self.report_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.report_page = QWidget()
         self.report_layout = QHBoxLayout(self.report_page)
+        self.report_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.report_layout.setContentsMargins(0, 0, 0, 0)
         self.report_scroll.setWidget(self.report_page)
         outer.addWidget(self.report_scroll)

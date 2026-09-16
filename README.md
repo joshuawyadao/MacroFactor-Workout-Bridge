@@ -109,7 +109,19 @@ dist/MacroFactor Workout Bridge.app
 
 Open Finder, navigate to `dist`, and double-click **MacroFactor Workout Bridge**. The app is self-contained; using the built app does not require Python or Terminal.
 
-Version 0.7.0 opens on the visual Workout History dashboard, with a detailed **Training timeline** one click away. The desktop interface uses black/charcoal surfaces, white text, high-contrast primary actions, visible keyboard focus, and distinct selected/disabled controls. Squat is cyan, bench lavender, and deadlift amber in both views. The theme is currently dark-only, independent of the system appearance. Yellow `Skip` review markers retain dark text for readability.
+Version 0.8.0 automatically loads the visual Workout History dashboard from your managed folders, with a detailed **Training timeline** one click away. The desktop interface uses black/charcoal surfaces, white text, high-contrast primary actions, visible keyboard focus, and distinct selected/disabled controls. Squat is cyan, bench lavender, and deadlift amber in both views. The theme is currently dark-only, independent of the system appearance. Yellow `Skip` review markers retain dark text for readability.
+
+### Automatic inbox loading
+
+Keep coach workbooks in `local-data/inbox/coach/` and MacroFactor exercise-log exports in `local-data/inbox/macrofactor/`. The app discovers a `local-data` workspace beside its project installation (including `dist/*.app`), or remembers the folder chosen with **Workspace…**. It prefers `config/exercises.local.json` beside that workspace, otherwise the bundled example mapping, and uses `annotations/workout-history.json` for feedback. A missing remembered folder is reported rather than silently switching to another dataset.
+
+**Auto-load inboxes** is enabled on normal first launch. New inbox content is validated and archived as immutable, content-deduplicated snapshots; unchanged launches do not create empty manifests. No originals are moved or rewritten. Background checks every 30 seconds detect managed-file changes; **Refresh inboxes** checks immediately. Downloads and arbitrary folders are not scanned. Turn automatic loading off to use the manual source selectors. App preferences remember only the workspace and automatic-mode choice, not workout contents. Smoke tests do not run ingestion.
+
+**Source status…** explains the selected coach workbook, broad-history baseline, latest workout coverage, every contributing export, and any skipped/corrupt inputs or overlap conflicts. Coach selection uses the newest valid source modification timestamp retained by archival, not filename guessing. Baseline ranking prefers clean imports, more logged dates, broader date span, more completed sets, then latest workout/modified date. These are coverage indicators, not a guarantee of complete logging. A newer narrow export supplements earlier history instead of replacing it. Exact duplicate day snapshots count once; identical repeated sets *inside* a workout remain separate. Exact supersets replace smaller day snapshots. Conflicting weight/reps/RIR/duration or workout identities keep the higher-ranked snapshot and appear for review; absent rows are not inferred deletions. Use a deliberate manual export override when resolving conflicting snapshots. There is no stable export set ID, so conflicting days are never blindly concatenated.
+
+Click **Weekly feedback →** to open the most recently logged, mapped coach week. Save using **Save private annotation**. Automatic refresh waits while the form has unsaved edits; an explicit refresh offers a default-No discard confirmation. External changes to the feedback file are detected before saving so stale edits cannot silently overwrite newer notes. Failed refreshes retain the previous view with a visible warning, and results from an obsolete workspace/mode are ignored. Set drill-down includes source file and source row; consolidation is rebuilt from local snapshots, not uploaded to a server.
+
+### Dashboard and timeline
 
 The **Dashboard** shows squat, bench, and deadlift cards, a horizontally scrollable row of coach-block report cards, exercise-workload bars, and saved context. Each lift defaults to its most recently logged supported variation and names it explicitly; use its dropdown to choose another. Family lists are navigation groups, not combined strength metrics. Each headline is the estimate from the latest logged week in the selected range for that variation, not necessarily the latest export week. **Show exact block values** reveals a table of best per-block estimates for those variations and normalized weekly workload. Blank estimates are unavailable, not zero. Reduced loads do not imply fatigue.
 
@@ -138,7 +150,7 @@ The bundled mapping is an example, not a promise that every personal exercise na
 
 ### Review workout history
 
-The **Workout History** tab is a separate read-only workflow:
+The **Workout History** tab is separate from workbook writing. Automatic mode follows the workflow above; for a manual override, turn **Auto-load inboxes** off:
 
 1. Choose an all-time MacroFactor exercise-log export, the newest coach workbook, and the exercise mapping.
 2. Leave the suggested private annotation path under `local-data/annotations/`, or select an existing annotation JSON file.
@@ -366,7 +378,7 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - One source exercise may appear in only one workout session within the selected date range. Repeated sessions are reported as ambiguous rather than merged.
 - Superset exercises must share one configured target and superset group, contain the same number of completed standard sets, and are paired by set position in configured exercise order.
 - Current MacroFactor `.xlsx` exports expose exercise-level notes in `Active Program`, but the `Workout Log` table does not expose program-level or session-level notes. Exercise notes appear in review output only and represent the current active-program value rather than a historical note attached to one completed set.
-- Workout History requires the user to select an all-time export when long-range trends are desired. The stable current MacroFactor link may intentionally point to a narrower, more recent export used by the weekly bridge.
+- Long-range history still depends on providing historical exports in the managed inbox. Automatic loading preserves broad coverage across snapshots; it cannot recover workouts absent from every export. The stable current MacroFactor link remains independently selected for the weekly bridge.
 - Worksheet titles identify blocks, but exact block-to-calendar mapping requires a confirmed start date in the private annotation file.
 - Recovery context is descriptive only. The app does not predict deload timing, infer whether a change was caused by fatigue, or treat vacation and injury as evidence of exceeded work capacity.
 - Unsupported duration- or distance-only sets without reps are reported and skipped.

@@ -39,6 +39,7 @@ from .comparison_view import BlockComparisonPanel
 from .explorer_view import ExerciseExplorer, HistoryHome
 from .explorer import LIFT_FAMILIES
 from .timeline_view import TrainingTimeline
+from .managed_desktop import ManagedHistoryController
 from .desktop_theme import SummaryCard, apply_dark_theme, style_calendar
 from .desktop_model import (
     bundled_config_path,
@@ -72,8 +73,9 @@ APP_NAME = "MacroFactor Workout Bridge"
 
 
 class BridgeWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, *, autoload=False, settings=None, workspace_root=None) -> None:
         super().__init__()
+        self.managed = None
         apply_dark_theme(QApplication.instance())
         self._report: BridgeReport | None = None
         self._choices: dict[str, tuple[str, ...]] = {}
@@ -87,6 +89,12 @@ class BridgeWindow(QMainWindow):
         self.config_path.setText(bundled)
         self.history_config_path.setText(bundled)
         self._set_status("Choose a MacroFactor export and coach workbook to begin.")
+        self.managed = ManagedHistoryController(self, autoload=autoload, settings=settings, root=workspace_root)
+
+    def closeEvent(self, event):
+        if self.managed:
+            self.managed.shutdown()
+        super().closeEvent(event)
 
     def _build_ui(self) -> None:
         bridge_tab = QWidget()
@@ -244,6 +252,7 @@ class BridgeWindow(QMainWindow):
     def _build_history_ui(self) -> QWidget:
         tab = QWidget()
         outer = QVBoxLayout(tab)
+        self.history_outer = outer
         outer.setContentsMargins(26, 10, 26, 10)
         outer.setSpacing(6)
 
@@ -260,6 +269,8 @@ class BridgeWindow(QMainWindow):
         subtitle.setWordWrap(True)
         outer.addWidget(title)
         outer.addWidget(subtitle)
+        self.history_title = title
+        self.history_subtitle = subtitle
 
         inputs = QGroupBox("History sources")
         self.history_sources = inputs
@@ -627,6 +638,9 @@ class BridgeWindow(QMainWindow):
         )
 
     def _load_history(self, *_args: object) -> None:
+        if self.managed and self.managed.enabled:
+            self.managed.refresh(force=True)
+            return
         selected_block = self.history_block_combo.currentText()
         selected_week = self.history_week_combo.currentText()
         selected_exercise = self.history_exercise_combo.currentText()
@@ -876,6 +890,8 @@ class BridgeWindow(QMainWindow):
             else None
         )
         try:
+            if self.managed:
+                self.managed.check_save()
             annotations = update_block_annotation(
                 self._history_annotations,
                 block_name,
@@ -898,6 +914,8 @@ class BridgeWindow(QMainWindow):
             )
             save_dashboard_annotations(path, annotations)
             self._history_annotations = annotations
+            if self.managed:
+                self.managed.note_saved()
             self._load_history()
             self.history_status.setText(
                 f"Saved private context for {block_name} · {week_name} at {path}. "
@@ -1127,7 +1145,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationDisplayName(APP_NAME)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("MacroFactor Workout Bridge")
-    window = BridgeWindow()
+    window = BridgeWindow(autoload=not args.smoke_test)
     if args.smoke_test:
         window.show()
         app.processEvents()

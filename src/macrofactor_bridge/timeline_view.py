@@ -274,11 +274,12 @@ class TrainingTimeline(QWidget):
         layout = QVBoxLayout(dialog)
         layout.addWidget(_label(f"{exercise} · {len(records)} logged sets · week of {start}"))
         layout.addWidget(_label("Original logged values, using configured canonical exercise names. Blank RIR stays unknown. Source files are unchanged."))
-        table = _table(["Date", "Workout", "Exercise", "Set type", "Weight lb", "Reps", "RIR", "Source row"])
+        table = _table(["Date", "Workout", "Exercise", "Set type", "Weight lb", "Reps", "RIR", "Source row", "Source file"])
         table.setRowCount(len(records))
         for row, record in enumerate(records):
             _row(table, row, (record.workout_date, record.workout, record.exercise, record.set_type,
-                              decimal_text(record.weight), decimal_text(record.reps), decimal_text(record.rir), record.source_row))
+                              decimal_text(record.weight), decimal_text(record.reps), decimal_text(record.rir), record.source_row,
+                              record.source_file or "Selected export"))
         layout.addWidget(table)
         if not records:
             layout.addWidget(_label("No logged sets for this selection. This does not confirm a skipped workout."))
