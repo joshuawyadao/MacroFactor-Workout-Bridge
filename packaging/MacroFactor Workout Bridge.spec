@@ -49,8 +49,8 @@ app = BUNDLE(
     bundle_identifier="com.joshuawyadao.macrofactor-workout-bridge",
     info_plist={
         "CFBundleDisplayName": "MacroFactor Workout Bridge",
-        "CFBundleShortVersionString": "0.6.0",
-        "CFBundleVersion": "9",
+        "CFBundleShortVersionString": "0.7.0",
+        "CFBundleVersion": "10",
         "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
         "NSHumanReadableCopyright": "Copyright © 2026 Joshua Wyadao",

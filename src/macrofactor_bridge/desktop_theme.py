@@ -106,6 +106,10 @@ QLabel#status { background: #1d2b33; color: #cce7f0; border: 1px solid #344c59;
 QLabel#trend { color: #72d6ef; }
 QFrame#summaryCard { background: #191b1f; border: 1px solid #343941; border-radius: 9px; }
 QLabel#summaryValue { font-size: 22px; font-weight: 600; }
+QLabel#pageTitle { font-size: 24px; font-weight: 600; }
+QLabel#sectionTitle { font-size: 15px; font-weight: 600; }
+QProgressBar { background: #30353d; border: none; border-radius: 3px; }
+QProgressBar::chunk { background: #72d6ef; border-radius: 3px; }
 QLabel#seriesA { color: #72d6ef; font-weight: 600; }
 QLabel#seriesB { color: #ffba7a; font-weight: 600; }
 QSplitter::handle { background: #343941; }

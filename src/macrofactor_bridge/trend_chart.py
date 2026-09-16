@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -11,6 +11,8 @@ from .history import decimal_text
 
 
 class TrendChart(QWidget):
+    point_clicked = Signal(int)
+
     def __init__(self) -> None:
         super().__init__()
         self.setMinimumHeight(135)
@@ -18,13 +20,17 @@ class TrendChart(QWidget):
         self.labels: tuple[str, ...] = ()
         self.contexts: tuple[str, ...] = ()
         self.max_labels = 8
+        self.series_colors = SERIES_COLORS
+        self.bar_mode = False
+        self.annotations: tuple[str, ...] = ()
         self.setMouseTracking(True)
         self.setAccessibleName("Trend chart; exact values are available in the table")
 
-    def set_series(self, values, labels=(), contexts=()) -> None:
+    def set_series(self, values, labels=(), contexts=(), annotations=()) -> None:
         self.values = tuple(tuple(series) for series in values)
         self.labels = tuple(labels)
         self.contexts = tuple(contexts)
+        self.annotations = tuple(annotations)
         self.setToolTip("")
         self.update()
 
@@ -46,9 +52,18 @@ class TrendChart(QWidget):
             text = self.labels[index]
             if index < len(self.contexts):
                 text += " · " + self.contexts[index]
+            if index < len(self.annotations) and self.annotations[index]:
+                text += "\n" + self.annotations[index]
             text += "\n" + ", ".join(decimal_text(series[index]) for series in values if index < len(series))
             self.setToolTip(text)
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self.labels and 52 <= event.position().x() <= self.width() - 28:
+            fraction = (event.position().x() - 52) / max(1, self.width() - 80)
+            index = min(len(self.labels) - 1, max(0, round(fraction * (len(self.labels) - 1))))
+            self.point_clicked.emit(index)
+        super().mouseReleaseEvent(event)
 
     def plot_values(self) -> tuple[tuple[Decimal | None, ...], ...]:
         return self.values
@@ -98,7 +113,7 @@ class TrendChart(QWidget):
             painter.drawText(QRectF(x - 34, area.bottom() + 5, 68, 18),
                              Qt.AlignmentFlag.AlignCenter, label)
         for number, series in enumerate(values):
-            color = QColor(SERIES_COLORS[number % len(SERIES_COLORS)])
+            color = QColor(self.series_colors[number % len(self.series_colors)])
             pen = QPen(color, 2)
             if number % 2:
                 pen.setStyle(Qt.PenStyle.DashLine)
@@ -111,7 +126,17 @@ class TrendChart(QWidget):
                     continue
                 point = QPointF(area.left() + index * area.width() / max(1, count - 1),
                                 area.bottom() - float((value - minimum) / span) * area.height())
-                if previous is not None:
+                if self.bar_mode:
+                    width = max(2, min(18, area.width() / max(1, count) * 0.65))
+                    painter.drawRect(QRectF(point.x() - width / 2, point.y(), width, area.bottom() - point.y()))
+                elif previous is not None:
                     painter.drawLine(previous, point)
-                painter.drawEllipse(point, 3, 3)
+                if not self.bar_mode:
+                    painter.drawEllipse(point, 3, 3)
                 previous = point
+        for index, note in enumerate(self.annotations):
+            if note and index < count:
+                x = area.left() + index * area.width() / max(1, count - 1)
+                painter.setPen(QPen(QColor("#abb1bc"), 1, Qt.PenStyle.DotLine))
+                painter.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()))
+                painter.drawText(QRectF(x - 5, area.top(), 12, 16), "•")

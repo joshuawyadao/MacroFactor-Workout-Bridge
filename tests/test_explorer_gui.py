@@ -37,7 +37,7 @@ class ExplorerGuiTests(unittest.TestCase):
         self.home = self.window.history_home
         self.explorer = self.window.history_explorer
 
-    def test_dashboard_is_default_and_cards_open_explorer_without_block_selection(self):
+    def test_dashboard_is_default_and_cards_open_timeline_without_block_selection(self):
         self.assertEqual(self.window.tabs.currentIndex(), 1)
         self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.home)
         card = self.home.cards[0]
@@ -48,7 +48,10 @@ class ExplorerGuiTests(unittest.TestCase):
         self.assertEqual(self.home.blocks.item(0, 2).text(), "233.3")
         self.assertEqual(self.home.blocks.item(1, 2).text(), "583.3")
         card.button.click()
-        self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.explorer)
+        self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.window.history_timeline)
+        self.assertEqual(self.window.history_timeline.selectors["Squat"].currentText(), "Tempo Back Squat")
+        # The retained exercise explorer still supports standalone exact-exercise analysis.
+        self.explorer.open_exercise("Tempo Back Squat")
         self.assertEqual(self.explorer.exercise.currentText(), "Tempo Back Squat")
         self.assertEqual(self.explorer.period.currentData(), 0)
         self.assertEqual(self.explorer.table.rowCount(), 5)
@@ -102,6 +105,7 @@ class ExplorerGuiTests(unittest.TestCase):
         self.assertGreater(self.home.viewport().height(), 100)
         self.assertFalse(self.home.grab().isNull())
         self.home.cards[0].button.click()
+        self.window.history_analysis_tabs.setCurrentWidget(self.explorer)
         self.app.processEvents()
         self.assertGreaterEqual(self.explorer.table.viewport().height(), 70)
         self.assertGreaterEqual(self.explorer.chart.height(), 135)

@@ -5,13 +5,24 @@ from datetime import timedelta
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox, QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QPushButton, QProgressBar, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from .comparison import METRICS
-from .explorer import LIFT_FAMILIES, best_estimate, default_exercise, exercise_names, exercise_timeline, week_location
-from .history import DashboardAnnotations, WEEK_REASON_OPTIONS, WEEK_STATUS_OPTIONS, decimal_text, option_label
+from .explorer import LIFT_FAMILIES, default_exercise, exercise_names, exercise_timeline, week_location
+from .history import BLOCK_TYPE_OPTIONS, DashboardAnnotations, WEEK_REASON_OPTIONS, WEEK_STATUS_OPTIONS, decimal_text, option_label
+from .progress import block_reports, calendar_weeks, exercise_workload, full_weeks, week_context
 from .trend_chart import TrendChart
+
+LIFT_COLORS = {"Squat": "#72d6ef", "Bench": "#c5a4f5", "Deadlift": "#ffcc66"}
+
+
+def period_selector():
+    combo = QComboBox()
+    for text, weeks in (("All history", 0), ("Last 4 weeks", 4), ("Last 12 weeks", 12), ("Last 24 weeks", 24)):
+        combo.addItem(text, weeks)
+    combo.setAccessibleName("Time range")
+    return combo
 
 
 def _label(text=""):
@@ -172,11 +183,14 @@ class LiftCard(QFrame):
         self.family = family
         self.dashboard = None
         self._saved = ""
+        self.recent_weeks = 0
         self.setObjectName("summaryCard")
         outer = QVBoxLayout(self)
         outer.setContentsMargins(10, 8, 10, 8)
         outer.setSpacing(4)
-        outer.addWidget(_label(family))
+        heading = _label(family)
+        heading.setStyleSheet(f"color: {LIFT_COLORS[family]}; font-size: 18px; font-weight: 600;")
+        outer.addWidget(heading)
         self.exercise = QComboBox()
         self.exercise.setAccessibleName(f"{family} variation")
         self.exercise.setMinimumContentsLength(12)
@@ -189,6 +203,7 @@ class LiftCard(QFrame):
         self.detail.setObjectName("subtitle")
         outer.addWidget(self.detail)
         self.chart = TrendChart()
+        self.chart.series_colors = (LIFT_COLORS[family],)
         self.chart.setMinimumHeight(95)
         self.chart.setMaximumHeight(95)
         self.chart.max_labels = 3
@@ -220,26 +235,41 @@ class LiftCard(QFrame):
         if self.dashboard and self.exercise.currentText():
             name = self.exercise.currentText()
             self._saved = name
-            weeks = exercise_timeline(self.dashboard, name)
+            weeks = exercise_timeline(self.dashboard, name, self.recent_weeks)
             logged = [w for w in weeks if w.trend]
-            latest = logged[-1]
-            self.value.setText(f"{decimal_text(latest.metric('estimated_1rm'))} lb")
-            self.detail.setText(f"Est. 1RM · last logged week {latest.start:%b %d, %Y}")
+            if logged:
+                latest = logged[-1]
+                self.value.setText(f"{decimal_text(latest.metric('estimated_1rm'))} lb")
+                self.detail.setText(f"Est. 1RM · last logged week {latest.start:%b %d, %Y}")
+            else:
+                self.detail.setText("No logged sets in this range.")
             self.chart.set_series((tuple(w.metric("estimated_1rm") for w in weeks),), tuple(w.start.strftime("%m/%d/%y") for w in weeks))
         self.changed.emit()
 
 
 class HistoryHome(QScrollArea):
     explore = Signal(str)
+    focus_block = Signal(str)
+    range_changed = Signal(int)
+    variations_changed = Signal()
 
     def __init__(self):
         super().__init__()
         self.dashboard = None
+        self.annotations = DashboardAnnotations()
+        self.report_cards = []
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         page = QWidget()
         outer = QVBoxLayout(page)
         outer.setContentsMargins(0, 8, 0, 0)
+        heading = QHBoxLayout()
+        title = _label("Your progress, across blocks")
+        title.setObjectName("pageTitle")
+        heading.addWidget(title, 1)
+        self.period = period_selector()
+        heading.addWidget(self.period)
+        outer.addLayout(heading)
         self.coverage = _label("Start with an all-time export above. Then explore your main lifts or any exercise—no block selection needed.")
         outer.addWidget(self.coverage)
         cards = QHBoxLayout()
@@ -247,8 +277,44 @@ class HistoryHome(QScrollArea):
         for card in self.cards:
             cards.addWidget(card, 1)
             card.changed.connect(self._refresh_blocks)
+            card.changed.connect(self.variations_changed.emit)
             card.explore.connect(self.explore.emit)
         outer.addLayout(cards)
+        title = _label("Across your blocks · scroll to browse →")
+        title.setObjectName("sectionTitle")
+        outer.addWidget(title)
+        self.report_scroll = QScrollArea()
+        self.report_scroll.setWidgetResizable(True)
+        self.report_scroll.setFixedHeight(225)
+        self.report_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.report_page = QWidget()
+        self.report_layout = QHBoxLayout(self.report_page)
+        self.report_layout.setContentsMargins(0, 0, 0, 0)
+        self.report_scroll.setWidget(self.report_page)
+        outer.addWidget(self.report_scroll)
+        self.averages_note = _label("Weekly averages use full weeks within the selected export range; partial weeks are excluded. No logs ≠ a confirmed skip.")
+        self.averages_note.setObjectName("subtitle")
+        outer.addWidget(self.averages_note)
+        lower = QHBoxLayout()
+        self.workload_frame = QFrame()
+        self.workload_frame.setObjectName("summaryCard")
+        self.workload_layout = QVBoxLayout(self.workload_frame)
+        lower.addWidget(self.workload_frame, 3)
+        context_frame = QFrame()
+        context_frame.setObjectName("summaryCard")
+        context_layout = QVBoxLayout(context_frame)
+        context_title = _label("Context to keep in view")
+        context_title.setObjectName("sectionTitle")
+        context_layout.addWidget(context_title)
+        self.context = _label()
+        context_layout.addWidget(self.context)
+        context_layout.addStretch()
+        context_layout.addWidget(_label("Saved notes only. Lower loads do not automatically mean fatigue or lost strength."))
+        lower.addWidget(context_frame, 2)
+        outer.addLayout(lower)
+        self.values_button = QPushButton("Show exact block values")
+        self.values_button.setCheckable(True)
+        outer.addWidget(self.values_button)
         self.legend = _label("Across blocks · best estimated 1RM (lb) for each selected variation. Blanks mean no estimate, not zero.")
         self.legend.setObjectName("subtitle")
         outer.addWidget(self.legend)
@@ -258,12 +324,20 @@ class HistoryHome(QScrollArea):
         self.blocks.verticalHeader().setDefaultSectionSize(27)
         self.blocks.setMinimumHeight(140)
         outer.addWidget(self.blocks, 1)
+        self.blocks.setVisible(False)
+        self.legend.setVisible(False)
+        self.values_button.toggled.connect(self.blocks.setVisible)
+        self.values_button.toggled.connect(self.legend.setVisible)
+        self.period.currentIndexChanged.connect(self._range_changed)
         self.setWidget(page)
         self.set_history(None)
 
-    def set_history(self, dashboard):
+    def set_history(self, dashboard, annotations=None):
         self.dashboard = dashboard
+        self.annotations = annotations or DashboardAnnotations()
+        self.period.setEnabled(dashboard is not None)
         for card in self.cards:
+            card.recent_weeks = int(self.period.currentData())
             card.set_history(dashboard)
         if dashboard:
             self.coverage.setText(f"{dashboard.first_workout:%b %d, %Y}–{dashboard.last_workout:%b %d, %Y} · "
@@ -274,17 +348,85 @@ class HistoryHome(QScrollArea):
             self.coverage.setText("Start with an all-time export above. Then explore your main lifts or any exercise—no block selection needed.")
         self._refresh_blocks()
 
+    def _range_changed(self):
+        for card in self.cards:
+            card.recent_weeks = int(self.period.currentData())
+            card._refresh()
+        self._refresh_blocks()
+        self.range_changed.emit(int(self.period.currentData()))
+
+    @staticmethod
+    def _clear_layout(layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
     def _refresh_blocks(self):
         self.blocks.setRowCount(0)
+        self._clear_layout(self.report_layout)
+        self._clear_layout(self.workload_layout)
+        self.report_cards = []
+        self.context.setText("Load history to see saved block and week context.")
         if not self.dashboard:
             return
-        blocks = sorted(self.dashboard.blocks, key=lambda b: (b.start_date is None, str(b.start_date), b.position))
-        self.blocks.setRowCount(len(blocks))
+        reports = block_reports(self.dashboard, int(self.period.currentData()))
+        self.blocks.setRowCount(len(reports))
         names = [card.exercise.currentText() for card in self.cards]
         for column, name in enumerate(names, start=2):
             self.blocks.horizontalHeaderItem(column).setToolTip(name or "No variation selected")
-        for row, block in enumerate(blocks):
+        for row, report in enumerate(reports):
+            block = report.block
+            frame = QFrame()
+            frame.setObjectName("summaryCard")
+            frame.setFixedWidth(265)
+            layout = QVBoxLayout(frame)
+            title = _label(block.name)
+            title.setObjectName("sectionTitle")
+            title.setMaximumHeight(48)
+            title.setToolTip(block.name)
+            layout.addWidget(title)
+            layout.addWidget(_label(f"{block.start_date or 'Not dated'} · {len(block.week_labels)} weeks"))
+            layout.addWidget(_label(option_label(BLOCK_TYPE_OPTIONS, block.block_type)))
+            coverage = _label(report.coverage)
+            coverage.setObjectName("subtitle")
+            layout.addWidget(coverage)
+            layout.addWidget(_label(f"{decimal_text(report.sets_per_week)} sets / week   ·   {decimal_text(report.days_per_week)} days / week"))
+            layout.addWidget(_label(f"{report.complete_week_count} full weeks used for averages"))
+            layout.addStretch()
+            button = QPushButton("Analyze block →")
+            button.setEnabled(bool(report.weeks) and not report.issue)
+            button.clicked.connect(lambda checked=False, name=block.name: self.focus_block.emit(name))
+            layout.addWidget(button)
+            self.report_layout.addWidget(frame)
+            self.report_cards.append(frame)
             _row(self.blocks, row, (block.start_date or "Not dated", block.name,
-                                    *(decimal_text(best_estimate(self.dashboard, name, block.name)) for name in names),
-                                    block.mapped_training_days if block.start_date else "—",
-                                    block.mapped_set_count if block.start_date else "—"))
+                                    *(decimal_text(report.best_estimate(self.dashboard, name)) for name in names),
+                                    decimal_text(report.days_per_week), decimal_text(report.sets_per_week)))
+        self.blocks.setHorizontalHeaderLabels(["Start", "Coach block", "Squat", "Bench", "Deadlift", "Days / week", "Sets / week"])
+        self.report_layout.addStretch()
+        weeks = calendar_weeks(self.dashboard, int(self.period.currentData()))
+        title = _label("Training focus · sets per week")
+        title.setObjectName("sectionTitle")
+        self.workload_layout.addWidget(title)
+        self.workload_layout.addWidget(_label(f"By exercise · {len(full_weeks(self.dashboard, weeks))} full weeks · not muscle growth"))
+        workload = exercise_workload(self.dashboard, weeks)[:5]
+        for name, value in workload:
+            button = QPushButton(f"{name}   {decimal_text(value)} →")
+            button.setToolTip(name)
+            button.clicked.connect(lambda checked=False, exercise=name: self.explore.emit(exercise))
+            self.workload_layout.addWidget(button)
+            bar = QProgressBar()
+            bar.setRange(0, 1000)
+            bar.setValue(round(value / workload[0][1] * 1000))
+            bar.setTextVisible(False)
+            bar.setFixedHeight(6)
+            self.workload_layout.addWidget(bar)
+        if not workload:
+            self.workload_layout.addWidget(_label("No full weeks with logged sets in this range."))
+        notes = [(week, week_context(self.dashboard, self.annotations, week)) for week in reversed(weeks)]
+        notes = [(week, note) for week, note in notes if note]
+        self.context.setText("\n\n".join(f"{week:%b %d} · {note[:170]}{'…' if len(note) > 170 else ''}" for week, note in notes[:3])
+                             or "No saved week context in this range.")
+        self.context.setToolTip("\n\n".join(f"{week.isoformat()} · {note}" for week, note in notes))

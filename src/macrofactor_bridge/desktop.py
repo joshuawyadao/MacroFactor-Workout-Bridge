@@ -37,6 +37,8 @@ from . import __version__
 from .config import load_config
 from .comparison_view import BlockComparisonPanel
 from .explorer_view import ExerciseExplorer, HistoryHome
+from .explorer import LIFT_FAMILIES
+from .timeline_view import TrainingTimeline
 from .desktop_theme import SummaryCard, apply_dark_theme, style_calendar
 from .desktop_model import (
     bundled_config_path,
@@ -401,8 +403,16 @@ class BridgeWindow(QMainWindow):
         self.history_analysis_tabs = QTabWidget()
         self.history_home = HistoryHome()
         self.history_explorer = ExerciseExplorer()
+        self.history_timeline = TrainingTimeline()
         self.history_home.explore.connect(self._explore_history_exercise)
+        self.history_home.focus_block.connect(self._focus_history_block)
+        self.history_home.range_changed.connect(lambda weeks: self.history_timeline.period.setCurrentIndex(self.history_timeline.period.findData(weeks)))
+        self.history_timeline.range_changed.connect(lambda weeks: self.history_home.period.setCurrentIndex(self.history_home.period.findData(weeks)))
+        self.history_home.variations_changed.connect(self._sync_timeline_variations)
+        self.history_timeline.variation_changed.connect(self._sync_home_variation)
+        self.history_timeline.back.connect(lambda: self.history_analysis_tabs.setCurrentWidget(self.history_home))
         self.history_analysis_tabs.addTab(self.history_home, "Dashboard")
+        self.history_analysis_tabs.addTab(self.history_timeline, "Training timeline")
         self.history_analysis_tabs.addTab(self.history_explorer, "Explore exercise")
         overview = QWidget()
         overview_layout = QVBoxLayout(overview)
@@ -593,6 +603,7 @@ class BridgeWindow(QMainWindow):
         self.history_comparison.set_history(None)
         self.history_home.set_history(None)
         self.history_explorer.set_history(None)
+        self.history_timeline.set_history(None)
         self.history_save_annotation_button.setEnabled(False)
         self.history_overview.setText("Load the selected files to summarize your history.")
         self.history_overview.setToolTip("")
@@ -732,12 +743,32 @@ class BridgeWindow(QMainWindow):
         self._history_block_changed(self.history_block_combo.currentText())
         self._display_history_exercise(self.history_exercise_combo.currentText())
         self.history_comparison.set_history(dashboard, self._history_annotations)
-        self.history_home.set_history(dashboard)
+        self.history_timeline.set_history(dashboard, self._history_annotations)
+        self.history_home.set_history(dashboard, self._history_annotations)
         self.history_explorer.set_history(dashboard, self._history_annotations)
 
     def _explore_history_exercise(self, exercise: str) -> None:
+        if any(exercise in names for names in LIFT_FAMILIES.values()):
+            self.history_timeline.open_exercise(exercise)
+            self.history_analysis_tabs.setCurrentWidget(self.history_timeline)
+            return
         self.history_explorer.open_exercise(exercise)
         self.history_analysis_tabs.setCurrentWidget(self.history_explorer)
+
+    def _focus_history_block(self, name: str) -> None:
+        self.history_timeline.open_block(name)
+        self.history_analysis_tabs.setCurrentWidget(self.history_timeline)
+
+    def _sync_timeline_variations(self) -> None:
+        for card in self.history_home.cards:
+            selector = self.history_timeline.selectors[card.family]
+            if selector.findText(card.exercise.currentText()) >= 0:
+                selector.setCurrentText(card.exercise.currentText())
+
+    def _sync_home_variation(self, family: str, name: str) -> None:
+        for card in self.history_home.cards:
+            if card.family == family and card.exercise.findText(name) >= 0:
+                card.exercise.setCurrentText(name)
 
     def _display_history_exercise(self, exercise: str) -> None:
         dashboard = self._history_dashboard

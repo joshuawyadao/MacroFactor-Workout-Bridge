@@ -134,6 +134,8 @@ class HistoryDashboard:
     weekly_trends: tuple[WeeklyExerciseTrend, ...]
     warnings: tuple[str, ...]
     overlapping_blocks: frozenset[str] = frozenset()
+    # Canonical names, original values/row numbers. Memory only; never persisted.
+    records: tuple[SetRecord, ...] = ()
 
     def trends_for(self, exercise: str) -> tuple[WeeklyExerciseTrend, ...]:
         return tuple(
@@ -816,9 +818,8 @@ def build_history_dashboard(
     intervals, overlapping = _dated_block_intervals(
         sources.blocks, annotation_state, warnings
     )
-    aggregation = _aggregate_history(
-        sources.records, source_rule_index(config), intervals, overlapping
-    )
+    source_index = source_rule_index(config)
+    aggregation = _aggregate_history(sources.records, source_index, intervals, overlapping)
     weekly_trends = _weekly_trends(aggregation.trend_data)
     duration_session_count, total_duration = _duration_summary(
         aggregation.sessions, warnings
@@ -846,6 +847,8 @@ def build_history_dashboard(
         weekly_trends=weekly_trends,
         warnings=tuple(warnings),
         overlapping_blocks=overlapping,
+        records=tuple(replace(record, exercise=_canonical_exercise(record, source_index))
+                      for record in sources.records),
     )
 
 
