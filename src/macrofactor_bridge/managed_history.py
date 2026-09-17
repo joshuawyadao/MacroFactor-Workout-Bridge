@@ -8,6 +8,7 @@ reported rather than concatenated. Original files are never modified.
 from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 import sys
 
@@ -177,9 +178,16 @@ def _sources(root: Path, issues: list[str]):
     return candidates
 
 
+def _numeric_signature(value: Decimal | None):
+    # NaNs do not compare equal; signaling NaNs cannot be hashed. Keep their
+    # type, sign and payload in the signature without changing source values.
+    return ("nonfinite", value.as_tuple()) if value is not None and not value.is_finite() else value
+
+
 def _signature(records):
-    return Counter((r.workout, r.exercise, r.set_type.casefold(), r.weight, r.reps,
-                    r.rir, r.workout_duration_seconds) for r in records)
+    return Counter((r.workout, r.exercise, r.set_type.casefold(),
+                    _numeric_signature(r.weight), _numeric_signature(r.reps),
+                    _numeric_signature(r.rir), _numeric_signature(r.workout_duration_seconds)) for r in records)
 
 
 def consolidate(exports: tuple[ExportSource, ...]) -> tuple[ExportSource, tuple[SetRecord, ...], tuple[str, ...]]:

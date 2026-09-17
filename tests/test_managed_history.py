@@ -1,5 +1,6 @@
 from dataclasses import replace
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 import shutil
 import tempfile
@@ -88,6 +89,65 @@ class ManagedHistoryTests(unittest.TestCase):
         self.assertEqual(len(result.conflicts), 1)
         self.assertIn("2026-08-24", result.conflicts[0])
         self.assertEqual([r.weight for r in result.dashboard.records if r.workout_date == date(2026, 8, 24)], [500])
+
+    def test_equivalent_nonfinite_snapshots_with_distinct_bytes_are_deduplicated(self):
+        for index, weight in enumerate(("NaN", "sNaN", "-NaN12", "-sNaN12", "Infinity", "-Infinity")):
+            with self.subTest(weight=weight):
+                root = managed_inputs(self.root.parent / f"equivalent-{index}")
+                first = root / "inbox/macrofactor/first.csv"
+                second = root / "inbox/macrofactor/second.csv"
+                row = f"2026-09-01,Day A,Tempo Back Squat,Standard Set,{weight},5,"
+                write_export(first, [row])
+                write_export(second, [row.replace("Standard Set", "STANDARD SET")])
+                before = [file_sha256(path) for path in (first, second)]
+                self.assertNotEqual(*before, "The two snapshots must not be deduplicated by file hash")
+
+                result = load_managed_history(root)
+
+                self.assertEqual(result.conflicts, ())
+                self.assertEqual(result.dashboard.set_count, 8)
+                records = [r for r in result.dashboard.records if r.workout_date == date(2026, 9, 1)]
+                self.assertEqual([r.weight.as_tuple() for r in records], [Decimal(weight).as_tuple()])
+                self.assertEqual(before, [file_sha256(path) for path in (first, second)])
+
+    def test_nonfinite_snapshot_superset_preserves_identical_repeated_sets(self):
+        for index, weight in enumerate(("NaN", "sNaN")):
+            with self.subTest(weight=weight):
+                root = managed_inputs(self.root.parent / f"superset-{index}")
+                broad = root / "inbox/macrofactor/broad.csv"
+                expanded = root / "inbox/macrofactor/expanded.csv"
+                row = f"2026-09-01,Day A,Tempo Back Squat,Standard Set,{weight},5,"
+                # More dates make this subset rank before the expanded day.
+                write_export(broad, [row, row, "2026-09-02,Day B,Tempo Back Squat,Standard Set,100,5,"])
+                write_export(expanded, [row, row, row])
+
+                result = load_managed_history(root)
+
+                self.assertEqual(result.conflicts, ())
+                self.assertEqual(result.dashboard.set_count, 11)
+                records = [r for r in result.dashboard.records if r.workout_date == date(2026, 9, 1)]
+                self.assertEqual([r.weight.as_tuple() for r in records], [Decimal(weight).as_tuple()] * 3)
+                self.assertEqual([r.source_row for r in records], [2, 3, 4])
+
+    def test_different_nonfinite_values_and_finite_corrections_remain_conflicts(self):
+        pairs = (("NaN", "sNaN"), ("NaN1", "NaN2"), ("NaN1", "-NaN1"),
+                 ("sNaN1", "sNaN2"), ("Infinity", "-Infinity"), ("NaN", "100"), ("sNaN", "100"))
+        for index, (original, corrected) in enumerate(pairs):
+            with self.subTest(original=original, corrected=corrected):
+                root = managed_inputs(self.root.parent / f"conflict-{index}")
+                row = "2026-09-01,Day A,Tempo Back Squat,Standard Set,{},5,"
+                write_export(root / "inbox/macrofactor/broad.csv", [
+                    row.format(original), "2026-09-02,Day B,Tempo Back Squat,Standard Set,100,5,",
+                ])
+                write_export(root / "inbox/macrofactor/corrected.csv", [row.format(corrected)])
+
+                result = load_managed_history(root)
+
+                self.assertEqual(len(result.conflicts), 1)
+                self.assertIn("2026-09-01", result.conflicts[0])
+                self.assertEqual(result.dashboard.set_count, 9)
+                records = [r for r in result.dashboard.records if r.workout_date == date(2026, 9, 1)]
+                self.assertEqual([r.weight.as_tuple() for r in records], [Decimal(original).as_tuple()])
 
     def test_invalid_workbook_or_program_export_does_not_hide_valid_history(self):
         (self.root / "inbox/macrofactor/broken.xlsx").write_bytes(b"not an XLSX")

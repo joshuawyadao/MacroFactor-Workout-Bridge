@@ -18,7 +18,7 @@ The subsequent Codex review adds three narrow follow-ups: apply the same conflic
 [x] Prepare validated fixes for save-branch; continue Codex/CI review on the resulting PR head without merging.
 [x] Protect manual-mode annotation saves from external updates (Codex comment 4040032862); add regression coverage and documentation. Four focused GUI tests pass; save/push and acknowledgement follow this checkpoint.
 [ ] Navigate Weekly feedback backward through logged weeks to the latest selectable mapped week (Codex comment 4040032847); preserve unsaved text, add boundary tests, document, validate, commit/push and acknowledge.
-[ ] Normalize nonfinite decimal signature values without altering original records (Codex comment 4040032852); test equivalent/superset/conflicting snapshots, document, validate, commit/push and acknowledge.
+[x] Normalize nonfinite decimal signature values without altering original records (Codex comment 4040032852); three ingestion regressions and all 13 managed-history tests pass. Save/push and acknowledgement follow this checkpoint.
 [ ] Increase CI Verify's job budget from 10 to 15 minutes after the observed timeout; retain every test, audit and validation step, then verify a terminal green run.
 [ ] Run the complete suite, compilation and smoke checks; finish final-head CI/Codex review and mergeability checks. Resolve fixed threads only with explicit user approval; do not merge.
 
@@ -41,3 +41,4 @@ The subsequent Codex review adds three narrow follow-ups: apply the same conflic
 - d04d880 pushed with all three Brooks fixes. Codex's review of that head produced the three follow-ups above; all are accepted as in-scope. No human product choice is needed. An asynchronous question requests permission to resolve the fixed review threads after validation.
 - CI run 35256496103 reached `Ran 183 tests in 575.285s` and `OK`, but the job hit its 10-minute timeout before compile/diff checks. This is a bounded workflow-timeout fix caused by the expanded regression suite, not a test failure; no test assertion is weakened or removed.
 - Codex 4040032862: removed the automatic-mode bypass from the displayed-file save guard. The manual external-edit regression failed before the fix and passed after it, together with automatic conflict protection, failed-switch/manual behavior and a successful manual save (four targeted GUI tests).
+- Codex 4040032852: stable hashable nonfinite signature tokens preserve type/sign/payload while keeping original records unchanged. Three real ingestion regressions cover equivalent exports, genuine repeated-set supersets and different-value conflicts; all 13 managed-history tests pass. Manual-save fix was pushed as fc16e2b and acknowledged with a thumbs-up.
