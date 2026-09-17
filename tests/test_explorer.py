@@ -27,6 +27,7 @@ class ExplorerTests(unittest.TestCase):
         self.assertEqual([w.start for w in weeks], [date(2026, 7, 27), date(2026, 8, 3), date(2026, 8, 10), date(2026, 8, 17), date(2026, 8, 24)])
         self.assertEqual([w.metric("top_weight") for w in weeks], [None, 210, None, 0, 500])
         self.assertEqual(week_location(self.dashboard, weeks[0]), ("Unmapped", "—"))
+        self.assertEqual(week_location(self.dashboard, weeks[1]), ("Training Block", "Week 10"))
         self.assertEqual(week_location(self.dashboard, weeks[2]), ("Training Block", "Week 11"))
         self.assertIs(weeks[1].trend, self.dashboard.trends_for("Tempo Back Squat")[0])
 
@@ -83,6 +84,20 @@ class ExplorerTests(unittest.TestCase):
         self.assertEqual(week_location(dashboard, week), ("Unmapped", "—"))
         dashboard = replace(self.dashboard, blocks=tuple(replace(b, start_date=None) for b in self.dashboard.blocks))
         self.assertEqual(week_location(dashboard, week), ("Unmapped", "—"))
+
+    def test_repeated_coach_labels_do_not_map_logged_or_missing_weeks(self):
+        weeks = exercise_timeline(self.dashboard, "Tempo Back Squat")
+        for labels in (("Week 10", "Week 10", "Week 12"),
+                       ("Week 10", "week 10", "Week 12"), ()):
+            with self.subTest(labels=labels):
+                blocks = tuple(replace(block, week_labels=labels)
+                               if block.name == "Training Block" else block
+                               for block in self.dashboard.blocks)
+                dashboard = replace(self.dashboard, blocks=blocks)
+                for week in weeks[1:4]:
+                    self.assertEqual(week_location(dashboard, week), ("Unmapped", "—"),
+                                     f"Ambiguous coach labels must not map week {week.start}")
+                self.assertEqual(week_location(dashboard, weeks[4]), ("Archive", "Week 9"))
 
 
 if __name__ == "__main__":

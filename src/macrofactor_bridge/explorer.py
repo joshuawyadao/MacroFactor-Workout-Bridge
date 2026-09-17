@@ -72,11 +72,19 @@ def best_estimate(dashboard: HistoryDashboard, exercise: str, block: str) -> Dec
 
 
 def week_location(dashboard: HistoryDashboard, week: ExplorerWeek) -> tuple[str, str]:
+    ambiguous_blocks = {
+        block.name for block in dashboard.blocks
+        if not block.week_labels
+        or len({label.casefold() for label in block.week_labels}) != len(block.week_labels)
+    }
     if week.trend:
+        if week.trend.block_name in ambiguous_blocks:
+            return "Unmapped", "—"
         return week.trend.block_name or "Unmapped", week.trend.block_week or "—"
     # Calendar context is allowed for missing logs, but never fabricate performance.
     candidates = [b for b in dashboard.blocks if b.start_date and b.start_date.weekday() == 0
                   and b.name not in dashboard.overlapping_blocks
+                  and b.name not in ambiguous_blocks
                   and b.start_date <= week.start < b.start_date + timedelta(weeks=len(b.week_labels))]
     if len(candidates) == 1:
         block = candidates[0]
