@@ -169,6 +169,22 @@ class ManagedGuiTests(unittest.TestCase):
         self.assertEqual(file_sha256(path), changed)
         self.assertEqual(self.window.history_week_notes.text(), "Keep this unsaved feedback")
 
+    def test_failed_workspace_selection_restarts_with_previous_valid_workspace(self):
+        controller = self.window.managed
+        invalid_root = self.directory / "empty-workspace"
+        invalid_root.mkdir()
+        with patch.object(QFileDialog, "getExistingDirectory", return_value=str(invalid_root)):
+            controller.choose_workspace()
+        self.wait_for(lambda: controller._job is None)
+        self.assertIn("previous data was not replaced", controller.status.text())
+        self.assertEqual(self.settings.value("workspace"), str(self.root))
+
+        restarted = BridgeWindow(autoload=True, settings=self.settings)
+        self.addCleanup(restarted.close)
+        self.wait_for(lambda: restarted.managed.snapshot is not None)
+        self.assertEqual(restarted.managed.snapshot.root, self.root)
+        self.assertEqual(restarted._history_dashboard.set_count, 7)
+
     def test_successful_workspace_switch_saves_feedback_to_replacement(self):
         replacement_directory = self.directory / "replacement"
         replacement_directory.mkdir()
@@ -176,7 +192,9 @@ class ManagedGuiTests(unittest.TestCase):
         controller = self.window.managed
         with patch.object(QFileDialog, "getExistingDirectory", return_value=str(replacement_root)):
             controller.choose_workspace()
+        self.assertEqual(self.settings.value("workspace"), str(self.root))
         self.wait_for(lambda: controller.snapshot.root == replacement_root)
+        self.assertEqual(self.settings.value("workspace"), str(replacement_root))
 
         original = self.root / "annotations/workout-history.json"
         original.write_text(original.read_text() + "\n", encoding="utf-8")
@@ -191,6 +209,12 @@ class ManagedGuiTests(unittest.TestCase):
         self.assertEqual(saved.blocks[block].weeks[week].notes, "Replacement workspace feedback")
         self.assertEqual(file_sha256(original), original_hash)
         self.wait_for(lambda: controller._job is None)
+
+        restarted = BridgeWindow(autoload=True, settings=self.settings)
+        self.addCleanup(restarted.close)
+        self.wait_for(lambda: restarted.managed.snapshot is not None)
+        self.assertEqual(restarted.managed.snapshot.root, replacement_root)
+        self.assertEqual(restarted._history_annotations.blocks[block].weeks[week].notes, "Replacement workspace feedback")
 
     def load_manual_history_then_fail_workspace_switch(self):
         manual_directory = self.directory / "manual"

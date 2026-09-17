@@ -150,8 +150,7 @@ class ManagedHistoryController(QObject):
         if path:
             root = Path(path)
             self.root = (root / "local-data" if (root / "local-data" / "inbox").is_dir() else root).resolve()
-            if self.settings:
-                self.settings.setValue("workspace", str(self.root))
+            # apply() remembers this candidate only after accepting its loaded snapshot.
             self.fingerprint = None
             # Keep the displayed snapshot and its feedback guard until replacement succeeds.
             self._token += 1
