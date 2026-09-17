@@ -1,33 +1,34 @@
 # Plan
 
-Close the September 20 regression scan's incomplete GUI validation by following the canonical test runner to a terminal result. Align contributor and PR verification guidance with the runner that includes the optional desktop dependencies, fix any reproduced failures, and prepare a reviewed PR against main.
+Finish the dashboard rollout after PR #19 by rebuilding the merged source, validating the packaged app and existing local workspace, and replacing the local app with a recoverable backup. Close the stale review checklist using final GitHub evidence and document the repeatable local update procedure.
 
 ## Scope
-- In: complete offscreen GUI and non-GUI validation, contributor and PR verification guidance, an evidence record, narrow fixes if reproduced, review, commit and push.
-- Out: new dashboard features, unrelated refactoring, dependency upgrades, private workout data, installed-app replacement, and merging the PR.
+- In: documentation, locked macOS build, packaged smoke/signature checks, local dashboard verification, preservation checks, local app replacement, commit and push of documentation.
+- Out: dashboard feature changes, program preview/export integration, source-data or annotation corrections, version/schema changes, public binary distribution, another PR or merge.
 
 ## Action items
-[x] Inspect README, CONTRIBUTING.md, the previous implementation ledger, scripts/test.sh, CI Verify, and GUI test coverage; confirm the clean checkout matches main at 7d8a91c.
-[x] Create codex/complete-gui-regression-validation for the requested follow-up.
-[x] Run ./scripts/test.sh to terminal completion, retaining the final count, skipped-test status, elapsed time and exit status. Investigate any reproducible failure before changing code.
-[x] Reproduce the observed accumulation of closed Qt test windows; add shared test-only disposal that stops managed refresh, finishes workers, and processes deferred deletion. Cover cleanup with active jobs and apply it to the existing GUI fixtures without weakening assertions.
-[x] Update CONTRIBUTING.md and the PR template to require the canonical runner and terminal evidence; document that partial output is inconclusive and source-only runs may skip GUI coverage.
-[x] Record baseline and corrected full-suite results and the remaining boundary of offscreen validation in docs/Regression-Validation.md.
-[x] Run compilation, source app-entry smoke verification and diff checks; inspect the completed diff for privacy and accuracy.
-[x] Commit and push the validated changes using save-branch, then open the PR against main and request Codex review.
-[x] Complete Brooks review, terminal CI Verify, Codex feedback handling and mergeability checks on implementation commit 8e409cd; leave PR #20 unmerged. Recheck hosted CI after this documentation-only record is pushed.
+[x] Inspect README, docs/Local-File-Workflow.md, packaging, managed loading, existing tests and the merged PR #19 validation record.
+[x] Close the previous final-validation item: PR #19 merged as 7d8a91c; its final head 4eecfb0 passed all 194 tests, CI Verify run 35261611526, compilation, smoke checks and review resolution.
+[x] Build the unchanged application from merged source with scripts/build_macos_app.sh and its hash-locked dependency closure; verify the bundle signature and offscreen launch.
+[x] Run existing focused dashboard/managed-loading regressions and compilation. No test files need changes because executable behavior is unchanged and the merged head already passed the complete suite.
+[x] Validate automatic loading, observed coverage, block-date eligibility, charts/set inspection and feedback reopening with local data; exercise note saves on an isolated private copy and hash-check original sources/annotations.
+[x] Back up the existing app, install the verified bundle at the existing local launch path, verify the installed copy and inspect its visible dashboard. Preserve saved settings and private files.
+[x] Add a repeatable post-merge app-update checklist to docs/Local-File-Workflow.md; record sanitized results here without private filenames, hashes, workout details or screenshots.
+[x] Review the documentation diff and privacy scope; only the plan and local-update procedure changed.
+[x] Prepare the completed documentation for save-branch on the user-approved codex/dashboard-rollout-wrapup branch; commit and push are the final delivery step.
 
 ## Open questions
-- None. The user authorized a feature branch and a PR; any application fix remains contingent on a reproduced failure.
+- None. Existing block dates and notes will be validated as supplied; unknown dates will not be inferred.
 
-## Review ledger
-- Baseline: the prior scan passed 92 focused tests, but did not retain terminal GUI-suite output. Existing historical runs took several minutes; a 30-second tool return alone does not establish a suite timeout.
-- Discovery: CI Verify and contributor guidance already use ./scripts/test.sh; the PR template still names the source-only unittest command, which may skip optional GUI tests.
-- Independent probe: closing four BridgeWindow instances retained 687, 1,374, 2,061 and 2,748 Qt widgets. Explicit deferred deletion returned the count to zero after each window. Reapplying the global theme to retained widgets makes subsequent tests increasingly expensive; fix the test fixtures, preserving production behavior and assertions.
-- Red/green validation: close-only cleanup produced four expected failures in the repeated-window and worker-order regressions. All four lifecycle tests pass with the helper; all 65 focused GUI tests pass in 70.663s with no skips. Optional-Qt-absent discovery skips those 65 tests cleanly.
-- Independent patch review found no actionable issue; representative comparison, managed-refresh and timeline-dialog tests each leave zero Qt widgets. Production code, existing assertions and CI timeouts are unchanged.
-- Complete canonical validation: all 198 tests pass in 81.669s with no skips and exit status 0. The original baseline also completed: 194 tests passed in 527.235s, no skips, exit status 0. Compilation, source app-entry smoke verification and diff checks pass.
-- Brooks PR review of the completed patch: 100/100, no actionable findings; all changed fixtures retain their application assertions and optional-Qt import guards. No production code, dependency or workflow-timeout change is needed.
-- Saved implementation as 8e409cd on codex/complete-gui-regression-validation and opened [PR #20](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20) against main.
-- CI Verify [run 35546162895](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/runs/35546162895) passed every step on 8e409cd, including the dependency audit, all 198 tests in 59.417s, compilation and diff checks.
-- Codex [review of 8e409cd](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20#issuecomment-5753693701) found no major issues; no actionable review threads, reactions to fixes or conflict resolutions were needed. GitHub reported CLEAN/MERGEABLE. The PR remains unmerged; current hosted status is authoritative for the final documentation commit.
+## Validation record
+- PR #19: https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/19
+- Final pre-merge CI: https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/runs/35261611526
+- Before this rollout, the local bundle was version 0.9.1/build 13 and predated the final review fixes. Rebuilding retained that version; the source commit and installation verification identify this rollout.
+- The locked build from 7d8a91c completed with Python 3.11; deep/strict signature verification and built/installed offscreen smoke checks passed.
+- All 10 focused managed-loading, feedback, timeline and calendar-validation regressions passed. Compilation and documentation diff checks passed. The unchanged production code retains the merged head's full-suite evidence above.
+- The installed bundle was compared with the new build across every file and symlink; the previous bundle was preserved and compared with its pre-update inventory. A local installation receipt records source revision and executable identity outside Git.
+- Native installed-app acceptance passed: automatic loading, overview charts, timeline navigation, original-set drill-down and latest-mapped weekly feedback. Existing feedback was opened without editing, and the app was left on Overview.
+- Read-only real-workspace validation and an isolated workspace-copy exercise passed: automatic startup, all lift charts, set inspection, saved-context toggle, and feedback save/reload/restart. Existing unrelated notes were preserved and every configured block passed calendar eligibility checks. The temporary workout copy was removed.
+- Original-file hashes, modification times and symlink targets matched before and after validation; a follow-up integrity check also passed after native installed-app inspection.
+- One pre-existing conflicting day snapshot remains visible for deliberate source review. No conflicting workouts, block dates or private annotations were modified, and no private dataset details enter this documentation change.
+- The user approved the rollout documentation branch. Detailed source-conflict comparison is a separate read-only follow-up; its private results remain outside Git.

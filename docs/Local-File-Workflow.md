@@ -54,6 +54,25 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
 5. To copy logged sets into a coach workbook, open MacroFactor Workout Bridge and choose the second top-level tab, **Update coach workbook**. Select `current/Coach Program - Current.xlsx` plus `current/MacroFactor Exercise Log - Current.csv` or `.xlsx`. These stable shortcuts are updated by the archive command. Click **Load workbook weeks**, select the worksheet and coach week, confirm the workout dates, then choose **Preview workbook changes**.
 6. Click **Save updated workbook copy…** and save the new workbook under `local-data/generated/workbooks/`, with its JSON report under `local-data/generated/reports/`. Logged sets are copied into the selected week in this new workbook; the original workbook and export stay unchanged. This optional update is not required to use **Dashboard** or **Weekly feedback**.
 
+## Updating the local app after a merge
+
+Merging a PR updates source code; it does not update an existing `.app`. To install the reviewed changes:
+
+1. Save pending training notes and quit the app. Identify the bundle you normally open, and copy it to a private backup outside `dist/` before building.
+2. Use a clean checkout containing the intended merged commit. Record that commit locally, then run `./scripts/build_macos_app.sh` from that checkout. The script rebuilds and verifies `dist/MacroFactor Workout Bridge.app`.
+3. Check the new bundle's embedded Qt runtime:
+
+   ```bash
+   QT_QPA_PLATFORM=offscreen \
+     "dist/MacroFactor Workout Bridge.app/Contents/MacOS/MacroFactor Workout Bridge" \
+     --smoke-test
+   ```
+
+4. If your normal installation is elsewhere, copy the verified bundle to that existing app path. Replace only the `.app`; preserve `local-data`, the local exercise mapping, saved annotations, and app preferences. No data migration or settings reset is needed for this dashboard update.
+5. Launch the installed copy. Confirm automatic loading and expected history coverage in **Source status…**. Check block dates in **Training notes**, chart trends, original-set drill-down, and existing **Weekly feedback**. Test saving and reopening feedback in a temporary workspace copy with isolated preferences, so acceptance checks do not add test notes to personal history. Keep the old bundle until these checks pass.
+
+The smoke test creates a window without loading history; it does not verify real-data behavior. Version `0.9.1` / build `13` also appeared before the final PR review fixes, so version text alone does not identify the installed code. Retain the source commit and compare the built and installed executable hashes when recording an update. Keep app bundles, workspace copies, private validation reports, and screenshots out of Git and public uploads.
+
 ## Dashboard workflow
 
 ### Automatic mode (0.9.1)
