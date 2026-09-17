@@ -30,7 +30,7 @@ def block_issue(dashboard: HistoryDashboard, block: BlockSummary) -> str:
         return "Needs a start date"
     if block.start_date.weekday() != 0:
         return "Needs a Monday start"
-    if not block.week_labels or len(set(block.week_labels)) != len(block.week_labels):
+    if not block.week_labels or len({label.casefold() for label in block.week_labels}) != len(block.week_labels):
         return "Needs unique coach weeks"
     if block.name in dashboard.overlapping_blocks:
         return "Overlapping block dates"

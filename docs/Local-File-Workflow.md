@@ -74,6 +74,8 @@ The same external-change check protects **Save training notes** in manual mode. 
 
 **Weekly feedback** searches logged weeks from newest to oldest and opens the first week mapped to a selectable coach block. Newer unmapped workouts do not send feedback to an arbitrary old selection. If no logged week is mapped, the app asks you to confirm block dates and leaves the current view and selection unchanged. Existing unsaved feedback always takes priority and stays in its current form.
 
+Calendar mapping and block progress views require a confirmed Monday start, nonoverlapping dates and unique coach-week labels (case-insensitively). Invalid blocks remain visible for correction, but do not supply mapped context or authoritative block averages. This applies to logged weeks as well as gaps in logging.
+
 Snapshot reconciliation compares accepted nonfinite numeric values using stable tokens, retaining distinctions such as NaN versus sNaN and positive versus negative infinity. This prevents repeated exports from crashing or producing false conflicts; original record values and genuine repeated sets remain intact, and nonfinite weights still do not enter weight-based metrics.
 
 If a protected regular file blocks a managed `current/` shortcut, automatic refresh continues to report the obstruction and never overwrites it. After you move the obstruction out of the way, the next refresh repairs the shortcut from verified archives without creating an empty ingest manifest. Healthy shortcuts are left unchanged.

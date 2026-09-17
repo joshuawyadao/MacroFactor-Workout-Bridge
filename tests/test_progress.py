@@ -67,6 +67,24 @@ class ProgressTests(unittest.TestCase):
         self.assertEqual(report.coverage, "Outside export date range")
         self.assertIsNone(report.sets_per_week)
 
+    def test_case_only_duplicate_labels_have_no_authoritative_block_metrics(self):
+        original_archive = block_reports(self.dashboard)[1]
+        blocks = tuple(replace(block, week_labels=("Week 10", "week 10", "Week 12"))
+                       if block.name == "Training Block" else block for block in self.dashboard.blocks)
+        dashboard = replace(self.dashboard, blocks=blocks)
+
+        training, archive = block_reports(dashboard)
+
+        self.assertEqual(training.issue, "Needs unique coach weeks")
+        self.assertEqual(training.coverage, training.issue)
+        self.assertEqual(training.weeks, ())
+        self.assertEqual(training.complete_week_count, 0)
+        self.assertIsNone(training.sets_per_week)
+        self.assertIsNone(training.days_per_week)
+        self.assertIsNone(training.best_estimate(dashboard, "Tempo Back Squat"))
+        self.assertEqual(archive, original_archive, "A valid neighboring block remains unchanged")
+        self.assertEqual(archive.best_estimate(dashboard, "Tempo Back Squat"), Decimal("583.3"))
+
     def test_workload_uses_full_weeks_and_retains_no_log_gaps(self):
         weeks = calendar_weeks(self.dashboard)
         self.assertEqual(len(full_weeks(self.dashboard, weeks)), 4)
