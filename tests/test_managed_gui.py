@@ -1,5 +1,6 @@
 import importlib.util
 import os
+from dataclasses import replace
 from pathlib import Path
 import tempfile
 import time
@@ -82,6 +83,30 @@ class ManagedGuiTests(unittest.TestCase):
         self.wait_for(lambda: self.window._history_dashboard.set_count == 8)
         saved = load_dashboard_annotations(self.root / "annotations/workout-history.json")
         self.assertEqual(saved.blocks["Archive"].weeks[selected_week].notes, "Felt recovered after travel")
+
+    def test_weekly_feedback_uses_latest_logged_mapped_week_after_unmapped_workouts(self):
+        write_export(self.root / "inbox/macrofactor/unmapped-latest.csv", [
+            "2026-11-02,Day A,Tempo Back Squat,Standard Set,510,5,2",
+        ])
+        self.window.managed.poll()
+        self.wait_for(lambda: self.window._history_dashboard.set_count == 8)
+        self.window.history_block_combo.setCurrentText("Training Block")
+        self.window.managed.open_feedback()
+        self.assertEqual(self.window.history_block_combo.currentText(), "Archive")
+        self.assertEqual(self.window.history_week_combo.currentText(), "Week 9")
+        self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.window.history_context_page)
+
+    def test_weekly_feedback_without_any_mapped_week_does_not_open_an_unrelated_form(self):
+        dashboard = self.window._history_dashboard
+        self.window._history_dashboard = replace(
+            dashboard, blocks=tuple(replace(block, start_date=None) for block in dashboard.blocks),
+        )
+        self.window.history_analysis_tabs.setCurrentWidget(self.window.history_home)
+        selected = (self.window.history_block_combo.currentText(), self.window.history_week_combo.currentText())
+        self.window.managed.open_feedback()
+        self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.window.history_home)
+        self.assertEqual((self.window.history_block_combo.currentText(), self.window.history_week_combo.currentText()), selected)
+        self.assertIn("No logged week", self.window.managed.status.text())
 
     def test_edits_started_while_loading_are_not_discarded_on_result(self):
         controller = self.window.managed

@@ -1,6 +1,5 @@
 """Desktop coordination for managed history; scanning runs off the UI thread."""
 
-from datetime import timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QSettings, QThreadPool, QTimer, Signal
@@ -61,7 +60,7 @@ class ManagedHistoryController(QObject):
         bar.addWidget(self.health)
         bar.addStretch()
         self.feedback = QPushButton("Weekly feedback")
-        self.feedback.setToolTip("Open saved context for the export's latest logged Monday–Sunday week.")
+        self.feedback.setToolTip("Open the latest logged Monday–Sunday week mapped to a coach block.")
         self.feedback.clicked.connect(self.open_feedback)
         bar.addWidget(self.feedback)
         self.data_button = QToolButton()
@@ -290,13 +289,16 @@ class ManagedHistoryController(QObject):
             self._message("Load history before entering weekly feedback.")
             return
         if not self.feedback_dirty():
-            monday = dashboard.last_workout - timedelta(days=dashboard.last_workout.weekday())
-            block, week = week_location(dashboard, ExplorerWeek(monday, None))
-            if w.history_block_combo.findText(block) < 0:
-                self._message("The latest logged week is not mapped to a coach block. Confirm its block dates in Training notes.")
-            else:
+            for monday in sorted({trend.week_start for trend in dashboard.weekly_trends}, reverse=True):
+                block, week = week_location(dashboard, ExplorerWeek(monday, None))
+                if w.history_block_combo.findText(block) < 0:
+                    continue
                 w.history_block_combo.setCurrentText(block)
                 w.history_week_combo.setCurrentText(week)
+                break
+            else:
+                self._message("No logged week maps to a coach block. Confirm block dates in Training notes before entering weekly feedback.")
+                return
         w.history_analysis_tabs.setCurrentWidget(w.history_context_page)
         w.history_week_notes.setFocus()
 
