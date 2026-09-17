@@ -85,6 +85,32 @@ class BasePrescriptionOverride:
 
 
 @dataclass(frozen=True)
+class ProgramExpansionExercise:
+    canonical: str
+    sets: int
+    macrofactor_custom: bool = False
+    macrofactor_available: bool = True
+
+
+@dataclass(frozen=True)
+class ProgramExpansion:
+    expected_variation: str
+    expected_sets: str
+    exercises: tuple[ProgramExpansionExercise, ...]
+
+
+@dataclass(frozen=True)
+class ExpansionProvenance:
+    parent_canonical: str
+    child_order: int
+    child_count: int
+    expected_variation: str
+    expected_sets: str
+    sets_each: int
+    execution: str = "sequential"
+
+
+@dataclass(frozen=True)
 class CyclePrescription:
     cycle: str
     set_count: PrescriptionField
@@ -124,6 +150,7 @@ class OrderedExercise:
     optional: bool = False
     warmup: bool = False
     cardio: bool = False
+    expansion: ExpansionProvenance | None = None
 
 
 @dataclass(frozen=True)

@@ -13,12 +13,14 @@ from .ooxml import (
     WorkbookError,
     MAIN_NS,
     XlsxPackage,
+    SheetSnapshot,
     make_cell_reference,
     split_cell_reference,
     split_range,
 )
 from .program_models import (
     CyclePrescription,
+    ExpansionProvenance,
     OrderedExercise,
     PrescriptionField,
     Program,
@@ -1140,6 +1142,68 @@ def _day_designation(snapshot, day: _DayLayout) -> tuple[str | None, str | None,
     return _raw(cell), reference, False
 
 
+def _expand_program_exercise(
+    exercise: OrderedExercise, rule: ExerciseRule | None, snapshot: SheetSnapshot,
+    day: _DayLayout, sheet: str, issues: list[ProgramIssue],
+) -> tuple[OrderedExercise, ...]:
+    """Expand one reviewed base row without inferring allocation or supersets."""
+    expansion = rule.program_expansion if rule else None
+    if expansion is None or exercise.excluded:
+        return (exercise,)
+    variation_column = day.columns.get("variation", day.columns["exercise"])
+    guard_cells = [snapshot.cells.get(make_cell_reference(exercise.source_row, column))
+                   for column in (variation_column, day.columns["sets"])]
+    guards_match = (
+        exercise.raw_base_fields.get("variation") == expansion.expected_variation
+        and exercise.raw_base_fields.get("sets") == expansion.expected_sets
+        and all(cell is not None and cell.formula is None for cell in guard_cells)
+    )
+    unsupported = exercise.superset is not None or any(
+        rx.set_rep_targets or rx.set_types or rx.set_type.value != "standard"
+        for rx in exercise.prescriptions
+    )
+    code = ("stale_program_expansion" if not guards_match else
+            "unsupported_program_expansion" if unsupported else "reviewed_program_expansion")
+    issues.append(ProgramIssue(
+        severity="warning" if guards_match and not unsupported else "blocking", code=code,
+        message=("Reviewed source row expanded into independent sequential exercises with explicit sets each"
+                 if code == "reviewed_program_expansion" else
+                 "Expansion source guards no longer match literal coach cells; retaining unsplit source row"
+                 if code == "stale_program_expansion" else
+                 "Sequential expansion cannot allocate per-set targets, special sets or supersets"),
+        sheet=sheet, cell=exercise.source_cell, day=day.label, exercise=exercise.coach_name,
+        raw_text=exercise.raw_base_fields.get("variation"),
+    ))
+    if not guards_match or unsupported:
+        return (exercise,)
+    children = []
+    for index, child in enumerate(expansion.exercises, start=1):
+        prescriptions = tuple(replace(rx, set_count=PrescriptionField(
+            child.sets, "config_program_expansion",
+            make_cell_reference(exercise.source_row, day.columns["sets"]), expansion.expected_sets,
+        )) for rx in exercise.prescriptions)
+        children.append(replace(
+            exercise, order=exercise.order + index - 1, macrofactor_name=child.canonical,
+            mapping_status="exact_expansion", prescriptions=prescriptions,
+            custom_exercise=child.macrofactor_custom, macrofactor_available=child.macrofactor_available,
+            expansion=ExpansionProvenance(rule.canonical, index, len(expansion.exercises),
+                                          expansion.expected_variation, expansion.expected_sets, child.sets),
+        ))
+        if child.macrofactor_custom:
+            issues.append(ProgramIssue(
+                severity="warning", code="custom_macrofactor_exercise",
+                message=f"Confirm expanded custom exercise already exists in MacroFactor: {child.canonical}",
+                sheet=sheet, cell=exercise.source_cell, day=day.label, exercise=exercise.coach_name,
+            ))
+        if not child.macrofactor_available:
+            issues.append(ProgramIssue(
+                severity="blocking", code="unavailable_macrofactor_exercise",
+                message=f"Expanded MacroFactor exercise is marked unavailable: {child.canonical}",
+                sheet=sheet, cell=exercise.source_cell, day=day.label, exercise=exercise.coach_name,
+            ))
+    return tuple(children)
+
+
 def parse_coach_program(
     path: str | Path,
     config: BridgeConfig,
@@ -1370,6 +1434,9 @@ def parse_coach_program(
                         cardio=cardio,
                     )
                 )
+                expanded = _expand_program_exercise(day_exercises[-1], rule, snapshot, day, sheet_name, issues)
+                day_exercises[-1:] = expanded
+                exercise_order += len(expanded) - 1
         _validate_day_supersets(
             day=day,
             exercises=day_exercises,

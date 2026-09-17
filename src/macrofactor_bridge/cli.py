@@ -153,6 +153,10 @@ def _print_program_report(report) -> None:
                 if exercise.excluded:
                     flags.append("excluded")
                 print(f"    {exercise.coach_name} -> {mapped} ({', '.join(flags)})")
+                if exercise.expansion:
+                    expansion = exercise.expansion
+                    print(f"      Sequential expansion {expansion.child_order}/{expansion.child_count} "
+                          f"from {exercise.source_cell}: {expansion.sets_each} sets for this exercise; no superset")
                 for prescription in exercise.prescriptions:
                     rep_value = (
                         "missing"

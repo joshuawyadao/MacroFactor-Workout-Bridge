@@ -217,6 +217,23 @@ For a reviewed base-cell correction, `program_base_overrides` accepts only `sets
 
 Corrections carry `config_reviewed_override` provenance and warnings. A changed source string blocks as `stale_base_override`; unsupported replacements remain blocked even with blank-target policy. Date-formatted rep cells still require human review rather than interpreting a date serial as reps. No correction changes the coach workbook.
 
+#### Reviewed sequential exercises from one row
+
+In base-prescription mode, one exact exercise rule can explicitly expand a combined coach row into **two independent, ordered exercises**. Each child requires its own exact MacroFactor name and positive set count; the count is for that child, not a total to divide. Keep this block-specific configuration private:
+
+```json
+"program_expansion": {
+  "expected_variation": "Coach combined movement",
+  "expected_sets": "2",
+  "exercises": [
+    {"canonical": "Synthetic First", "sets": 2},
+    {"canonical": "Synthetic Second", "sets": 2}
+  ]
+}
+```
+
+Both guards must match literal source text exactly. Preview retains the original row/cells/raw text, reports `exact_expansion`, child order and `config_program_expansion` set-count provenance, and shows a review warning. Shared rep/rest/RIR targets and notes are preserved. No superset is inferred. Stale/formula-driven guards, per-set rep lists, special-set sequences and source supersets block rather than allocating them. Configured supersets, set-count overrides and inclusion/exclusion exceptions cannot accompany expansion. Optional child `macrofactor_custom`/`macrofactor_available` booleans retain the existing warning/blocking behavior; specify these on each child, not the parent. Child names do not enter Part 1's result alias index.
+
 #### Other import policies
 
 For an import that carries coaching instructions in notes and leaves unspecified targets editable, these opt-in settings are available:

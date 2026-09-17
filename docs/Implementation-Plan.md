@@ -1,10 +1,27 @@
 # Plan
 
-Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the 0.3.0 safety contract from PR #10 (`11fd219`) and the dependency-audit hardening now on `origin/main` (`d3b8a23`).
+Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the Part 1 safety contract and existing Part 2 history. The current follow-up records scoped user approval, validates the next chronological block, and coordinates desktop preview/generation. Preserve the newer read-only history dashboard and layout fixes now on `origin/main` (`7d8a91c`, including PR #19) when updating the feature branch.
 
 ## Scope
-- In: the completed Part 2 preview foundation; read-only validation of the supplied direct export; an anonymized template fixture; dynamic template-schema inspection; template-aware preview hashes and blockers; conservative CLI generation for programs whose selected cycles have identical prescriptions, with guarded opt-in workout-row resizing; reconciliation against the earliest private coach block; OOXML integrity checks; tests, documentation, issue updates, and draft-PR checkpoints.
-- Out: extrapolating a periodized multi-cycle layout not present in the verified export, unsupported set types or set-column expansion, MacroFactor compatibility claims before manual import, desktop Part 2 mode, Google Drive, private-service or phone automation, private workbook artifacts, and merging the feature branch.
+- In: the existing conservative Python/OOXML CLI workflow; the next chronological block's private mapping review and guarded generation; desktop program preview followed by generation/manual-import handoff; reconciliation with newer history features; anonymized tests, docs, issue updates and reviewable feature-branch checkpoints.
+- Out: invented exercise identities or prescription decisions, unverified periodized/native-minimum/drop-set encodings, set-column expansion, broad compatibility claims, Google Drive, private-service or phone automation, committing private artifacts, and modifying or merging into main.
+
+## Current follow-up action items
+
+[x] Inspect the next chronological block read-only with the existing parser and spreadsheet reference tooling. Preserve base/weekly/result separation and the source hash; keep all identifying findings in ignored private review material.
+[x] Inspect desktop integration and test seams independently. The existing preview/generation services remain authoritative; no spreadsheet runtime dependency enters production.
+[x] Inspect GitHub status and fetch origin. The feature branch is clean before this plan update, but PR #13 has conflicts with the newly merged history dashboard/layout work. Do not overwrite those features.
+[x] Receive approval for the proposed known-identity mappings, guarded corrections, split-prescription intent and three-issue breakdown. Keep identifying choices private; explicit sequential execution is not native superset authorization.
+[x] Verify exact MacroFactor names for the remaining new variations using the newly supplied direct export. All seven identities are present in the user-specified order; the read-only reference hash is unchanged. Keep identities and evidence private and use the earlier full-layout export for generation.
+[x] Record the user's approval of the latest earliest-block candidate as scoped manual-validation evidence in issue #12 and this plan. Issue #12 is closed for its satisfied direct-template/earliest-candidate criteria; later blocks and unverified encodings are not covered. Include the redacted outcome in the next PR checkpoint.
+[x] Publish approved vertical slices linked to this plan: [next-block review/export #16](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/16), [desktop preview #17](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/17), and [desktop generation/manual-import handoff #18](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/18). Dependencies are #16 → #17 → #18. Mark #16 as needing input and the fully specified desktop issues ready for an agent only after their dependencies and ownership coordination are satisfied. Keep PR conflict/review cleanup on PR #13.
+[ ] Before desktop integration, update the feature branch from origin/main while preserving history features and resolving shared-file conflicts. Defer reconciliation until after this isolated conversion-core checkpoint to avoid overlapping the active desktop task. Use the applicable conflict/review workflow; never merge into main or merge the PR.
+[x] Add approved block-specific aliases, residual cues and guarded corrections in separate ignored configuration. Implement `program_expansion` for two sequential children with exact literal variation/set guards, explicit counts, provenance and independent availability checks. Reject per-set target allocation, special sets, supersets, stale/formula guards and incompatible policies. Preserve Part 1 behavior and the approved earlier configuration.
+[x] Generate one distinct next-block candidate after its preview has no blockers. Independently check every prescribed target, set sequence, cycle/day count, note and identity, plus input/prior-output hashes, non-overwrite and unrelated OOXML preservation. Manual import remains pending in #16.
+[ ] Coordinate #17 with the active desktop/dashboard workstream: integrate a program-preview mode into the existing app, not a second shell. Include coach/config/template inputs, dynamic worksheet/block/week selection, full warning/raw-text/provenance review and visible generation gating. Keep independent mode state; edits invalidate previews and stale discoveries. Use synthetic model/GUI tests for safe and blocked paths. Agree shared-file ownership before any UI edits.
+[ ] Coordinate #18 with the same desktop workstream for guarded generation and exclusive JSON-report saving through the conversion services. Require distinct non-existing paths, avoid output defaults inside read-only input locations, verify inputs at generation, and show the manual-import boundary. Preserve result transfer, history, annotations/settings, navigation and packaging; do not replace the installed app without a separate request.
+[x] Update README, local workflow guidance, CLI expansion wording and this plan; run targeted tests, the canonical suite, compilation, configuration parity, privacy and diff checks. GUI wording remains with the desktop owner.
+Final save and handoff: use `save-branch` for this validated conversion-core checkpoint, then update draft PR #13 and the desktop owner with its interface delta. PR conflict/review cleanup remains outstanding before desktop integration; do not merge or overstate validation.
 
 ## Action items
 [x] Reconcile Part 1 issues #1–#4 against implementation and test evidence, and replace stale PR #10/#11 status with a durable baseline summary.
@@ -16,7 +33,7 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Add anonymized tests for shifted layouts, block/day/week selection, planned/result separation, supported parsing, raw retention, conflicts, defaults, exact mapping, exclusions, custom exercises, and ordered supersets while preserving Part 1 assertions.
 [x] Update README, local workflow guidance, CLI help, and the implementation plan to explain the manual import boundary, private-template workflow, and remaining generator/desktop validation gates.
 [x] Run targeted tests, `./scripts/test.sh`, source compilation, configuration parity, privacy/diff checks, and review the implementation against every conservative parsing risk.
-[ ] Publish the remaining vertical-slice issues after the proposed `to-issues` breakdown is approved.
+[x] Publish the approved remaining vertical-slice issues as #16–#18, linked to this plan and scoped to the existing app.
 [x] Save the feature branch and open draft PR #13 without merging or marking Part 2 complete.
 [x] Verify the newly supplied workbook as a direct MacroFactor Export Program file and inspect it read-only without retaining private names or values.
 [x] Add a neutral template-schema model and inspector that discovers metadata, block/cycle headers, workout row groups, set columns, and formatting capacity without fixed cell coordinates.
@@ -34,7 +51,20 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
 
 ## Open questions
-- None for this slice. The latest manual-import feedback supersedes one prior private set-count override. Restore that exercise's coach-base count and preserve all other reviewed choices. Exact reps still use equal bounds; minimum-only instructions remain in notes with blank targets.
+- None for the next-block implementation and candidate. Manual import of that new candidate remains a subsequent validation step.
+
+The direct-export identity evidence clears the `plan-implement-save` clarification gate. Explicit sequential expansion is implemented and tested only for reviewed base prescriptions. The scoped earliest-block approval is recorded in closed issue #12; next-block manual validation remains #16.
+
+### Desktop coordination boundary
+
+The task titled “Part 3: Plan workout trends dashboard” owns desktop/dashboard development. With explicit user approval, #17/#18 and the conversion-service interface were sent there; it acknowledged ownership and reported its Dashboard-first checkpoint with 177 tests. Its subsequent PR #19 is now on main. This workstream owns conversion core and #16; it has made no desktop, navigation, packaging or installation changes. Coordinate a reconciled integration baseline explicitly and preserve all ongoing user work. The additive core interface change is `ExerciseRule.program_expansion`, `OrderedExercise.expansion`, `exact_expansion` mapping status and `config_program_expansion` provenance; public service signatures are unchanged.
+
+### Next-block checkpoint verification
+
+- Twelve new synthetic tests in `tests/test_program_expansion.py` cover strict configuration, two independent exercises, exact/formula guards, raw provenance, custom/unavailable children, unsupported per-set/superset/special instructions, CLI output, capacity, immutable inputs and output non-overwrite. A dedicated Part 1 preview/apply regression produces identical package contents with and without the Part 2 option.
+- All 99 focused Part 2 tests and all 175 canonical tests pass. Compilation, example/resource configuration parity, `git diff --check` and ignored-private-path checks pass. Independent review confirmed the fail-closed design; its narrow-scope and provenance recommendations were incorporated.
+- The private candidate passes every independently reviewed prescription/identity check and a 564-cell structural round trip. Only the intended worksheet/shared-string members change. All five source/reference workbooks, private configurations and prior candidates retain their hashes. The new sparse export is identity evidence, not a substitute full-layout template.
+- Production remains Python/OOXML. Spreadsheet tooling only inspects references read-only. No private file, filename, hash, report, screenshot or personal mapping is committed. Manual import of this candidate and main/history reconciliation remain explicit gaps; Part 2 is not marked complete.
 
 ## Final private set-count correction
 

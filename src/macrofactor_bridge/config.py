@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .models import BridgeConfig, EmptyDayMarker, ExerciseRule
 from .program_models import (
-    BasePrescriptionOverride, ProgramConfig, ProgramDefaults,
+    BasePrescriptionOverride, ProgramConfig, ProgramDefaults, ProgramExpansion, ProgramExpansionExercise,
     VERIFIED_PROGRAM_COLORS, VERIFIED_PROGRAM_ICONS,
 )
 
@@ -42,6 +42,38 @@ def _optional_int(
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise ConfigError(f"{label}.{key} must be null or an integer >= {minimum}")
     return value
+
+
+def _load_program_expansion(payload: object) -> ProgramExpansion | None:
+    if payload is None:
+        return None
+    if not isinstance(payload, dict) or set(payload) != {"expected_variation", "expected_sets", "exercises"}:
+        raise ConfigError("program_expansion needs expected_variation, expected_sets and exercises")
+    if any(not isinstance(payload[key], str) or not payload[key].strip()
+           for key in ("expected_variation", "expected_sets")):
+        raise ConfigError("program_expansion source guards must be non-empty strings")
+    children = payload["exercises"]
+    if not isinstance(children, list) or len(children) != 2:
+        raise ConfigError("program_expansion needs exactly two ordered exercises")
+    parsed = []
+    identities = set()
+    for child in children:
+        if (not isinstance(child, dict) or not {"canonical", "sets"} <= set(child)
+                or set(child) - {"canonical", "sets", "macrofactor_custom", "macrofactor_available"}):
+            raise ConfigError("Each program_expansion exercise needs canonical and sets; only availability flags are optional")
+        name = child["canonical"]
+        count = child["sets"]
+        if not isinstance(name, str) or not name.strip() or normalize_name(name) in identities:
+            raise ConfigError("program_expansion exercise names must be non-empty and unique")
+        if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+            raise ConfigError("program_expansion sets must be a positive integer for each exercise")
+        custom = child.get("macrofactor_custom", False)
+        available = child.get("macrofactor_available", True)
+        if not isinstance(custom, bool) or not isinstance(available, bool):
+            raise ConfigError("program_expansion availability flags must be booleans")
+        identities.add(normalize_name(name))
+        parsed.append(ProgramExpansionExercise(name.strip(), count, custom, available))
+    return ProgramExpansion(payload["expected_variation"].strip(), payload["expected_sets"].strip(), tuple(parsed))
 
 
 def _load_program_config(
@@ -306,6 +338,14 @@ def load_config(path: str | Path) -> BridgeConfig:
             raise ConfigError(
                 f"Exercise rule {canonical!r} macrofactor_available must be a boolean"
             )
+        expansion = _load_program_expansion(raw.get("program_expansion"))
+        if expansion is not None:
+            if program_config.prescription_source != "base":
+                raise ConfigError("program_expansion currently requires base prescriptions")
+            if group or set_types or program_excluded or exclusion_reason is not None or include_warmup or "sets" in overrides:
+                raise ConfigError("program_expansion cannot accompany supersets, set-type sequences, exclusion/inclusion exceptions or set overrides")
+            if macrofactor_custom or not macrofactor_available:
+                raise ConfigError("Set program_expansion availability flags on each child, not the parent")
 
         aliases = tuple(dict.fromkeys([canonical, *source_aliases]))
         for alias in aliases:
@@ -339,6 +379,7 @@ def load_config(path: str | Path) -> BridgeConfig:
                 program_include_warmup=include_warmup,
                 program_base_overrides=tuple(parsed_overrides),
                 program_notes=tuple(v.strip() for v in program_notes) if program_notes is not None else None,
+                program_expansion=expansion,
             )
         )
 
