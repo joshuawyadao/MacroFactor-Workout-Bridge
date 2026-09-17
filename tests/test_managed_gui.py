@@ -126,6 +126,47 @@ class ManagedGuiTests(unittest.TestCase):
         controller._received(controller._token, None, "A file is still being copied")
         self.assertIs(self.window._history_dashboard, before)
         self.assertIn("previous data was not replaced", controller.status.text())
+        self.assertFalse(controller.status.isHidden())
+        self.assertIn("needs attention", controller.health.text())
+
+    def test_compact_toolbar_hides_duplicate_controls_but_keeps_data_menu(self):
+        controller = self.window.managed
+        self.assertTrue(self.window.history_load_button.isHidden())
+        self.assertTrue(self.window.history_sources_toggle.isHidden())
+        self.assertTrue(self.window.history_overview.isHidden())
+        self.assertTrue(self.window.history_status.isHidden())
+        self.assertTrue(controller.status.isHidden())
+        self.assertIn("Auto", controller.health.text())
+        actions = {action.text(): action for action in controller.data_menu.actions()}
+        self.assertTrue(actions["Auto-load inboxes"].isChecked())
+        self.assertTrue(actions["Refresh inboxes"].isEnabled())
+        self.assertIn("Choose workspace…", actions)
+        actions["Source status…"].trigger()
+        self.assertIsNotNone(controller._report_dialog)
+        controller._report_dialog.close()
+        actions["Select files manually…"].trigger()
+        self.assertFalse(controller.enabled)
+        self.assertFalse(self.window.history_load_button.isHidden())
+        self.assertFalse(self.window.history_sources.isHidden())
+        self.assertTrue(self.window.history_sources.isEnabled())
+
+    def test_secondary_views_are_reachable_and_active_view_stays_visible(self):
+        tabs = self.window.history_analysis_tabs
+        self.assertEqual([tabs.isTabVisible(i) for i in range(tabs.count())], [True, True, True, False, False, False])
+        self.window.history_week_notes.setText("Keep my pending feedback")
+        tabs.secondary_actions[4].trigger()
+        self.assertIs(tabs.currentWidget(), self.window.history_comparison)
+        self.assertTrue(tabs.isTabVisible(4))
+        self.assertTrue(tabs.secondary_actions[4].isChecked())
+        self.window.managed.feedback.click()
+        self.assertIs(tabs.currentWidget(), self.window.history_context_page)
+        self.assertTrue(tabs.isTabVisible(5))
+        self.assertFalse(tabs.isTabVisible(4))
+        self.assertEqual(self.window.history_week_notes.text(), "Keep my pending feedback")
+        self.assertFalse(self.window.history_status.isHidden())
+        tabs.setCurrentWidget(self.window.history_home)
+        self.assertFalse(tabs.isTabVisible(5))
+        self.assertTrue(self.window.history_status.isHidden())
 
     def test_minimum_window_auto_controls_and_source_report(self):
         self.window.resize(900, 680)
@@ -150,7 +191,7 @@ class ManagedGuiTests(unittest.TestCase):
         for first, second in zip(home.report_cards, home.report_cards[1:]):
             self.assertLess(first.geometry().right(), second.geometry().left())
         for card in home.cards:
-            self.assertLess(card.chart.geometry().bottom(), card.button.geometry().top())
+            self.assertLess(card.button.geometry().bottom(), card.chart.geometry().top())
         self.assertGreater(home.widget().height(), home.viewport().height())
 
 

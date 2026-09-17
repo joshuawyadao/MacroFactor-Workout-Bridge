@@ -1,27 +1,26 @@
 # Plan
 
-Make the dashboard open from a remembered local-data workspace, automatically ingest new managed inbox exports, and explain source freshness/coverage without manual file hunting. Consolidate unambiguous workout-day snapshots while retaining provenance, private feedback, and manual overrides.
+Make the workout dashboard a calm, visual overview with progressive disclosure. Keep charts, a compact data-health indicator, and weekly feedback prominent; move maintenance and detailed analysis controls out of the default scan path without changing calculations or data safety.
 
 ## Scope
-- In: startup workspace discovery, remembered folder, background refresh on managed-file changes, immutable archival of new inbox content, broad-history/newest-export flags, conservative overlap reconciliation, source status/conflict UI, weekly-feedback shortcut, tests/docs, versioned build, commit and push.
-- Out: cloud/MacroFactor API access, scanning arbitrary Downloads files, guessed deletions or conflict resolution, changing original workbooks/exports, automatic feedback submission, PR/merge.
+- In: compact managed toolbar and Data menu, fewer visible analysis tabs, quiet clickable lift/block headings, concise card copy, collapsed detailed notes and methodology, accessible keyboard navigation, GUI regressions, documentation, versioned build, commit and push.
+- Out: new metrics or predictions, source selection/consolidation changes, private-data edits, automatic installation, PR/merge.
 
 ## Action items
-[x] Inspect history/importer, archive selection, desktop feedback/load flows, existing tests, README and Local-File-Workflow.
-[x] Add managed-source discovery and conservative day-snapshot consolidation with content deduplication, validation, source provenance, and explicit conflict/coverage diagnostics.
-[x] Archive only new inbox content and reuse verified archives; keep manual weekly-bridge behavior unchanged and reject unsafe managed paths.
-[x] Add remembered workspace/autoload controls, background startup/change refresh, source status, manual override, and a latest-logged-week feedback shortcut.
-[x] Protect unsaved feedback and stale asynchronous results; cover duplicates, overlapping corrections, newer narrow exports, malformed/changing files, missing roots, and restart idempotence with model/GUI tests.
-[x] Update README, Local-File-Workflow and version metadata; run targeted/full tests, source-hash and real-workspace checks, visual QA, packaging/signature/smoke checks.
-[x] Commit and push scoped changes using save-branch; keep private snapshots, preferences, inputs, and generated bundles outside Git.
+[x] Inspect README, Local-File-Workflow, desktop/navigation, managed loading, dashboard cards, theme, and existing GUI tests.
+[x] Consolidate normal managed mode into one compact toolbar; move refresh/workspace/source controls into Data and retain actionable error/feedback notices.
+[x] Keep Dashboard, Training timeline and Explore exercise visible; put secondary analysis/context views in More with a clear active-view indicator.
+[x] Simplify lift/block cards and supporting sections using quiet, keyboard-operable drill-down targets and on-demand details; preserve coverage, units, exact variations and missing-data semantics.
+[x] Add regression tests for menu reachability, advanced navigation, unsaved feedback, card interactions, hidden details and small-window/background layout.
+[x] Update README and Local-File-Workflow, bump version metadata, run targeted/full tests and visual QA at 1120×820 and 900×680, then package and smoke/signature-check the app.
+[x] Commit and push scoped changes with save-branch; leave private data and generated builds out of Git.
 
 ## Open questions
-- None. Prefer the broadest observed clean history as baseline (not a claim of complete logging), add new dates and exact multiset supersets, never sum duplicate export snapshots, and flag incompatible same-day sets for review. Newest coach selection uses recorded source modification time and validation, not filename guessing. Background refresh pauses while feedback is unsaved. Only managed folders are scanned; the explicitly supplied September CSV can be copied into its intended inbox without changing the original.
+- None. The user wants fewer visible controls, not removed functionality. Keep important warnings discoverable and explicit, and preserve original inputs and saved feedback. The installed copy remains unchanged until replacement is requested.
 
 ## Verification notes
-- `scripts/test.sh`: all 167 tests passed; `git diff --check` passed.
-- Added model tests in `tests/test_managed_history.py` and background/UI regression tests in `tests/test_managed_gui.py`, including feedback preservation and post-show scroll layout.
-- Real managed-workspace check: seven unique exports, 2,461 completed sets over 115 logged days, January 5–September 11, 2026. One incompatible older day snapshot is flagged rather than merged. Latest valid coach workbook selected automatically.
-- Copied only the user-supplied September CSV into the MacroFactor inbox. Hash checks confirmed all original inbox files, the Downloads source, mapping, and saved annotations were unchanged; no weekly feedback was submitted during QA.
-- Verified automatic startup, source report, latest-week shortcut, and screenshots at 1120×820 and 900×680. Fixed dynamic scroll sizing after background loads and added a regression test.
-- Packaged 0.8.0 (build 11), passed offscreen application smoke test and strict/deep code-signature verification. The installed copy is not replaced by this implementation workflow.
+- `scripts/test.sh`: all 175 tests passed. Six card tests also passed after final label polish. `git diff --check`, packaged GUI smoke test, and deep/strict code-signature verification passed.
+- Updated `tests/test_managed_gui.py` for compact toolbar, Data-menu actions, secondary-view navigation, visible errors and preserved unsaved feedback. Added `tests/test_clean_cards.py` for quiet keyboard-operable headings, disclosure, exact metrics, unavailable values and background layout.
+- Visual QA: real data at 1120×820 and 900×680, Data/More menus, expanded details and latest-week feedback. Still displays 2,461 completed sets from seven exports; one existing conflict stays visible. QA used read-only archive access and verified the saved annotation hash was unchanged.
+- Removed duplicate automatic load/source controls and routine status prose; three primary history tabs remain visible. Secondary views gain a visible active tab when opened. Notes, methodology and exact values share one collapsed section.
+- Version 0.9.0/build 12 is packaged separately; the installed 0.8.0 app is unchanged.

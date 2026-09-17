@@ -4,9 +4,10 @@ from datetime import timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QSettings, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QLabel,
-    QPlainTextEdit, QPushButton, QVBoxLayout, QWidget, QMessageBox,
+    QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QLabel, QMenu,
+    QPlainTextEdit, QPushButton, QToolButton, QVBoxLayout, QWidget, QMessageBox,
 )
 
 from .explorer import ExplorerWeek, week_location
@@ -52,22 +53,36 @@ class ManagedHistoryController(QObject):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
         bar = QHBoxLayout()
-        self.auto = QCheckBox("Auto-load inboxes")
-        bar.addWidget(self.auto)
-        folder = QPushButton("Workspace…")
-        folder.clicked.connect(self.choose_workspace)
-        bar.addWidget(folder)
-        self.refresh_button = QPushButton("Refresh inboxes")
-        self.refresh_button.clicked.connect(lambda: self.refresh(force=True))
-        bar.addWidget(self.refresh_button)
-        self.sources_button = QPushButton("Source status…")
-        self.sources_button.clicked.connect(self.show_sources)
-        bar.addWidget(self.sources_button)
-        feedback = QPushButton("Weekly feedback →")
-        feedback.setToolTip("Open saved context for the export's latest logged Monday–Sunday week.")
-        feedback.clicked.connect(self.open_feedback)
-        bar.addWidget(feedback)
+        self.health = QPushButton("Local data")
+        self.health.setObjectName("quietButton")
+        self.health.setAccessibleName("Data status and source details")
+        self.health.clicked.connect(self.show_sources)
+        bar.addWidget(self.health)
         bar.addStretch()
+        self.feedback = QPushButton("Weekly feedback")
+        self.feedback.setToolTip("Open saved context for the export's latest logged Monday–Sunday week.")
+        self.feedback.clicked.connect(self.open_feedback)
+        bar.addWidget(self.feedback)
+        self.data_button = QToolButton()
+        self.data_button.setText("Data")
+        self.data_button.setAccessibleName("Data and source options")
+        self.data_button.setObjectName("quietButton")
+        self.data_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.data_menu = QMenu(self.data_button)
+        self.auto = QAction("Auto-load inboxes", self)
+        self.auto.setCheckable(True)
+        self.data_menu.addAction(self.auto)
+        self.refresh_button = self.data_menu.addAction("Refresh inboxes")
+        self.refresh_button.triggered.connect(lambda: self.refresh(force=True))
+        self.sources_button = self.data_menu.addAction("Source status…")
+        self.sources_button.triggered.connect(self.show_sources)
+        self.data_menu.addSeparator()
+        folder = self.data_menu.addAction("Choose workspace…")
+        folder.triggered.connect(self.choose_workspace)
+        self.manual_action = self.data_menu.addAction("Select files manually…")
+        self.manual_action.triggered.connect(self._manual_sources)
+        self.data_button.setMenu(self.data_menu)
+        bar.addWidget(self.data_button)
         layout.addLayout(bar)
         self.status = QLabel("Manual file selection. Enable automatic loading to use your managed folders.")
         self.status.setWordWrap(True)
@@ -86,7 +101,6 @@ class ManagedHistoryController(QObject):
         enabled = bool(autoload and (self.settings.value("automatic", True, type=bool) if self.settings else True))
         self.auto.setChecked(enabled)
         self.refresh_button.setEnabled(enabled)
-        self.sources_button.setEnabled(False)
         if enabled:
             QTimer.singleShot(0, self.refresh)
 
@@ -94,18 +108,33 @@ class ManagedHistoryController(QObject):
     def enabled(self):
         return self.auto.isChecked()
 
-    def _message(self, text):
+    def _message(self, text, *, concise=None, attention=False):
         self.status.setText(text)
         self.status.setToolTip(text)
+        self.status.setVisible(concise is None)
+        self.health.setText((concise or "Data needs attention") if self.enabled else "Manual data")
+        self.health.setToolTip(text + "\nClick for source details.")
+        self.health.setProperty("attention", attention or (concise is None and self.enabled))
+        self.health.style().unpolish(self.health)
+        self.health.style().polish(self.health)
+
+    def _manual_sources(self):
+        self.auto.setChecked(False)
+        self.window.history_sources_toggle.setChecked(True)
 
     def _mode_changed(self, enabled):
         self._token += 1
         self.window.history_sources.setEnabled(not enabled)
         self.window.history_load_button.setText("Refresh dashboard" if enabled else "Load history dashboard")
+        self.window.history_load_button.setVisible(not enabled)
+        self.window.history_sources_toggle.setVisible(not enabled)
+        self.window.history_overview.setVisible(not enabled)
+        self.window.history_status.setVisible(not enabled or self.window.history_analysis_tabs.currentWidget() is self.window.history_context_page)
         self.refresh_button.setEnabled(enabled)
         if self.settings:
             self.settings.setValue("automatic", enabled)
         if enabled:
+            self.window.history_sources_toggle.setChecked(False)
             self.timer.start()
             QTimer.singleShot(0, self.refresh)
         else:
@@ -176,7 +205,7 @@ class ManagedHistoryController(QObject):
         self._job = job
         job.result.ready.connect(self._received)
         self.refresh_button.setEnabled(False)
-        self._message("Checking inboxes and verified archives in the background…")
+        self._message("Checking inboxes and verified archives in the background…", concise="Checking inboxes…")
         QThreadPool.globalInstance().start(job)
 
     def _received(self, token, snapshot, error):
@@ -229,7 +258,15 @@ class ManagedHistoryController(QObject):
         self.fingerprint = snapshot.fingerprint
         self.note_saved()
         self.sources_button.setEnabled(True)
-        self._message(snapshot.summary() + " · Source status explains coverage and any conflicts.")
+        alerts = []
+        if snapshot.conflicts:
+            alerts.append(f"{len(snapshot.conflicts)} conflict{'s' if len(snapshot.conflicts) != 1 else ''}")
+        if snapshot.issues:
+            alerts.append(f"{len(snapshot.issues)} source notice{'s' if len(snapshot.issues) != 1 else ''}")
+        concise = f"Auto · {len(snapshot.exports)} exports · through {snapshot.dashboard.last_workout:%b %d}"
+        if alerts:
+            concise += " · " + ", ".join(alerts)
+        self._message(snapshot.summary() + " · Source status explains coverage and any conflicts.", concise=concise, attention=bool(alerts))
         if self.settings:
             self.settings.setValue("workspace", str(snapshot.root))
 
@@ -263,8 +300,6 @@ class ManagedHistoryController(QObject):
         w.history_week_notes.setFocus()
 
     def show_sources(self):
-        if not self.snapshot:
-            return
         if self._report_dialog:
             self._report_dialog.close()
         dialog = QDialog(self.window)
@@ -273,7 +308,9 @@ class ManagedHistoryController(QObject):
         layout = QVBoxLayout(dialog)
         text = QPlainTextEdit()
         text.setReadOnly(True)
-        text.setPlainText(self.snapshot.report())
+        report = self.snapshot.report() if self.snapshot else f"Workspace: {self.root or 'Not selected'}"
+        warnings = "\n".join(self.snapshot.dashboard.warnings) if self.snapshot else ""
+        text.setPlainText(report + "\n\nCurrent status\n" + self.status.text() + "\n\nAnalysis notes\n" + warnings)
         layout.addWidget(text)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.close)

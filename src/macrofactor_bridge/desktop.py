@@ -40,6 +40,7 @@ from .explorer_view import ExerciseExplorer, HistoryHome
 from .explorer import LIFT_FAMILIES
 from .timeline_view import TrainingTimeline
 from .managed_desktop import ManagedHistoryController
+from .history_navigation import HistoryTabs
 from .desktop_theme import SummaryCard, apply_dark_theme, style_calendar
 from .desktop_model import (
     bundled_config_path,
@@ -411,7 +412,7 @@ class BridgeWindow(QMainWindow):
         exercise_layout.addWidget(self.history_trend_table)
         analysis.addWidget(exercise_frame)
         analysis.setSizes([160, 240])
-        self.history_analysis_tabs = QTabWidget()
+        self.history_analysis_tabs = HistoryTabs()
         self.history_home = HistoryHome()
         self.history_explorer = ExerciseExplorer()
         self.history_timeline = TrainingTimeline()
@@ -506,6 +507,7 @@ class BridgeWindow(QMainWindow):
         annotation_grid.addWidget(self.history_save_annotation_button, 4, 0, 1, 2)
         annotation_grid.addWidget(privacy, 4, 2, 1, 4)
         self.history_analysis_tabs.addTab(annotations, "Block context")
+        self.history_analysis_tabs.configure_secondary_views()
 
         self.history_status = QLabel(
             "Recovery and deload prediction are intentionally outside this milestone."
@@ -513,6 +515,7 @@ class BridgeWindow(QMainWindow):
         self.history_status.setObjectName("status")
         self.history_status.setWordWrap(True)
         outer.addWidget(self.history_status)
+        self.history_analysis_tabs.currentChanged.connect(self._history_view_changed)
 
         self.history_exercise_combo.currentTextChanged.connect(
             self._display_history_exercise
@@ -534,6 +537,10 @@ class BridgeWindow(QMainWindow):
         ):
             field.textChanged.connect(self._invalidate_history)
         return tab
+
+    def _history_view_changed(self, *_args):
+        automatic = self.managed and self.managed.enabled
+        self.history_status.setVisible(not automatic or self.history_analysis_tabs.currentWidget() is self.history_context_page)
 
     def _toggle_history_sources(self, visible: bool) -> None:
         self.history_sources.setVisible(visible)
