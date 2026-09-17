@@ -5,18 +5,21 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 
 if HAS_QT:
-    from PySide6.QtCore import QDate
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtCore import QDate, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
     from macrofactor_bridge.desktop import BridgeWindow
 
 from macrofactor_bridge.models import BridgeReport, ProposedWrite
+from macrofactor_bridge.ooxml import file_sha256
 from macrofactor_bridge.history import load_dashboard_annotations
 from macrofactor_bridge.history import BlockAnnotation, DashboardAnnotations, save_dashboard_annotations
 from tests.history_fixture import LAYOUT, irregular_workbook
@@ -37,14 +40,71 @@ class DesktopGuiTests(unittest.TestCase):
         window.workbook_path.setText(str(ROOT / "tests" / "fixtures" / "coach-template.xlsx"))
         window.config_path.setText(str(ROOT / "config" / "exercises.example.json"))
         window._use_latest_export_week()
-        window._discover_targets()
-        window._preview()
+        window.discover_button.click()
+        window.preview_button.click()
         self.assertEqual(window.preview_table.rowCount(), 6)
         self.assertEqual(window.sheet_combo.currentText(), "Training Block")
         self.assertEqual(window.week_combo.currentText(), "Week 1")
         self.assertIn("Unmatched exercises: 1", window.review_panel.toPlainText())
         self.assertTrue(window.create_button.isEnabled())
         window.close()
+
+    def test_dashboard_is_first_with_clear_names_and_keyboard_navigation(self):
+        window = BridgeWindow()
+        self.addCleanup(window.close)
+        self.assertEqual([window.tabs.tabText(i) for i in range(window.tabs.count())],
+                         ["Dashboard", "Update coach workbook"])
+        self.assertEqual(window.tabs.currentIndex(), 0)
+        self.assertIs(window.tabs.currentWidget(), window.dashboard_tab)
+        views = window.history_analysis_tabs
+        self.assertEqual([views.tabText(i) for i in range(views.count())],
+                         ["Overview", "Training timeline", "Exercise trends", "Block summaries", "Compare blocks", "Training notes"])
+        self.assertEqual([action.text() for action in views.secondary_actions.values()],
+                         ["Block summaries", "Compare blocks", "Training notes"])
+        self.assertEqual(window.history_save_annotation_button.text(), "Save training notes")
+        window.resize(900, 680)
+        window.show()
+        self.app.processEvents()
+        window.tabs.tabBar().setFocus()
+        QTest.keyClick(window.tabs.tabBar(), Qt.Key.Key_Right)
+        self.assertIs(window.tabs.currentWidget(), window.workbook_tab)
+        self.assertTrue(window.discover_button.isVisible())
+        self.assertEqual(window.discover_button.text(), "Load workbook weeks")
+        self.assertEqual(window.width(), 900)
+        self.assertEqual(window.height(), 680)
+        self.assertFalse(window.create_button.isEnabled())
+        QTest.keyClick(window.tabs.tabBar(), Qt.Key.Key_Left)
+        self.assertIs(window.tabs.currentWidget(), window.dashboard_tab)
+        views.secondary_actions[5].trigger()
+        self.assertIs(views.currentWidget(), window.history_context_page)
+        self.assertTrue(views.isTabVisible(5))
+
+    def test_renamed_workbook_save_still_creates_only_a_new_copy(self):
+        window = BridgeWindow()
+        self.addCleanup(window.close)
+        window.tabs.setCurrentWidget(window.workbook_tab)
+        export = ROOT / "tests/fixtures/macrofactor-log.xlsx"
+        coach = ROOT / "tests/fixtures/coach-template.xlsx"
+        before = [file_sha256(path) for path in (export, coach)]
+        window.export_path.setText(str(export))
+        window.workbook_path.setText(str(coach))
+        window.config_path.setText(str(ROOT / "config/exercises.example.json"))
+        window._use_latest_export_week()
+        window.discover_button.click()
+        window.preview_button.click()
+        self.assertTrue(window.create_button.isEnabled())
+        self.assertEqual(window.create_button.text(), "Save updated workbook copy…")
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "updated-coach.xlsx"
+            with patch.object(QFileDialog, "getSaveFileName", return_value=(str(output), "")) as choose, \
+                    patch.object(QMessageBox, "exec", return_value=QMessageBox.StandardButton.Close), \
+                    patch.object(window, "_show_error") as errors:
+                window.create_button.click()
+            errors.assert_not_called()
+            self.assertEqual(choose.call_args.args[1], "Save updated workbook copy")
+            self.assertTrue(output.is_file())
+            self.assertNotEqual(file_sha256(output), before[1])
+        self.assertEqual([file_sha256(path) for path in (export, coach)], before)
 
     def test_empty_day_marker_is_highlighted_yellow_in_preview(self) -> None:
         report = BridgeReport(
@@ -81,6 +141,7 @@ class DesktopGuiTests(unittest.TestCase):
             self.assertIsNotNone(item)
             assert item is not None
             self.assertEqual(item.background().color().name(), "#ffff00")
+            self.assertEqual(item.foreground().color().name(), "#101113")
         self.assertIn("Empty-day review markers: 1", window.review_panel.toPlainText())
         window.close()
 

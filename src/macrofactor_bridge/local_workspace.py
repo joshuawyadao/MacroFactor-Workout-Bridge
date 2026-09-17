@@ -247,6 +247,9 @@ def _replace_current_link(current: Path, archive: Path) -> None:
         raise LocalWorkspaceError(
             f"Refusing to replace a regular file in the managed current directory: {current}"
         )
+    relative_target = os.path.relpath(archive, start=current.parent)
+    if current.is_symlink() and current.readlink() == Path(relative_target):
+        return
     temporary = current.with_name(f".{current.name}.tmp-{file_sha256(archive)[:12]}")
     if temporary.exists() or temporary.is_symlink():
         if not temporary.is_symlink():
@@ -254,7 +257,6 @@ def _replace_current_link(current: Path, archive: Path) -> None:
                 f"Refusing to replace an unexpected temporary file: {temporary}"
             )
         temporary.unlink()
-    relative_target = os.path.relpath(archive, start=current.parent)
     temporary.symlink_to(relative_target)
     temporary.replace(current)
 
@@ -396,16 +398,24 @@ def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
     return entries
 
 
+def verified_archives(root: str | Path) -> list[dict[str, Any]]:
+    """Read manifest-backed, hash-verified archive entries after workspace relocation."""
+    return _archived_history_entries(Path(root).resolve())
+
+
 def archive_inbox(
     root: str | Path,
     config_path: str | Path | None = None,
     *,
     now: datetime | None = None,
+    new_only: bool = False,
 ) -> dict[str, Any]:
     workspace = Path(root).resolve()
     setup_workspace(workspace)
     config = Path(config_path).resolve() if config_path else default_config_path().resolve()
     timestamp = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    history = _archived_history_entries(workspace) if new_only else []
+    known = {(entry["kind"], entry["sha256"]) for entry in history}
     date_label = timestamp.date().isoformat()
     manifest: dict[str, Any] = {
         "schema_version": 2,
@@ -444,7 +454,11 @@ def archive_inbox(
                 )
                 continue
             try:
+                if new_only and (source.is_symlink() or not source.resolve().is_relative_to(workspace)):
+                    raise LocalWorkspaceError("Automatic ingestion refuses symlinked or external inbox files")
                 source_hash = file_sha256(source)
+                if new_only and (kind, source_hash) in known:
+                    continue
                 validation = validator(source)
                 if file_sha256(source) != source_hash:
                     raise LocalWorkspaceError(
@@ -488,6 +502,9 @@ def archive_inbox(
                 "error": str(exc),
             }
         )
+    if new_only and not manifest["entries"]:
+        # Retry current-link reconciliation, but never emit an empty ingest manifest.
+        return manifest
     manifest_name = timestamp.strftime("%Y%m%dT%H%M%S%fZ") + "--ingest.json"
     manifest_path = workspace / "manifests" / manifest_name
     with manifest_path.open("x", encoding="utf-8") as handle:

@@ -53,5 +53,27 @@
       "suggestion": 0
     },
     "scope": "PR #15 vs origin/main; sampled highest-risk layout validation, schema compatibility, calendar mapping, and desktop/test paths after real-input fixes"
+  },
+  {
+    "date": "2026-09-17",
+    "mode": "PR Review",
+    "score": 85,
+    "findings": {
+      "critical": 0,
+      "warning": 3,
+      "suggestion": 0
+    },
+    "scope": "PR #19 vs origin/main; sampled ingestion, annotation concurrency, analytical models, GUI/navigation and corresponding tests before fixes"
+  },
+  {
+    "date": "2026-09-17",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #19 follow-up review of narrow recency, raw-weight inspection and displayed-feedback ownership fixes, including manual override regressions"
   }
 ]

@@ -133,6 +133,9 @@ class HistoryDashboard:
     exercises: tuple[ExerciseSummary, ...]
     weekly_trends: tuple[WeeklyExerciseTrend, ...]
     warnings: tuple[str, ...]
+    overlapping_blocks: frozenset[str] = frozenset()
+    # Canonical names, original values/row numbers. Memory only; never persisted.
+    records: tuple[SetRecord, ...] = ()
 
     def trends_for(self, exercise: str) -> tuple[WeeklyExerciseTrend, ...]:
         return tuple(
@@ -485,8 +488,9 @@ def _load_history_sources(
     workbook_path: str | Path,
     config: BridgeConfig,
     annotations: DashboardAnnotations,
+    imported: ExerciseLogImport | None = None,
 ) -> _HistorySources:
-    imported = load_exercise_log_with_diagnostics(export_path)
+    imported = imported if imported is not None else load_exercise_log_with_diagnostics(export_path)
     records = tuple(record for record in imported.records if _record_is_usable(record))
     if not records:
         raise HistoryError("The MacroFactor export contains no usable completed sets")
@@ -793,9 +797,11 @@ def build_history_dashboard(
     workbook_path: str | Path,
     config: BridgeConfig,
     annotations: DashboardAnnotations | None = None,
+    *,
+    imported: ExerciseLogImport | None = None,
 ) -> HistoryDashboard:
     annotation_state = annotations or DashboardAnnotations()
-    sources = _load_history_sources(export_path, workbook_path, config, annotation_state)
+    sources = _load_history_sources(export_path, workbook_path, config, annotation_state, imported)
     warnings = (
         [f"{len(sources.imported.skipped_rows)} malformed export row(s) were excluded."]
         if sources.imported.skipped_rows
@@ -815,9 +821,8 @@ def build_history_dashboard(
     intervals, overlapping = _dated_block_intervals(
         sources.blocks, annotation_state, warnings
     )
-    aggregation = _aggregate_history(
-        sources.records, source_rule_index(config), intervals, overlapping
-    )
+    source_index = source_rule_index(config)
+    aggregation = _aggregate_history(sources.records, source_index, intervals, overlapping)
     weekly_trends = _weekly_trends(aggregation.trend_data)
     duration_session_count, total_duration = _duration_summary(
         aggregation.sessions, warnings
@@ -844,6 +849,9 @@ def build_history_dashboard(
         exercises=_exercise_summaries(weekly_trends),
         weekly_trends=weekly_trends,
         warnings=tuple(warnings),
+        overlapping_blocks=overlapping,
+        records=tuple(replace(record, exercise=_canonical_exercise(record, source_index))
+                      for record in sources.records),
     )
 
 

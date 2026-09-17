@@ -1,32 +1,59 @@
 # Plan
 
-Correct history mapping for coach sheets containing copied historical columns and date-labelled training weeks. Store an explicit, validated week layout in private annotations so the dashboard counts and dates only the selected weeks.
+Address the three confirmed Brooks review findings for PR #19 without expanding the dashboard feature scope. Preserve exact workout recency, make original-set inspection robust to invalid weight values, and retain private-note conflict protection when a workspace switch fails.
+
+The subsequent Codex review adds three narrow follow-ups: apply the same conflict guard in manual mode, open the latest logged mapped coach week for feedback, and normalize nonfinite values for stable snapshot reconciliation. Address and save each comment independently before the final broad validation.
 
 ## Scope
-- In: ordered history week layouts, source-header validation, consistent calendar mapping and counts, desktop save preservation, synthetic tests, documentation, real-data verification and backups, app rebuild, and PR preparation.
-- Out: inferred injury labels, source workbook edits, Weekly Bridge changes, automatic date guessing, and milestone-two comparisons.
+- In: default variation ordering, nonfinite weight presentation and snapshot comparison, displayed-note protection in automatic and manual modes, latest mapped feedback-week navigation, regression tests, relevant documentation, validation, commit and push.
+- Out: changing import/matching or analysis rules, data migrations, recovery predictions, coach-program export integration, installed-app replacement, PR merge or review-thread resolution.
 
 ## Action items
-[x] Add typed ordered week-layout entries with labels and verified source anchors; read legacy annotations and prevent older apps dropping layout data.
-[x] Resolve layouts once for counts, date ranges, summaries, and desktop week selection; reject stale headers, duplicate columns, invalid anchors, and missing configured blocks.
-[x] Cover copied columns, date-labelled weeks, multi-row merged headers (found during real-data validation), missing workouts, calendar boundaries, legacy files, invalid layouts, and desktop save/reload preservation.
-[x] Update README and Local-File-Workflow with configuration, compatibility, calendar semantics, and correction steps.
-[x] Verify the real irregular block with its confirmed three-week range; preserve sources and existing context with before/after backups.
-[x] Run the complete suite, compilation, diff checks, and rebuilt app smoke verification (102 tests passed after review fixes; signed 0.4.1 bundle smoke-tested with the previous app retained).
-[ ] Commit and push the feature branch; shepherd the PR through reviews and CI without merging.
-[x] Address Codex P2: distinguish single-column vertical merges from unmerged headers; added a regression, validated 11 layout tests, and saved/reacted (`bf019d3`, comment 4019341775).
-[x] Address Codex P2: reject result columns overlapping another selected header span; added an order-independent regression, validated 12 layout tests, and saved/reacted (`593cf93`, comment 4019341785).
-[x] Address Codex P2: reject shared-formula headers even with empty formula text; preserve formula presence in OOXML snapshots, add cached/uncached regressions, validate all 102 tests, and save/react (`c33419a`, comment 4019341799).
-
-## Validation and review ledger
-- Final compatibility inspection found that sorting by label position could reorder repeated legacy labels. Preserved original discovery order when the numeric-label helper declines sorting; the new regression and full 99-test suite pass. Real-data desktop loading still verifies.
-- Real-input validation exposed two-row merged headers; adjusted validation and the synthetic fixture before publication. Both source hashes stayed unchanged.
-- Packaging smoke verification exposed a stale bundle version; aligned package, runtime, and bundle metadata at 0.4.1.
-- Private layout saved only after the compatible app was installed, with verified before/after backups and all unrelated context preserved.
-- Implementation saved in `4a8846c` on `codex/history-week-layout`; PR #15 opened for review.
-- Brooks PR review: sampled the highest-risk changes, no actionable decay findings at that pass (100/100; prior run 90). Layout policy stays isolated from Weekly Bridge discovery, and tests cover boundary and persistence behavior. The subsequent compatibility inspection found and fixed the legacy-order edge case above (`ab7a800`).
-- Codex review completed with three P2 findings, all fixed and acknowledged individually above. No feedback was deferred. Shared-formula presence now also correctly marks uncached formula cells occupied.
-- CI Verify passed before the review-fix pushes; final-head CI and permission to resolve the three addressed threads remain the readiness gates. No merge conflicts observed. The PR will remain unmerged.
+[x] Review the branch diff and high-risk ingestion, analytic, GUI and test paths; read README and docs/Local-File-Workflow.md.
+[x] Rank default variations by actual latest workout date, with deterministic same-date ties and compatibility for summary-only dashboards; cover same-week recency.
+[x] Display accepted nonfinite source weights explicitly in set details without quantizing or changing calculations; cover Infinity, -Infinity and sNaN through the normal import/dashboard path.
+[x] Preserve the displayed feedback file's path/hash guard after a failed workspace switch, including a preceding manual file override; test external edits and successful replacement.
+[x] Update README/Local-File-Workflow with clarified recency, invalid-weight display, and retained-data protection.
+[x] Run focused regressions, the full test suite, compilation and diff checks; review the patch and privacy scope.
+[x] Prepare validated fixes for save-branch; continue Codex/CI review on the resulting PR head without merging.
+[x] Protect manual-mode annotation saves from external updates (Codex comment 4040032862); add regression coverage and documentation. Four focused GUI tests pass; save/push and acknowledgement follow this checkpoint.
+[x] Navigate Weekly feedback backward through logged weeks to the latest selectable mapped week (Codex comment 4040032847); preserve unsaved text, add boundary tests and documentation. Four focused GUI checks pass; save/push and acknowledgement follow this checkpoint.
+[x] Normalize nonfinite decimal signature values without altering original records (Codex comment 4040032852); three ingestion regressions and all 13 managed-history tests pass. Save/push and acknowledgement follow this checkpoint.
+[x] Increase CI Verify's job budget from 10 to 15 minutes after the observed timeout; retain every test, audit and validation step. Final-head terminal CI verification remains below.
+[x] Persist a selected workspace only after its snapshot loads successfully (Codex 4040229280); failed-selection restart regression reproduced the issue. Five focused lifecycle/guard tests pass, including successful selection and restart. Save/push and acknowledgement follow this checkpoint.
+[x] Exclude duplicate coach-week labels from calendar mapping (Codex 4040229297); regression covers both logged and missing weeks, including case-only duplicates. All 20 explorer/comparison/progress tests pass. Save/push and acknowledgement follow this checkpoint.
+[x] Retry failed current-link reconciliation for known archives (Codex 4040229304); regression covers obstruction removal, repeated warnings, stable healthy shortcuts and no empty ingest manifests. All 34 managed-history/local-workspace tests pass. Save/push and acknowledgement follow this checkpoint.
+[x] Reject logged trend mappings from undated, non-Monday or overlapping blocks as well as ambiguous labels (Codex 4040359709); both mapping entry points now use the same eligible blocks. New regression failed before the fix; all 22 explorer/comparison/progress tests pass. Save/push and acknowledgement follow this checkpoint.
+[x] Apply case-insensitive distinct-label validation to block reports too (Codex 4040359713); regression reproduced misleading metrics before the fix, and all 14 progress/comparison tests pass. Valid neighboring block metrics remain unchanged. Save/push and acknowledgement follow this checkpoint.
+[ ] Run the complete suite, compilation and smoke checks; finish final-head CI/Codex review and mergeability checks. Resolve fixed threads only with explicit user approval; do not merge.
 
 ## Open questions
-- None. The user confirmed Monday–Sunday weeks and authorized the export-supported irregular-block mapping. Personal dates and source annotations stay private; repository examples remain synthetic.
+- None. The fixes preserve existing documented behavior and local source immutability. App installation is separate from this PR workflow.
+
+## Review ledger
+- Initial head c73d7b8: 177 tests passed; installed 0.9.1/build 13 launch and source/feedback-preservation checks passed.
+- Brooks P2: default selection used week starts rather than actual workout dates, so alphabetic ordering could select an older same-week variation.
+- Brooks P2: source-set detail formatting quantized accepted nonfinite weights and raised InvalidOperation, despite aggregate metrics excluding them safely.
+- Brooks P2: choosing a new workspace cleared the loaded snapshot before success; a failed load left the old save form active without its external-change guard.
+- PR #19 opened against main; Codex requested; CI Verify running. No CI failure or merge conflict observed yet.
+- Focused validation: 19 analytical tests, 10 timeline GUI tests, and 24 managed-history/GUI tests pass. The numeric and recency regressions reproduced failures before their fixes. Compilation and diff checks pass; complete suite running.
+- Initial Codex review of c73d7b8 completed with no major issues or inline threads; a refreshed review will be requested after these fixes are pushed.
+- Follow-up patch review found that a preceding manual override could leave the retained managed snapshot pointing to a different feedback file. Track the displayed file's guard independently and update it on every successful manual/managed load before saving; do not change source selection or broaden manual-mode behavior.
+- Follow-up reproduction confirms both manual-override cases now pass: edits to unrelated prior-workspace feedback do not block the displayed form, while external edits to the displayed feedback file are refused without losing the form text. No remaining actionable Brooks finding in the sampled patch.
+- Initial CI Verify passed on c73d7b8, including dependency audit, complete tests, compilation and diff checks; no CI failure or conflict fix was required.
+- Final local validation: `scripts/test.sh` passed all 183 tests in 395.044s; 26 focused managed-history/GUI tests passed after the manual-override extension. Compilation, diff checks and the source app-entry smoke test passed. Six regression tests were added across three test modules. No private files or installed bundle were modified.
+- Final-head GitHub checks and Codex review are tracked on PR #19 after save-branch pushes this patch; local verification alone is not a merge-readiness claim.
+- d04d880 pushed with all three Brooks fixes. Codex's review of that head produced the three follow-ups above; all are accepted as in-scope. No human product choice is needed. An asynchronous question requests permission to resolve the fixed review threads after validation.
+- CI run 35256496103 reached `Ran 183 tests in 575.285s` and `OK`, but the job hit its 10-minute timeout before compile/diff checks. This is a bounded workflow-timeout fix caused by the expanded regression suite, not a test failure; no test assertion is weakened or removed.
+- Codex 4040032862: removed the automatic-mode bypass from the displayed-file save guard. The manual external-edit regression failed before the fix and passed after it, together with automatic conflict protection, failed-switch/manual behavior and a successful manual save (four targeted GUI tests).
+- Codex 4040032852: stable hashable nonfinite signature tokens preserve type/sign/payload while keeping original records unchanged. Three real ingestion regressions cover equivalent exports, genuine repeated-set supersets and different-value conflicts; all 13 managed-history tests pass. Manual-save fix was pushed as fc16e2b and acknowledged with a thumbs-up.
+- Codex 4040032847: search logged weeks backward for the latest mapped selectable block; when none is mapped, keep the view and selection unchanged. Two boundary regressions plus secondary navigation and unsaved-feedback preservation pass (four focused GUI tests). The synthetic fixture names Archive's first week Week 9, which the assertion now matches. Independent follow-up review found no implementation issue in the three Codex fixes. Nonfinite reconciliation was pushed as 360e333 and acknowledged with a thumbs-up.
+- CI timeout remediation changes only the job limit from 10 to 15 minutes; no production code or tests are changed for this CI fix, and no validation step is removed. Diff inspection confirms all audit/test/compile/diff checks are retained. The new full local run and final-head GitHub checks will be reported on PR #19 after pushing.
+- All 189 local tests pass after the first Codex follow-ups. The next review on 898042f adds three in-scope edge cases above: failed selection persistence, duplicate-label calendar ambiguity, and retryable current-link reconciliation. Each will receive a separate tested commit and acknowledgement. No product-scope expansion or installed-app replacement.
+- Codex 4040229280: remove the eager settings write from workspace selection; only successful snapshot acceptance persists the startup path. Failed candidates remain available for retry without replacing the last successful workspace or its feedback guard. Five focused lifecycle/guard tests pass.
+- Codex 4040229297: calendar mapping now rejects blocks with empty or case-insensitively duplicated coach-week labels, matching comparison's validation. Both logged and missing-log paths reject ambiguous annotation keys; valid blocks still map normally. The new regression failed before the fix; all 20 explorer/comparison/progress tests pass.
+- Codex 4040229304: reconcile verified current shortcuts even without new inbox hashes, retaining warnings while obstructions remain. Watch current-directory changes so removing an obstruction triggers refresh; skip replacement of already-correct relative symlinks. No empty ingest manifests are written. The regression failed before the fix, all 34 managed-history/local-workspace tests pass, and independent review found no actionable concern.
+- CI Verify passed all checks on 898042f in 11m34s. A new complete local run and final-head CI/review will validate the three subsequent follow-ups; installed app and source data remain unchanged.
+- Final local run on 1343b0a passed all 192 tests in 483.196s, and GitHub CI passed every step. The next Codex review found two remaining calendar-validation inconsistencies above; both are accepted for narrow fixes and separate save/acknowledgement steps.
+- Codex 4040359709: compute eligible dated Monday/nonoverlapping blocks once for both logged and missing-week mapping; reject stale logged mappings whose block is ineligible. Regression covers undated, non-Monday and overlapping blocks while a valid neighboring block remains mapped. All 22 focused analytical tests pass.
+- Codex 4040359713: block reports now casefold week labels for uniqueness, matching explorer/comparison eligibility. The new regression confirms no averages, best estimate or focus weeks are shown for ambiguous labels; the valid neighboring block is unchanged. Independent read-only review found no remaining actionable issue in these two patches. Complete local and final-head CI validation are tracked on PR #19.
