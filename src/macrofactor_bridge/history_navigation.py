@@ -9,7 +9,7 @@ class HistoryTabs(QTabWidget):
         self.secondary_actions = {}
         self.more = QToolButton()
         self.more.setText("More")
-        self.more.setAccessibleName("More history views")
+        self.more.setAccessibleName("More dashboard views")
         self.more.setObjectName("quietButton")
         self.more.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.more_menu = QMenu(self.more)

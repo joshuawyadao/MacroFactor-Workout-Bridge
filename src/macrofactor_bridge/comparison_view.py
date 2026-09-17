@@ -91,7 +91,7 @@ class BlockComparisonPanel(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setWordWrap(False)
-        self.table.horizontalHeaderItem(8).setToolTip("Full saved context is available by hovering over a cell; edit in Block context.")
+        self.table.horizontalHeaderItem(8).setToolTip("Full saved context is available by hovering over a cell; edit in Training notes.")
         header = self.table.horizontalHeader()
         for column in range(8):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)

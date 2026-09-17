@@ -54,7 +54,7 @@ class ComparisonGuiTests(unittest.TestCase):
         self.panel.metric_selector.setCurrentIndex(1)
         self.assertEqual(self.panel.chart.plot_values(), ((Decimal(210), None, Decimal(0)), (Decimal(500),)))
         self.assertEqual(self.panel.chart.value_range(), (0, 500))
-        self.window.tabs.setCurrentIndex(1)
+        self.window.tabs.setCurrentWidget(self.window.dashboard_tab)
         self.window.history_analysis_tabs.setCurrentWidget(self.panel)
         self.window.show()
         self.app.processEvents()
@@ -134,7 +134,7 @@ class ComparisonGuiTests(unittest.TestCase):
             "sets of 1–12 reps. A training block is using a private history layout with 3 weeks. "
             "RIR is recorded for 4 sets; it remains descriptive and does not adjust estimated 1RM."
         )
-        self.window.tabs.setCurrentIndex(1)
+        self.window.tabs.setCurrentWidget(self.window.dashboard_tab)
         self.window.history_analysis_tabs.setCurrentWidget(self.panel)
         self.window.resize(900, 680)
         self.window.show()
@@ -172,7 +172,7 @@ class ComparisonGuiTests(unittest.TestCase):
         self.window.history_week_combo.setCurrentText("Week 10")
         self.window.history_week_notes.setText(note)
         self.window._save_history_annotation()
-        self.window.tabs.setCurrentIndex(1)
+        self.window.tabs.setCurrentWidget(self.window.dashboard_tab)
         self.window.history_analysis_tabs.setCurrentWidget(self.panel)
         self.window.show()
         self.app.processEvents()

@@ -241,7 +241,7 @@ class LiftCard(QFrame):
         self.chart.set_series(())
         self.value.setText("—")
         self.detail.setText("No supported variation logged." if self.dashboard else "No history loaded.")
-        self.detail.setToolTip("Other movements remain available in Explore exercise. Missing estimates are not zero.")
+        self.detail.setToolTip("Other movements remain available in Exercise trends. Missing estimates are not zero.")
         if self.dashboard and self.exercise.currentText():
             name = self.exercise.currentText()
             self._saved = name

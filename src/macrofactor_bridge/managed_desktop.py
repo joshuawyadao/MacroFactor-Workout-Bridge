@@ -292,7 +292,7 @@ class ManagedHistoryController(QObject):
             monday = dashboard.last_workout - timedelta(days=dashboard.last_workout.weekday())
             block, week = week_location(dashboard, ExplorerWeek(monday, None))
             if w.history_block_combo.findText(block) < 0:
-                self._message("The latest logged week is not mapped to a coach block. Confirm its block dates in Block context.")
+                self._message("The latest logged week is not mapped to a coach block. Confirm its block dates in Training notes.")
             else:
                 w.history_block_combo.setCurrentText(block)
                 w.history_week_combo.setCurrentText(week)

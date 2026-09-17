@@ -38,7 +38,8 @@ class ExplorerGuiTests(unittest.TestCase):
         self.explorer = self.window.history_explorer
 
     def test_dashboard_is_default_and_cards_open_timeline_without_block_selection(self):
-        self.assertEqual(self.window.tabs.currentIndex(), 1)
+        self.assertEqual(self.window.tabs.currentIndex(), 0)
+        self.assertIs(self.window.tabs.currentWidget(), self.window.dashboard_tab)
         self.assertIs(self.window.history_analysis_tabs.currentWidget(), self.home)
         card = self.home.cards[0]
         self.assertEqual(card.exercise.currentText(), "Tempo Back Squat")

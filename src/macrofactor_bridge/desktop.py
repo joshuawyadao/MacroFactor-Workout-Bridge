@@ -103,15 +103,17 @@ class BridgeWindow(QMainWindow):
         outer.setContentsMargins(26, 22, 26, 22)
         outer.setSpacing(16)
 
-        title = QLabel(APP_NAME)
+        title = QLabel("Update coach workbook")
         title_font = QFont()
         title_font.setPointSize(24)
         title_font.setWeight(QFont.Weight.DemiBold)
         title.setFont(title_font)
         subtitle = QLabel(
-            "Preview completed MacroFactor sets, then create a safe copy of your coach workbook."
+            "Copy logged MacroFactor sets into a selected week of a new coach workbook copy. "
+            "Your original stays unchanged. Use Dashboard for progress and weekly feedback."
         )
         subtitle.setObjectName("subtitle")
+        subtitle.setWordWrap(True)
         outer.addWidget(title)
         outer.addWidget(subtitle)
 
@@ -154,13 +156,14 @@ class BridgeWindow(QMainWindow):
         target_grid.setColumnStretch(3, 1)
         self.sheet_combo = QComboBox()
         self.week_combo = QComboBox()
-        refresh_button = QPushButton("Discover")
-        refresh_button.clicked.connect(self._discover_targets)
+        self.discover_button = QPushButton("Load workbook weeks")
+        self.discover_button.setToolTip("Read the coach workbook's worksheets and weeks; no files are changed.")
+        self.discover_button.clicked.connect(self._discover_targets)
         target_grid.addWidget(QLabel("Worksheet"), 0, 0)
         target_grid.addWidget(self.sheet_combo, 0, 1)
         target_grid.addWidget(QLabel("Coach week"), 0, 2)
         target_grid.addWidget(self.week_combo, 0, 3)
-        target_grid.addWidget(refresh_button, 0, 4)
+        target_grid.addWidget(self.discover_button, 0, 4)
 
         self.from_date = QDateEdit()
         self.to_date = QDateEdit()
@@ -183,7 +186,8 @@ class BridgeWindow(QMainWindow):
         self.preview_button = QPushButton("Preview workbook changes")
         self.preview_button.setObjectName("primaryButton")
         self.preview_button.clicked.connect(self._preview)
-        self.create_button = QPushButton("Create safe workbook copy…")
+        self.create_button = QPushButton("Save updated workbook copy…")
+        self.create_button.setToolTip("Save previewed results to a new file, leaving the original coach workbook unchanged.")
         self.create_button.clicked.connect(self._create_output)
         self.create_button.setEnabled(False)
         self.save_report_button = QPushButton("Save review report…")
@@ -230,9 +234,13 @@ class BridgeWindow(QMainWindow):
         self.status.setWordWrap(True)
         outer.addWidget(self.status)
         self.tabs = QTabWidget()
-        self.tabs.addTab(bridge_tab, "Weekly Bridge")
-        self.tabs.addTab(self._build_history_ui(), "Workout History")
-        self.tabs.setCurrentIndex(1)
+        self.dashboard_tab = self._build_history_ui()
+        self.workbook_tab = bridge_tab
+        self.tabs.addTab(self.dashboard_tab, "Dashboard")
+        self.tabs.addTab(self.workbook_tab, "Update coach workbook")
+        self.tabs.setTabToolTip(0, "Review workout trends and add weekly feedback.")
+        self.tabs.setTabToolTip(1, "Copy logged sets into a new coach workbook; originals stay unchanged.")
+        self.tabs.setCurrentWidget(self.dashboard_tab)
         self.setCentralWidget(self.tabs)
 
         self.sheet_combo.currentTextChanged.connect(self._sheet_changed)
@@ -257,7 +265,7 @@ class BridgeWindow(QMainWindow):
         outer.setContentsMargins(26, 10, 26, 10)
         outer.setSpacing(6)
 
-        title = QLabel("Workout History")
+        title = QLabel("Training dashboard")
         title_font = QFont()
         title_font.setPointSize(22)
         title_font.setWeight(QFont.Weight.DemiBold)
@@ -335,7 +343,7 @@ class BridgeWindow(QMainWindow):
         block_layout.setContentsMargins(0, 0, 0, 0)
         block_heading = QHBoxLayout()
         block_heading.addWidget(QLabel("Coach blocks · workbook order"), 1)
-        self.history_context_button = QPushButton("Edit context →")
+        self.history_context_button = QPushButton("Edit training notes →")
         self.history_context_button.setEnabled(False)
         self.history_context_button.setToolTip("Open context for the selected block; double-clicking its row also works.")
         self.history_context_button.clicked.connect(self._open_selected_block_context)
@@ -423,9 +431,9 @@ class BridgeWindow(QMainWindow):
         self.history_home.variations_changed.connect(self._sync_timeline_variations)
         self.history_timeline.variation_changed.connect(self._sync_home_variation)
         self.history_timeline.back.connect(lambda: self.history_analysis_tabs.setCurrentWidget(self.history_home))
-        self.history_analysis_tabs.addTab(self.history_home, "Dashboard")
+        self.history_analysis_tabs.addTab(self.history_home, "Overview")
         self.history_analysis_tabs.addTab(self.history_timeline, "Training timeline")
-        self.history_analysis_tabs.addTab(self.history_explorer, "Explore exercise")
+        self.history_analysis_tabs.addTab(self.history_explorer, "Exercise trends")
         overview = QWidget()
         overview_layout = QVBoxLayout(overview)
         overview_layout.setContentsMargins(0, 10, 0, 0)
@@ -436,12 +444,12 @@ class BridgeWindow(QMainWindow):
             cards.addWidget(card, 1)
         overview_layout.addLayout(cards)
         overview_layout.addWidget(analysis, 1)
-        self.history_analysis_tabs.addTab(overview, "Block details")
+        self.history_analysis_tabs.addTab(overview, "Block summaries")
         self.history_comparison = BlockComparisonPanel()
-        self.history_analysis_tabs.addTab(self.history_comparison, "Compare two blocks")
+        self.history_analysis_tabs.addTab(self.history_comparison, "Compare blocks")
         outer.addWidget(self.history_analysis_tabs, 1)
 
-        annotations = QGroupBox("Private block and week context")
+        annotations = QGroupBox("Training notes and weekly feedback")
         self.history_context_page = annotations
         annotation_grid = QGridLayout(annotations)
         annotation_grid.setColumnStretch(1, 1)
@@ -493,7 +501,8 @@ class BridgeWindow(QMainWindow):
         annotation_grid.addWidget(QLabel("Week notes"), 3, 3)
         annotation_grid.addWidget(self.history_week_notes, 3, 4, 1, 2)
 
-        self.history_save_annotation_button = QPushButton("Save private annotation")
+        self.history_save_annotation_button = QPushButton("Save training notes")
+        self.history_save_annotation_button.setToolTip("Save private block notes and weekly feedback locally; no workbook is updated.")
         self.history_save_annotation_button.setEnabled(False)
         self.history_save_annotation_button.clicked.connect(
             self._save_history_annotation
@@ -506,7 +515,7 @@ class BridgeWindow(QMainWindow):
         privacy.setWordWrap(True)
         annotation_grid.addWidget(self.history_save_annotation_button, 4, 0, 1, 2)
         annotation_grid.addWidget(privacy, 4, 2, 1, 4)
-        self.history_analysis_tabs.addTab(annotations, "Block context")
+        self.history_analysis_tabs.addTab(annotations, "Training notes")
         self.history_analysis_tabs.configure_secondary_views()
 
         self.history_status = QLabel(
@@ -1060,7 +1069,7 @@ class BridgeWindow(QMainWindow):
             self.workbook_path.text().strip(), self.week_combo.currentText()
         )
         output, _ = QFileDialog.getSaveFileName(
-            self, "Create safe workbook copy", str(suggested), "Excel workbooks (*.xlsx)"
+            self, "Save updated workbook copy", str(suggested), "Excel workbooks (*.xlsx)"
         )
         if not output:
             return
