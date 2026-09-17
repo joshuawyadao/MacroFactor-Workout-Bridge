@@ -34,7 +34,20 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 [x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
 
 ## Open questions
-- None for this slice. The user approved equal lower/upper targets for exact rep counts and blank structured targets for minimum-only prescriptions, retaining the original minimum text in exercise notes for manual entry. This is an explicit fallback, not native minimum-only encoding support.
+- None for this slice. The latest manual-import feedback supersedes one prior private set-count override. Restore that exercise's coach-base count and preserve all other reviewed choices. Exact reps still use equal bounds; minimum-only instructions remain in notes with blank targets.
+
+## Final private set-count correction
+
+The user reports that the corrected candidate imported and otherwise looks good, with one remaining count correction. Record that scoped manual evidence without publishing personal mappings or workbook details. The observed cause is a previously approved private override, not an application counting defect.
+
+- In: remove the superseded private override, generate one distinct replacement using the existing CLI, verify the exact output delta, and record redacted manual-test evidence.
+- Out: production behavior changes, source workbook edits, new conversion policies, broad compatibility claims, desktop expansion, issue closure or PR merge before the final correction is confirmed.
+
+[x] Reproduce the old count through preview and confirm removing only its private override restores coach-base provenance. A focused private check failed before the correction and passes across all selected cycles afterward. No production logic change was needed.
+[x] Add a synthetic override-removal regression covering coach-base provenance, all surplus type/rep/RIR/rest fields, exact output delta and immutable inputs/prior output; preserve all existing assertions.
+[x] Generate a non-existing replacement path; compare every cell with the previous candidate, allowing only the removed set's type/rep/RIR/rest cells to change. Only three previously populated surplus cells changed; RIR was already blank. Styles, all four inputs and both prior candidates remain unchanged. Read-only spreadsheet inspection confirms the removed set.
+[x] Run 40 targeted tests and all 163 canonical tests, compilation, configuration parity and privacy/diff checks; update this plan and the local workflow's override-removal guidance. README and CLI behavior are unchanged, so no additional app documentation or production edits are needed.
+Final save: commit/push only anonymized tests/docs with `save-branch`, update issue #12 and draft PR #13 with redacted evidence, and deliver the private workbook. The user's import/content confirmation applies to the preceding candidate except this final count correction; do not claim the replacement has already been imported.
 
 ## Program appearance and target-format follow-up
 

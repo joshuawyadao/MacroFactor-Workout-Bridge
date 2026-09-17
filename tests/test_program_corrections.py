@@ -305,6 +305,33 @@ class ProgramCorrectionTests(unittest.TestCase):
             "reps": {"expected": "6,7,8,9", "value": "your choice"}}
         self.assertIn("unsupported_base_override", {i.code for i in self.preview().blocking_issues})
 
+    def test_removing_set_override_restores_base_count_and_clears_all_surplus_fields(self):
+        self.cells["F7"] = 2
+        self.cells["G7"] = "6-9"
+        self.payload["exercises"][0]["program_base_overrides"] = {
+            "sets": {"expected": "2", "value": "3"}}
+        before = self.preview()
+        self.assertTrue(before.generation_safe, before.blocking_issues)
+        self.assertEqual(self.first(before).set_count.value, 3)
+        self.assertEqual(self.first(before).set_count.source, "config_reviewed_override")
+        prior_output = self.root / "prior-output.xlsx"
+        generate_program(before, self.template, prior_output)
+        hashes = file_sha256(self.coach), file_sha256(self.template), file_sha256(prior_output)
+        del self.payload["exercises"][0]["program_base_overrides"]
+        # Do not recreate the source: prove the same bytes restore base provenance.
+        after = build_program_preview(self.coach, self.config(), "Synthetic Block", "block-1",
+                                      ("Week 1", "Week 2"), self.template)
+        for rx in after.program.days[0].exercises[0].prescriptions:
+            self.assertEqual(rx.set_count.value, 2)
+            self.assertEqual(rx.set_count.source, "coach_base")
+        generate_program(after, self.template, self.output)
+        old = XlsxPackage(prior_output).sheet_snapshot("Training Programs").cells
+        new = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
+        self.assertEqual([new[f"{col}4"].value for col in "MNOPQRST"], [None] * 8)
+        changed = {ref for ref in old if old[ref].value != new[ref].value}
+        self.assertEqual(changed, {"M4", "N4", "P4"})  # RIR was already blank.
+        self.assertEqual(hashes, (file_sha256(self.coach), file_sha256(self.template), file_sha256(prior_output)))
+
     def test_reviewed_date_correction_keeps_source_bytes_and_original_raw_value(self):
         self.cells["G7"] = 45000
         self.preview()
