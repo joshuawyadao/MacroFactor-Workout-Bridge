@@ -373,10 +373,10 @@ def _discover_sheet_layouts(
 
 
 def discover_program_blocks(
-    path: str | Path, config: BridgeConfig
+    path: str | Path, config: BridgeConfig, *, sheet_name: str | None = None,
 ) -> tuple[ProgramBlockOption, ...]:
     package = XlsxPackage(path)
-    sheets = package.sheets
+    sheets = (package.sheet_by_name(sheet_name),) if sheet_name is not None else package.sheets
     if config.program.sheet_order == "right_to_left":
         sheets = tuple(reversed(sheets))
     return tuple(

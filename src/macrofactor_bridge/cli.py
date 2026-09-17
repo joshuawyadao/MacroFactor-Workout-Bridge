@@ -11,6 +11,7 @@ from .coach_program import discover_program_blocks
 from .importers import ImportError
 from .ooxml import WorkbookError
 from .program_service import build_program_preview, generate_program
+from .program_batch import run_program_batch
 from .service import apply_changes, build_preview
 from .workbook import discover_workbook
 
@@ -299,12 +300,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Included week; repeat for multiple cycles. In base mode, all repeat the base table",
     )
     program_generate.add_argument("--report", help="Optional private JSON report path")
+    program_batch = subparsers.add_parser(
+        "program-batch", help="Part 2: audit all remaining base programs and consolidate private exceptions",
+    )
+    program_batch.add_argument("--workbook", required=True)
+    program_batch.add_argument("--config", required=True, help="Shared exact mappings and base-mode policies only")
+    program_batch.add_argument("--template", required=True, help="Verified full-layout direct Export Program template")
+    program_batch.add_argument("--output-dir", required=True, help="New private run directory; never overwrite an earlier run")
+    program_batch.add_argument("--manifest", help="Private scoped configs/reference boundaries, start-after key, skips and declared import evidence")
+    program_batch.add_argument("--generate", action="store_true", help="Generate only candidates passing source and output audits; otherwise preview only")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.command == "program-batch":
+            batch = run_program_batch(args.workbook, args.config, args.template, args.output_dir,
+                                      manifest_path=args.manifest, generate=args.generate)
+            for item in batch.results:
+                print(f"{item['id']}: {item['sheet']} | {item['block'] or 'undiscovered'} | {item['status']}")
+            print(f"Consolidated review items: {len(batch.review_items)}")
+            print(f"Representative/manual imports requested: {len(batch.manual_import_plan['selected'])}")
+            print(f"Inputs unchanged: {batch.inputs_unchanged}")
+            print(f"Private review: {Path(batch.output_directory) / 'review.md'}")
+            print("Automated checks do not mark any candidate manually imported.")
+            return 0 if batch.inputs_unchanged and all(r["status"] in {"ready", "generated", "skipped"}
+                                                       for r in batch.results) else 1
         report_reserved: tuple[str | None, ...] = ()
         if args.command in {"program-preview", "program-generate"}:
             report_reserved = (

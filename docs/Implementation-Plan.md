@@ -6,6 +6,30 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 - In: the existing conservative Python/OOXML CLI workflow; the next chronological block's private mapping review and guarded generation; desktop program preview followed by generation/manual-import handoff; reconciliation with newer history features; anonymized tests, docs, issue updates and reviewable feature-branch checkpoints.
 - Out: invented exercise identities or prescription decisions, unverified periodized/native-minimum/drop-set encodings, set-column expansion, broad compatibility claims, Google Drive, private-service or phone automation, committing private artifacts, and modifying or merging into main.
 
+## Batch-validation action items
+
+The user approved replacing per-block manual testing with automated checks across remaining blocks, consolidated exception review and representative manual imports plus the present-day program. This is a one-shot local CLI workflow, not a scheduled monitor. Existing per-block and Part 1 behavior remain unchanged. Distinct structural families or uncovered custom identities can still require additional representative imports; no untested file inherits app verification.
+
+[x] Inspect discovery, preview, generation, configuration and tests. Current validation is a model-to-file round trip; add separately implemented source checks rather than treating it as an independent interpretation oracle.
+[x] Add a base-mode `program-batch` CLI/service that walks discovery order through the newest sheet, supports an exact start-after selection, records sheets/blocks with discovery failures, continues past local blockers and generates only when explicitly requested and all checks pass.
+[x] Add a strict private manifest for exact block-scoped configs, explicitly skipped sheets/reasons and hash-guarded user-declared prior import evidence. Shared mappings must not silently carry reviewed corrections, notes, expansions or special-set choices across blocks.
+[x] Add an independent source audit for coverage/order, literal source provenance, exact mapping and supported numeric prescriptions/notes. Flag unsupported audit cases and coverage discrepancies; retain full raw review data without attempting to interpret prose or completed results. A reviewed exact merged reference heading can bound the final day only with explicit block-scoped evidence and formula/blank-cell guards; earlier blank gaps remain audited. Whole-block batch runs require the independent week-label union, shared intersection and selected cycles to agree, preventing silent duration loss.
+[x] Write private per-block reports, new output paths and consolidated JSON/Markdown review in a new run directory. Deduplicate repeated questions while retaining every location. Protect source/template/config/evidence hashes, refuse reuse and halt on global input drift. Independently audit unpublished output cells and defer all publication until final input checks pass.
+[x] Group structurally compatible outputs for representative manual testing, taking explicit prior evidence into account and always requesting the present block. Separate cycle/row-shape families and uncovered custom/block-only identity witnesses. Never set an untested file's `manual_import_verified` flag or infer acceptance from structural success.
+[x] Add synthetic batch/audit tests for continuation, chronology, omissions, wrong targets, scoped configuration, unknown inputs, exceptions, evidence tampering, representative selection, immutable sources, overwrite and privacy boundaries. Run targeted tests, all 175 existing tests, compilation, configuration parity and diff checks.
+[x] Run the batch on the remaining private blocks using only approved exact identities and general policies. Generate only safe outputs and deliver one exception list, without requiring a manual import for each historical block. Unknown choices remain blocked; do not silently exclude them.
+[x] Update README/local workflow/CLI help and this plan, and independently review the changes. Keep desktop/main-conflict work separate.
+
+Final save: checkpoint/push this validated slice with `save-branch` and record redacted evidence on existing issue #16 and draft PR #13. Do not close the manual-import or integration gates.
+
+### Batch checkpoint verification
+
+- Added 79 synthetic tests: 29 batch, 35 independent source-audit and 15 independent output-audit tests. All 254 canonical tests pass, including the 175-test pre-batch baseline; no existing assertions were weakened. Compilation, example/resource configuration parity, CLI help, whitespace and ignored-private-path checks pass.
+- Independent review identified and resolved late input-drift publication, uncovered custom-identity sampling and overly broad structural-family grouping. Additional tests cover final-publication failure, post-publication drift, duplicate diagnostics, scoped custom identities and reviewed reference-boundary guards. The final focused re-review passed with no actionable findings.
+- The private smoke run reached every remaining selected block, preserved all input and previously generated-file hashes, and produced a consolidated exception report. It deliberately emitted no new candidates: unknown exact identities, unsupported literal instructions, template capacity, inconsistent week coverage and unaccounted pre-reference rows remain blocked. Reference inspection was read-only; no personal mapping, workbook, filename, report, screenshot or evidence hash enters Git.
+- A verified full-layout direct Export Program template exists. This checkpoint does not expand its day/set capacity or introduce new import encodings. The existing next-block candidate remains unconfirmed, and the newest block is not yet generation-safe. Representative/manual acceptance is still required; Part 2 is not complete.
+- The only existing discovery interface change is additive `discover_program_blocks(..., sheet_name=None)` for per-sheet failure isolation. Existing preview/generation signatures and Part 1 behavior remain unchanged. New batch/source/output audit services do not add runtime dependencies or modify desktop/dashboard/packaging files.
+
 ## Current follow-up action items
 
 [x] Inspect the next chronological block read-only with the existing parser and spreadsheet reference tooling. Preserve base/weekly/result separation and the source hash; keep all identifying findings in ignored private review material.
@@ -51,7 +75,7 @@ Final save and handoff: use `save-branch` for this validated conversion-core che
 [x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
 
 ## Open questions
-- None for the next-block implementation and candidate. Manual import of that new candidate remains a subsequent validation step.
+- None for batch implementation. New block-specific choices will be collected as exceptions without stopping other blocks. Real MacroFactor acceptance still requires representative/manual testing, not an API or phone automation.
 
 The direct-export identity evidence clears the `plan-implement-save` clarification gate. Explicit sequential expansion is implemented and tested only for reviewed base prescriptions. The scoped earliest-block approval is recorded in closed issue #12; next-block manual validation remains #16.
 

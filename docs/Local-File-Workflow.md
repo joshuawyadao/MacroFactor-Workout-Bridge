@@ -130,6 +130,22 @@ Choose optional `program.color` and `program.icon` in the ignored configuration.
 
 A structurally valid generated file is not proof of compatibility. Import it manually through MacroFactor **New Program → Import From File**, confirm the preview inside MacroFactor, and report whether the import succeeded before the project claims compatibility or adds the Part 2 desktop flow.
 
+## Batch review through the newest program
+
+Use the README's `program-batch` command for a one-shot right-to-left review after a previously reviewed worksheet/block. Keep the shared exact-mapping configuration, strict manifest and block-specific decisions in ignored private files. Never modify an approved earlier configuration to reuse it for later blocks. The manifest's `start_after` and `block_configs` use exact worksheet plus block keys; scoped configurations cannot silently alter discovery settings.
+
+Choose a **new** run directory under ignored `outputs/`, outside read-only input locations. Preview-only is the default; `--generate` requests candidates for blocks passing parser, template and independent source/output checks. Discovery failures, unknown sheets, missing mappings and unsupported prescriptions are recorded while later blocks continue. Exit status 1 means the review is partial, not that safe later work was abandoned. Existing output directories are refused.
+
+The batch checks all-day week coverage before using week count as program duration. A smaller shared intersection is not accepted as the whole block: inconsistent headers remain a blocker instead of producing too few cycles. An intentional partial-week export belongs in the existing single-block workflow.
+
+Start with `review.md` for block status, exception counts, mapping/decision questions and technical findings. `summary.json` and per-block JSON preserve every original diagnostic and source location, including any abbreviated technical-location lists. A source-coverage finding may be an auxiliary table beyond the program's blank separator; it requires boundary review, not automatically adding that row as an exercise. Do not turn all exceptions into user questions or approve new aliases from similarity alone.
+
+After read-only structural inspection, `reference_boundaries` can record a block-specific exact merged reference heading. The README lists its strict structural guards. It never skips preceding blank gaps or preceding stray rows, and a changed/missing heading fails closed. Keep the literal marker in the private manifest, not a shared code constant or public issue.
+
+The run preserves input/config/evidence hashes and retains candidates temporarily until final validation. Global input changes stop further processing and invalidate the candidates. A safe historical candidate is **automated-checked**, not **app-tested**. The manual plan asks for uncovered structural/identity representatives plus the newest program; it never silently substitutes an older program when the newest is blocked. Different row shapes, durations, special sets or custom identities can still require additional representative imports.
+
+Only record `manual_import_evidence` after the user confirms that exact file imported successfully. Keep its path/hash and the declaration private. An earlier structural match never establishes that an unknown custom exercise exists in the user's database, and no new file inherits manual-verification status. Once consolidated mapping and format questions are resolved, rerun into a different directory; never overwrite or force-add the earlier reports. Part 1 and desktop/dashboard work remain unchanged.
+
 ## Privacy and safety
 
 - The whole `local-data/` tree is ignored by Git.
