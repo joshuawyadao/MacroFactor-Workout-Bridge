@@ -277,8 +277,11 @@ class TrainingTimeline(QWidget):
         table = _table(["Date", "Workout", "Exercise", "Set type", "Weight lb", "Reps", "RIR", "Source row", "Source file"])
         table.setRowCount(len(records))
         for row, record in enumerate(records):
+            # Aggregates exclude nonfinite weights, but source inspection retains them.
+            weight = (f"Invalid ({record.weight})" if record.weight is not None and not record.weight.is_finite()
+                      else decimal_text(record.weight))
             _row(table, row, (record.workout_date, record.workout, record.exercise, record.set_type,
-                              decimal_text(record.weight), decimal_text(record.reps), decimal_text(record.rir), record.source_row,
+                              weight, decimal_text(record.reps), decimal_text(record.rir), record.source_row,
                               record.source_file or "Selected export"))
         layout.addWidget(table)
         if not records:

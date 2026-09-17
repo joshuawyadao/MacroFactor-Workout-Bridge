@@ -15,7 +15,7 @@ HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
     from PySide6.QtCore import QSettings
     from PySide6.QtTest import QTest
-    from PySide6.QtWidgets import QApplication, QMessageBox
+    from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
     from macrofactor_bridge.desktop import BridgeWindow
 
 
@@ -109,6 +109,109 @@ class ManagedGuiTests(unittest.TestCase):
         self.assertTrue(message.called)
         self.assertEqual(file_sha256(path), changed)
         self.assertEqual(self.window.history_week_notes.text(), "My unsaved note")
+
+    def test_failed_workspace_switch_keeps_retained_feedback_conflict_guard(self):
+        controller = self.window.managed
+        before = self.window._history_dashboard
+        invalid_root = self.directory / "empty-workspace"
+        invalid_root.mkdir()
+        with patch.object(QFileDialog, "getExistingDirectory", return_value=str(invalid_root)):
+            controller.choose_workspace()
+        self.wait_for(lambda: controller._job is None)
+        self.assertIs(self.window._history_dashboard, before)
+        self.assertIn("previous data was not replaced", controller.status.text())
+
+        path = self.root / "annotations/workout-history.json"
+        path.write_text(path.read_text() + "\n", encoding="utf-8")
+        changed = file_sha256(path)
+        self.window.history_week_notes.setText("Keep this unsaved feedback")
+        with patch.object(QMessageBox, "critical") as message:
+            self.window._save_history_annotation()
+        self.assertTrue(message.called)
+        self.assertEqual(file_sha256(path), changed)
+        self.assertEqual(self.window.history_week_notes.text(), "Keep this unsaved feedback")
+
+    def test_successful_workspace_switch_saves_feedback_to_replacement(self):
+        replacement_directory = self.directory / "replacement"
+        replacement_directory.mkdir()
+        replacement_root = managed_inputs(replacement_directory)
+        controller = self.window.managed
+        with patch.object(QFileDialog, "getExistingDirectory", return_value=str(replacement_root)):
+            controller.choose_workspace()
+        self.wait_for(lambda: controller.snapshot.root == replacement_root)
+
+        original = self.root / "annotations/workout-history.json"
+        original.write_text(original.read_text() + "\n", encoding="utf-8")
+        original_hash = file_sha256(original)
+        block = self.window.history_block_combo.currentText()
+        week = self.window.history_week_combo.currentText()
+        self.window.history_week_notes.setText("Replacement workspace feedback")
+        with patch.object(QMessageBox, "critical") as message:
+            self.window._save_history_annotation()
+        self.assertFalse(message.called)
+        saved = load_dashboard_annotations(replacement_root / "annotations/workout-history.json")
+        self.assertEqual(saved.blocks[block].weeks[week].notes, "Replacement workspace feedback")
+        self.assertEqual(file_sha256(original), original_hash)
+        self.wait_for(lambda: controller._job is None)
+
+    def load_manual_history_then_fail_workspace_switch(self):
+        manual_directory = self.directory / "manual"
+        manual_directory.mkdir()
+        manual_root = managed_inputs(manual_directory)
+        controller = self.window.managed
+        controller.auto.setChecked(False)
+        paths = (
+            (self.window.history_export_path, manual_root / "inbox/macrofactor/all-time.csv"),
+            (self.window.history_workbook_path, manual_root / "inbox/coach/coach.xlsx"),
+            (self.window.history_annotations_path, manual_root / "annotations/workout-history.json"),
+        )
+        for field, path in paths:
+            field.setText(str(path))
+        self.window._load_history()
+        manually_loaded = self.window._history_dashboard
+        self.assertIsNotNone(manually_loaded)
+        self.assertIsNone(controller.snapshot)
+
+        invalid_root = self.directory / "empty-workspace"
+        invalid_root.mkdir()
+        with patch.object(QFileDialog, "getExistingDirectory", return_value=str(invalid_root)):
+            controller.choose_workspace()
+        self.wait_for(lambda: controller._job is None)
+        self.assertIs(self.window._history_dashboard, manually_loaded)
+        self.assertIn("previous data was not replaced", controller.status.text())
+        for field, path in paths:
+            self.assertEqual(field.text(), str(path))
+        return manual_root / "annotations/workout-history.json"
+
+    def test_failed_switch_after_manual_load_ignores_unrelated_managed_feedback_changes(self):
+        manual_path = self.load_manual_history_then_fail_workspace_switch()
+        original = self.root / "annotations/workout-history.json"
+        original.write_text(original.read_text() + "\n", encoding="utf-8")
+        original_hash = file_sha256(original)
+        block = self.window.history_block_combo.currentText()
+        week = self.window.history_week_combo.currentText()
+        self.window.history_week_notes.setText("Feedback for manually loaded history")
+        with patch.object(QMessageBox, "critical") as message:
+            self.window._save_history_annotation()
+        self.assertFalse(message.called)
+        saved = load_dashboard_annotations(manual_path)
+        self.assertEqual(saved.blocks[block].weeks[week].notes, "Feedback for manually loaded history")
+        self.assertEqual(file_sha256(original), original_hash)
+        self.wait_for(lambda: self.window.managed._job is None)
+
+    def test_failed_switch_after_manual_load_protects_displayed_feedback_changes(self):
+        manual_path = self.load_manual_history_then_fail_workspace_switch()
+        original = self.root / "annotations/workout-history.json"
+        original_hash = file_sha256(original)
+        manual_path.write_text(manual_path.read_text() + "\n", encoding="utf-8")
+        manual_hash = file_sha256(manual_path)
+        self.window.history_week_notes.setText("Keep manually loaded feedback edits")
+        with patch.object(QMessageBox, "critical") as message:
+            self.window._save_history_annotation()
+        self.assertTrue(message.called)
+        self.assertEqual(file_sha256(manual_path), manual_hash)
+        self.assertEqual(file_sha256(original), original_hash)
+        self.assertEqual(self.window.history_week_notes.text(), "Keep manually loaded feedback edits")
 
     def test_manual_override_and_stale_results_do_not_replace_view(self):
         controller = self.window.managed

@@ -39,7 +39,15 @@ def exercise_names(dashboard: HistoryDashboard, family: str = "All exercises", q
 
 def default_exercise(dashboard: HistoryDashboard, names: tuple[str, ...]) -> str:
     """Most recently logged variation, with stable alphabetical tie-breaking."""
-    latest = {name: max(t.week_start for t in dashboard.trends_for(name)) for name in names}
+    candidates = set(names)
+    latest: dict[str, date] = {}
+    for record in dashboard.records:
+        if record.exercise in candidates:
+            latest[record.exercise] = max(latest.get(record.exercise, date.min), record.workout_date)
+    # Older summary-only dashboards do not have per-set dates available.
+    for name in names:
+        if name not in latest:
+            latest[name] = max(t.week_start for t in dashboard.trends_for(name))
     return min(names, key=lambda name: (-latest[name].toordinal(), name.casefold())) if names else ""
 
 

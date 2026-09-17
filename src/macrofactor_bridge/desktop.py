@@ -693,6 +693,9 @@ class BridgeWindow(QMainWindow):
         self._history_annotations = annotations
         self._history_dashboard = dashboard
         self._display_history_dashboard(dashboard)
+        if self.managed:
+            self.managed.snapshot = None
+            self.managed.note_saved()
         self.history_sources_toggle.setChecked(False)
         self.history_save_annotation_button.setEnabled(True)
 

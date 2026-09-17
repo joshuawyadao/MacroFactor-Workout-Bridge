@@ -8,6 +8,7 @@ import unittest
 from macrofactor_bridge.config import load_config
 from macrofactor_bridge.explorer import best_estimate, default_exercise, exercise_names, exercise_timeline, week_location
 from macrofactor_bridge.history import build_history_dashboard, load_dashboard_annotations
+from macrofactor_bridge.importers import ExerciseLogImport
 from tests.comparison_fixture import comparison_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,9 +53,29 @@ class ExplorerTests(unittest.TestCase):
                             exercises=self.dashboard.exercises + (replace(summary, exercise="Barbell Back Squat"),),
                             weekly_trends=self.dashboard.weekly_trends + (extra,))
         self.assertEqual(default_exercise(dashboard, exercise_names(dashboard, "Squat")), "Barbell Back Squat")
+        self.assertEqual(default_exercise(replace(dashboard, records=()), exercise_names(dashboard, "Squat")),
+                         "Barbell Back Squat", "Summary-only dashboards retain weekly recency as a fallback")
         self.assertEqual(best_estimate(dashboard, "Tempo Back Squat", "Training Block"), Decimal("233.3"))
         self.assertEqual(best_estimate(dashboard, "Barbell Back Squat", "Training Block"), 900)
         self.assertIsNone(best_estimate(dashboard, "Not an exercise", "Training Block"))
+
+    def test_default_variation_uses_actual_dates_and_alphabetical_same_day_ties(self):
+        record = self.dashboard.records[1]
+        for tempo_date, expected in ((date(2026, 8, 9), "Tempo Back Squat"),
+                                     (date(2026, 8, 3), "Barbell Back Squat")):
+            with self.subTest(tempo_date=tempo_date):
+                records = (
+                    replace(record, exercise="Tempo Back Squat", workout_date=tempo_date),
+                    replace(record, source_row=record.source_row + 1,
+                            exercise="Barbell Back Squat", workout_date=date(2026, 8, 3)),
+                )
+                dashboard = build_history_dashboard(
+                    ROOT / "unused.csv", ROOT / "tests/fixtures/coach-template.xlsx",
+                    load_config(ROOT / "config/exercises.example.json"),
+                    imported=ExerciseLogImport(records, ()),
+                )
+                names = tuple(reversed(exercise_names(dashboard, "Squat")))
+                self.assertEqual(default_exercise(dashboard, names), expected)
 
     def test_ambiguous_or_undated_blocks_do_not_supply_missing_week_context(self):
         week = exercise_timeline(self.dashboard, "Tempo Back Squat")[2]

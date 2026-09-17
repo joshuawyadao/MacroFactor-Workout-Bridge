@@ -44,6 +44,7 @@ class ManagedHistoryController(QObject):
         self.root = Path(root).resolve() if root else (discover_workspace(str(saved)) if autoload else None)
         self.snapshot = None
         self.fingerprint = None
+        self.annotation_path = None
         self.annotation_hash = None
         self._token = 0
         self._job = None
@@ -153,7 +154,7 @@ class ManagedHistoryController(QObject):
             if self.settings:
                 self.settings.setValue("workspace", str(self.root))
             self.fingerprint = None
-            self.snapshot = None
+            # Keep the displayed snapshot and its feedback guard until replacement succeeds.
             self._token += 1
             self.auto.setChecked(True)
             self.refresh(force=True)
@@ -271,13 +272,13 @@ class ManagedHistoryController(QObject):
             self.settings.setValue("workspace", str(snapshot.root))
 
     def note_saved(self):
-        path = Path(self.window.history_annotations_path.text())
-        self.annotation_hash = file_sha256(path) if path.is_file() else None
+        path = Path(self.window.history_annotations_path.text().strip())
+        self.annotation_path, self.annotation_hash = path, file_sha256(path) if path.is_file() else None
 
     def check_save(self):
-        if not self.enabled or not self.snapshot:
+        if not self.enabled or self.annotation_path is None:
             return
-        path = self.snapshot.annotation_path
+        path = self.annotation_path
         actual = file_sha256(path) if path.is_file() else None
         if actual != self.annotation_hash:
             raise ValueError("The feedback file changed outside this app. Your edits are still visible; copy them before reloading to avoid overwriting newer feedback.")

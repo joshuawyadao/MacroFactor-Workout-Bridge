@@ -98,6 +98,26 @@ class TimelineGuiTests(unittest.TestCase):
         self.assertEqual(table.item(0, 4).text(), "0")
         self.timeline.details_dialog.close()
 
+    def test_nonfinite_source_weights_remain_inspectable_without_changing_metrics(self):
+        original = self.export.read_text(encoding="utf-8")
+        for weight in ("Infinity", "-Infinity", "sNaN", "NaN"):
+            with self.subTest(weight=weight):
+                self.export.write_text(original.replace("Standard Set,200,5", f"Standard Set,{weight},5"), encoding="utf-8")
+                before = [file_sha256(p) for p in (self.export, self.coach, self.annotations)]
+                self.window._load_history()
+                trend = self.window._history_dashboard.trends_for("Tempo Back Squat")[0]
+                self.assertEqual(trend.top_weight, Decimal(210))
+                self.assertEqual(trend.set_count, 2)
+                self.timeline.week_selector.setCurrentText("2026-08-03")
+                self.timeline.detail_exercise.setCurrentText("Tempo Back Squat")
+                self.timeline._open_details()
+                table = self.timeline.details_dialog.findChild(QTableWidget)
+                self.assertEqual(table.rowCount(), 2)
+                self.assertEqual(table.item(0, 4).text(), f"Invalid ({weight})")
+                self.assertEqual(table.item(1, 4).text(), "210")
+                self.timeline.details_dialog.close()
+                self.assertEqual(before, [file_sha256(p) for p in (self.export, self.coach, self.annotations)])
+
     def test_keyboard_accessible_week_and_set_controls(self):
         self.timeline.week_selector.setCurrentText("2026-08-03")
         self.timeline.show_context.setChecked(False)

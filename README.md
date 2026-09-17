@@ -137,6 +137,8 @@ Open **Exercise trends** for searchable analysis of any exercise, including acce
 
 The exercise explorer's chart runs chronologically; its detail table lists the newest weeks first so recent training is visible without scrolling through the year.
 
+Default variation selection uses the most recent actual workout date, including when two variations were trained in the same calendar week; equal dates use alphabetical ordering. Original-set details label nonfinite source weights as invalid while retaining their exported value for inspection. They do not become zero or enter strength/load calculations.
+
 The second top-level tab, **Update coach workbook**, guides the optional workbook-copy workflow:
 
 1. Choose the MacroFactor `.csv` or `.xlsx` exercise-log export.
