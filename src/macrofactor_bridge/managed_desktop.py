@@ -276,7 +276,7 @@ class ManagedHistoryController(QObject):
         self.annotation_path, self.annotation_hash = path, file_sha256(path) if path.is_file() else None
 
     def check_save(self):
-        if not self.enabled or self.annotation_path is None:
+        if self.annotation_path is None:
             return
         path = self.annotation_path
         actual = file_sha256(path) if path.is_file() else None

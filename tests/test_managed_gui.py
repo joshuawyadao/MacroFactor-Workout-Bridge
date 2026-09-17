@@ -110,6 +110,19 @@ class ManagedGuiTests(unittest.TestCase):
         self.assertEqual(file_sha256(path), changed)
         self.assertEqual(self.window.history_week_notes.text(), "My unsaved note")
 
+    def test_manual_feedback_save_preserves_external_changes(self):
+        self.window.managed.auto.setChecked(False)
+        self.window._load_history()
+        path = Path(self.window.history_annotations_path.text())
+        self.window.history_week_notes.setText("Unsaved manual feedback")
+        path.write_text(path.read_text() + "\n", encoding="utf-8")
+        changed = file_sha256(path)
+        with patch.object(QMessageBox, "critical") as message:
+            self.window._save_history_annotation()
+        self.assertTrue(message.called)
+        self.assertEqual(file_sha256(path), changed)
+        self.assertEqual(self.window.history_week_notes.text(), "Unsaved manual feedback")
+
     def test_failed_workspace_switch_keeps_retained_feedback_conflict_guard(self):
         controller = self.window.managed
         before = self.window._history_dashboard
