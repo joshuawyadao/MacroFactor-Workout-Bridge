@@ -99,6 +99,19 @@ class ExplorerTests(unittest.TestCase):
                                      f"Ambiguous coach labels must not map week {week.start}")
                 self.assertEqual(week_location(dashboard, weeks[4]), ("Archive", "Week 9"))
 
+    def test_logged_and_missing_weeks_reject_invalid_block_dates(self):
+        weeks = exercise_timeline(self.dashboard, "Tempo Back Squat")
+        for start, overlapping in ((None, frozenset()), (date(2026, 8, 4), frozenset()),
+                                   (date(2026, 8, 3), frozenset({"Training Block"}))):
+            with self.subTest(start=start, overlapping=overlapping):
+                blocks = tuple(replace(block, start_date=start)
+                               if block.name == "Training Block" else block
+                               for block in self.dashboard.blocks)
+                dashboard = replace(self.dashboard, blocks=blocks, overlapping_blocks=overlapping)
+                for week in weeks[1:4]:
+                    self.assertEqual(week_location(dashboard, week), ("Unmapped", "—"))
+                self.assertEqual(week_location(dashboard, weeks[4]), ("Archive", "Week 9"))
+
 
 if __name__ == "__main__":
     unittest.main()
