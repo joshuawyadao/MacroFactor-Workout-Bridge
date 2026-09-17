@@ -72,7 +72,8 @@ def _bounds(text: str | None, *, suffix: str = "") -> tuple[int, int] | None:
 
 
 def _count(text: str | None, config: BridgeConfig) -> tuple[int | None, bool]:
-    exact = _integer(text)
+    literal = re.sub(r"\s+(?:ea\.?|each)(?:\s+(?:leg|side))?$", "", text or "", flags=re.I)
+    exact = _integer(literal)
     bounds = _bounds(text, suffix=r"(?:\s*sets?)?")
     if exact is not None:
         return exact, False
@@ -102,20 +103,28 @@ def _reps(text: str | None) -> tuple[tuple[int, int | None], ...]:
     return (bounds,) if bounds else ()
 
 
-def _rest(text: str | None, config: BridgeConfig) -> tuple[int | None, bool]:
-    value = re.sub(r"\s*\(timed\)$", "", (text or "").lower())
+def _rest(text: str | None, config: BridgeConfig) -> tuple[int | None, str | None]:
+    value = re.sub(r"(?:\s*\(timed\)|\s+max)$", "", (text or "").lower())
     value = re.sub(r"\s*rest$", "", value).strip()
-    match = re.fullmatch(r"(.+?)\s*(seconds?|secs?|s|minutes?|mins?|m)", value)
-    if not match:
-        return None, False
-    quantity, unit = match.groups()
-    amount = _integer(quantity.strip())
-    ranged = False
-    if amount is None and config.program.rest_range_policy == "upper":
-        bounds = _bounds(quantity.strip())
-        if bounds:
-            amount, ranged = bounds[1], True
-    return (amount * (60 if unit.startswith("m") else 1), ranged) if amount else (None, False)
+    parts = re.split(r"\s*(?:to|[-–])\s*", value)
+    if len(parts) not in (1, 2) or len(parts) == 2 and config.program.rest_range_policy != "upper":
+        return None, None
+    numbers, units = [], []
+    for part in parts:
+        match = re.fullmatch(r"([0-9]+)\s*(seconds?|secs?|s|minutes?|mins?|m)?", part)
+        if not match or not _integer(match[1]):
+            return None, None
+        numbers.append(int(match[1]))
+        units.append(None if match[2] is None else 60 if match[2].startswith("m") else 1)
+    if numbers[-1] < numbers[0] or len(units) == 2 and units[0] is not None and units[0] != units[1]:
+        return None, None
+    unitless = all(unit is None for unit in units)
+    if unitless and config.program.unitless_rest_policy != "seconds":
+        return None, None
+    ranged = len(parts) == 2
+    source = (("coach_unitless_seconds_range_upper_by_policy" if ranged else "coach_unitless_seconds_by_policy")
+              if unitless else "coach_range_upper_by_policy" if ranged else "coach_base")
+    return numbers[-1] * (units[-1] or 1), source
 
 
 def _date_styles(path: str | Path) -> set[str]:
@@ -216,6 +225,106 @@ def _reference_boundary(snapshot, headers, selected, rows, marker: str) -> int:
     return row
 
 
+def _aligned_source_weeks(snapshot, rows, headers, selected, config):
+    """Reconstruct aligned pairs from literal source, independently of discovery."""
+    if config.program.prescription_source != "base" or config.program.week_pair_layout not in {
+        "plan_then_result", "result_then_plan"
+    }:
+        raise ValueError("Aligned coverage requires base mode and an explicit pair direction")
+    pattern = re.compile(config.program.week_header_pattern, re.I)
+    union = {}
+    observations = []
+    tables = []
+    for header in selected:
+        if header.columns != selected[0].columns:
+            raise ValueError("Aligned day base schemas differ")
+        preceding_base = [rows.get(header.row - 1, {}).get(col) for col in header.columns.values()]
+        header_start = max(1, header.row - 1)
+        if (any(cell is not None and (_text(cell) is not None or cell.formula is not None)
+                for cell in preceding_base)
+                or not any(_text(cell) and pattern.fullmatch(_text(cell))
+                           for cell in rows.get(header.row - 1, {}).values())):
+            header_start = header.row
+        following = [item.row for item in headers if item.row > header.row]
+        end = min(following) - 1 if following else max(rows, default=header.row)
+        base_rows = [row for row in range(header.row + 1, end + 1)
+                     if any(cell is not None and (_text(cell) is not None or cell.formula is not None)
+                            for col in header.columns.values()
+                            for cell in (rows.get(row, {}).get(col),))]
+        first_base_row = min(base_rows, default=end + 1)
+        exercise_rows = []
+        for row in range(header.row + 1, end + 1):
+            if exercise_rows and not any(_text(rows.get(row, {}).get(col)) for col in header.columns.values()):
+                break
+            if _text(rows.get(row, {}).get(header.columns["exercise"])):
+                exercise_rows.append(row)
+        table_end = exercise_rows[-1] if exercise_rows else header.row
+        candidates = sorted(
+            (col, row, cell) for row in range(header_start, header.row + 1)
+            for col, cell in rows.get(row, {}).items()
+            if _text(cell) and pattern.fullmatch(_text(cell))
+        )
+        observed = {}
+        for index, (column, row, cell) in enumerate(candidates):
+            key = normalize_name(_text(cell))
+            if cell.formula is not None or key in observed:
+                raise ValueError("Duplicate or formula week header")
+            covering = [split_range(merge) for merge in snapshot.merges
+                        if split_range(merge)[0] <= row <= split_range(merge)[2]
+                        and split_range(merge)[1] <= column <= split_range(merge)[3]]
+            first = column
+            if covering:
+                if (len(covering) != 1 or covering[0][0:2] != (row, column)
+                        or covering[0][3] != column + 1 or covering[0][2] >= first_base_row):
+                    raise ValueError("Unsupported merged week header")
+            elif index + 1 < len(candidates):
+                if candidates[index + 1][0] != column + 2:
+                    raise ValueError("Unmerged week pair is not adjacent")
+            elif not any(column in rows.get(r, {}) and column + 1 in rows.get(r, {}) for r in exercise_rows):
+                raise ValueError("Unmerged week pair lacks structural cells")
+            pair = (first, first + 1)
+            if set(pair).intersection(header.columns.values()):
+                raise ValueError("Week pair touches base columns")
+            if key in union and union[key] != pair:
+                raise ValueError("Week label changes source pair")
+            if any(other != key and set(pair).intersection(other_pair) for other, other_pair in union.items()):
+                raise ValueError("Week labels overlap source pairs")
+            union[key] = pair
+            observed[key] = pair
+        observations.append(observed)
+        tables.append((header, exercise_rows, table_end, first_base_row, header_start))
+    if not union or not any(set(item) == set(union) for item in observations):
+        raise ValueError("No explicit complete anchor day supports the union")
+    for header, exercise_rows, table_end, first_base_row, header_start in tables:
+        for key, pair in union.items():
+            if not any(all(col in rows.get(row, {}) for col in pair) for row in exercise_rows):
+                raise ValueError("Aligned pair cells are absent from the day exercise table")
+            header_rows = set(range(header_start, header.row + 1))
+            for merge in snapshot.merges:
+                r1, c1, r2, c2 = split_range(merge)
+                if r2 >= header_start and r1 <= table_end and any(c1 <= col <= c2 for col in pair):
+                    if r2 < header.row and not any(
+                        _text(cell) is not None or cell.formula is not None
+                        for row, cells in rows.items() if r1 <= row <= r2
+                        for col, cell in cells.items() if c1 <= col <= c2
+                    ):
+                        continue
+                    if not (header_start <= r1 <= header.row and r2 < first_base_row and (c1, c2) == pair):
+                        raise ValueError("Aligned pair intersects an unsafe merge")
+                    header_rows.update(range(r1, r2 + 1))
+                    for row in range(r1, r2 + 1):
+                        for col in pair:
+                            if (row, col) != (r1, c1) and _text(rows.get(row, {}).get(col)) is not None:
+                                raise ValueError("Merged header contains non-top-left text")
+            for row in header_rows:
+                for col in pair:
+                    cell = rows.get(row, {}).get(col)
+                    if cell is not None and (cell.formula is not None or (_text(cell) and normalize_name(_text(cell)) != key)):
+                        raise ValueError("Aligned header slots contain alternate text or formulas")
+    offset = 1 if config.program.week_pair_layout == "result_then_plan" else 0
+    return {key: pair[offset] for key, pair in sorted(union.items(), key=lambda item: item[1])}
+
+
 def audit_coach_program(
     workbook_path: str | Path, config: BridgeConfig, block: ProgramBlockOption,
     report: ProgramPreviewReport, *, reference_boundary_marker: str | None = None,
@@ -284,6 +393,16 @@ def audit_coach_program(
     prior_weeks: dict[str, int] = {}
     common_weeks: set[str] | None = None
     all_visible_weeks: set[str] = set()
+    aligned_weeks = None
+    if config.program.week_header_coverage_policy == "aligned_union_base_only":
+        try:
+            aligned_weeks = _aligned_source_weeks(snapshot, rows, headers, selected, config)
+        except ValueError as exc:
+            fail("week_alignment", str(exc))
+            return finish()
+        if tuple(map(normalize_name, block.week_labels)) != tuple(aligned_weeks):
+            fail("week_coverage", "Selectable weeks differ from the independent canonical column order")
+        checks += ("Independent same-block complete-anchor week alignment and pair guards",)
 
     for header, day in zip(selected, program.days):
         next_headers = [item.row for item in headers if item.row > header.row]
@@ -305,7 +424,7 @@ def audit_coach_program(
                 or day.export_name != expected_export_name):
             fail("day_designation", "Workout designation/export name differs from the literal source and explicit policy", day=day.label)
         weeks: dict[str, int] = {}
-        for header_row in (header.row - 1, header.row):
+        for header_row in (() if aligned_weeks is not None else (header.row - 1, header.row)):
             for column, cell in rows.get(header_row, {}).items():
                 value = _text(cell)
                 if value and week_pattern.fullmatch(value):
@@ -319,7 +438,9 @@ def audit_coach_program(
                     if config.program.week_pair_layout == "result_then_plan":
                         plan_column += 1
                     weeks[normalize_name(value)] = plan_column
-        if not weeks:
+        if aligned_weeks is not None:
+            weeks = dict(aligned_weeks)
+        elif not weeks:
             weeks = dict(prior_weeks)
         prior_weeks = weeks
         common_weeks = set(weeks) if common_weeks is None else common_weeks.intersection(weeks)
@@ -458,7 +579,7 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
             overrides.add(correction.field)
     count, ranged_count = _count(effective.get("sets"), config)
     reps = _reps(effective.get("reps"))
-    rest, ranged_rest = _rest(effective.get("rest"), config)
+    rest, parsed_rest_source = _rest(effective.get("rest"), config)
     rep_cell = snapshot.cells.get(make_cell_reference(row, header.columns["reps"]))
     date_rep = bool(rep_cell and isinstance(rep_cell.value, (int, float))
                     and rep_cell.style in date_styles and "reps" not in overrides)
@@ -510,7 +631,7 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
         minimum = maximum = None
         min_source = max_source = "blank_by_policy"
     expected_rest = rest if rest is not None else defaults.rest_seconds
-    rest_source = "coach_range_upper_by_policy" if ranged_rest else "coach_base" if rest is not None else "config_default" if expected_rest is not None else "blank_by_policy"
+    rest_source = parsed_rest_source or ("config_default" if expected_rest is not None else "blank_by_policy")
     if not config.program.allow_blank_targets and (
             expected_rest is None or defaults.rir is None or not blank_reps and (minimum is None or maximum is None)):
         fail("missing_targets", "Missing targets are not permitted by explicit configuration")
@@ -526,7 +647,8 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
             field = getattr(rx, field_name)
             if field.value != value or field.source != source:
                 fail("prescription", f"{field_name} value/provenance differs from independent source expectation", raw.get(base_key))
-            if base_key and source in {"coach_base", "coach_unbounded", "coach_range_upper_by_policy", "config_reviewed_override", "config_program_expansion"}:
+            if base_key and source in {"coach_base", "coach_unbounded", "coach_range_upper_by_policy", "config_reviewed_override", "config_program_expansion",
+                                      "coach_unitless_seconds_by_policy", "coach_unitless_seconds_range_upper_by_policy"}:
                 if field.source_cell != make_cell_reference(row, header.columns[base_key]) or field.raw_text != raw.get(base_key):
                     fail("provenance", f"{field_name} lost its exact source cell/raw text")
             if source == "config_default" and (field.source_cell is not None or field.raw_text is not None):
@@ -567,6 +689,10 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                     required_notes.append(effective["reps"])
                 if reps and re.search(r"\b(?:ea\.?|each)\b", effective.get("reps", ""), re.I):
                     required_notes.append("Reps are per side.")
+                if count and re.search(r"\b(?:ea\.?|each)\b", effective.get("sets", ""), re.I):
+                    required_notes.append("Sets are per side.")
+                if rest and re.search(r"(?:\s+max|\(timed\))$", effective.get("rest", ""), re.I):
+                    required_notes.append(effective["rest"])
             if minimum_notes:
                 required_notes.append(effective["reps"])
         elif effective.get("reps") and not reps:

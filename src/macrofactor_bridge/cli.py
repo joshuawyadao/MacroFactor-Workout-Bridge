@@ -304,7 +304,7 @@ def build_parser() -> argparse.ArgumentParser:
         "program-batch", help="Part 2: audit all remaining base programs and consolidate private exceptions",
     )
     program_batch.add_argument("--workbook", required=True)
-    program_batch.add_argument("--config", required=True, help="Shared exact mappings and base-mode policies only")
+    program_batch.add_argument("--config", required=True, help="Shared exact mappings and base-mode policies, including explicit rest units and week-header coverage")
     program_batch.add_argument("--template", required=True, help="Verified full-layout direct Export Program template")
     program_batch.add_argument("--output-dir", required=True, help="New private run directory; never overwrite an earlier run")
     program_batch.add_argument("--manifest", help="Private scoped configs/reference boundaries, start-after key, skips and declared import evidence")

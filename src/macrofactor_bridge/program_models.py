@@ -24,6 +24,7 @@ class ProgramConfig:
     )
     week_header_pattern: str = r"^week\s*\d+(?:\s*\([^)]*\))?$"
     week_pair_layout: str | None = None
+    week_header_coverage_policy: str = "intersection"
     style_header_labels: tuple[str, ...] = ("Style",)
     exercise_header_labels: tuple[str, ...] = ("Variation", "Exercise")
     sets_header_labels: tuple[str, ...] = ("Sets",)
@@ -33,6 +34,7 @@ class ProgramConfig:
     variation_header_labels: tuple[str, ...] = ("Variation",)
     sheet_order: str = "left_to_right"
     rest_range_policy: str = "block"
+    unitless_rest_policy: str = "block"
     set_count_range_policy: str = "block"
     allow_blank_targets: bool = False
     preserve_coach_notes: bool = False

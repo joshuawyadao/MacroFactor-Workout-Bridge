@@ -134,7 +134,7 @@ def _require_shared_mapping_only(config: BridgeConfig) -> None:
 
 def _discovery_settings(config: BridgeConfig) -> tuple[Any, ...]:
     p = config.program
-    return (p.day_label_pattern, p.week_header_pattern, p.week_pair_layout,
+    return (p.day_label_pattern, p.week_header_pattern, p.week_pair_layout, p.week_header_coverage_policy,
             p.style_header_labels, p.exercise_header_labels, p.variation_header_labels,
             p.sets_header_labels, p.reps_header_labels, p.rest_header_labels, p.sheet_order)
 

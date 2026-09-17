@@ -42,6 +42,7 @@ class _WeekLayout:
     completed_columns: tuple[int, ...]
     safe: bool
     reason: str | None = None
+    aligned_inherited: bool = False
 
 
 @dataclass(frozen=True)
@@ -111,11 +112,14 @@ def _week_layouts(
     end_row: int,
     pattern: re.Pattern[str],
     pair_layout: str | None,
+    *,
+    header_start: int | None = None,
 ) -> tuple[_WeekLayout, ...]:
+    header_start = max(1, header_row - 1) if header_start is None else header_start
     candidates: list[tuple[int, int, str, str]] = []
     for reference, cell in snapshot.cells.items():
         row, column = split_cell_reference(reference)
-        if row not in {max(1, header_row - 1), header_row}:
+        if not header_start <= row <= header_row:
             continue
         if isinstance(cell.value, str) and pattern.fullmatch(cell.value.strip()):
             candidates.append((row, column, reference, cell.value.strip()))
@@ -218,6 +222,110 @@ def _day_table_end(
         ):
             return row - 1
     return provisional_end_row
+
+
+def _align_base_week_headers(snapshot, days, pattern, config):
+    """Infer missing header metadata only from one complete, same-block anchor."""
+    def reject(reason):
+        raise WorkbookError(f"Aligned week header coverage is unsafe: {reason}")
+
+    if config.prescription_source != "base" or config.week_pair_layout not in {
+        "plan_then_result", "result_then_plan"
+    }:
+        reject("requires base prescriptions and an explicit pair direction")
+    canonical: dict[str, _WeekLayout] = {}
+    explicit = []
+    header_starts = []
+    occupied: dict[int, str] = {}
+    for day in days:
+        if day.columns != days[0].columns:
+            reject("day base schemas differ")
+        header_start = day.header_row
+        if day.header_row > 1 and all(
+            cell is None or (_raw(cell) is None and cell.formula is None)
+            for column in day.columns.values()
+            for cell in (snapshot.cells.get(make_cell_reference(day.header_row - 1, column)),)
+        ) and any(
+            split_cell_reference(reference)[0] == day.header_row - 1
+            and isinstance(cell.value, str) and pattern.fullmatch(cell.value.strip())
+            for reference, cell in snapshot.cells.items()
+        ):
+            header_start -= 1
+        header_starts.append(header_start)
+        seen = set()
+        for reference, cell in snapshot.cells.items():
+            row, _ = split_cell_reference(reference)
+            if header_start <= row <= day.header_row and isinstance(cell.value, str) and pattern.fullmatch(cell.value.strip()):
+                key = normalize_name(cell.value)
+                if key in seen or cell.formula is not None:
+                    reject("duplicate or formula week header")
+                seen.add(key)
+        weeks = _week_layouts(snapshot, day.header_row, day.end_row, pattern, config.week_pair_layout,
+                              header_start=header_start)
+        observed = {}
+        for week in weeks:
+            key = normalize_name(week.label)
+            pair = (week.plan_column, *week.completed_columns)
+            if not week.safe or len(pair) != 2 or set(pair).intersection(day.columns.values()):
+                reject("unsupported pair or pair touches base columns")
+            if key in canonical and pair != (canonical[key].plan_column, *canonical[key].completed_columns):
+                reject("the same label changes columns")
+            if any(column in occupied and occupied[column] != key for column in pair):
+                reject("different labels overlap the same pair")
+            occupied.update({column: key for column in pair})
+            canonical.setdefault(key, week)
+            observed[key] = week
+        explicit.append(observed)
+    if not canonical or not any(set(weeks) == set(canonical) for weeks in explicit):
+        reject("no explicit complete anchor day")
+    ordered = sorted(canonical, key=lambda key: min(canonical[key].plan_column, *canonical[key].completed_columns))
+    aligned = []
+    for day, observed, header_start in zip(days, explicit, header_starts):
+        first_base_row = next((
+            row for row in range(day.header_row + 1, day.end_row + 1)
+            if any(cell is not None and (_raw(cell) is not None or cell.formula is not None)
+                   for column in day.columns.values()
+                   for cell in (snapshot.cells.get(make_cell_reference(row, column)),))
+        ), day.end_row + 1)
+        weeks = []
+        for key in ordered:
+            anchor = canonical[key]
+            pair = (anchor.plan_column, *anchor.completed_columns)
+            header_end = day.header_row
+            for merged in snapshot.merges:
+                r1, c1, r2, c2 = split_range(merged)
+                if r2 >= header_start and r1 <= day.end_row and any(c1 <= col <= c2 for col in pair):
+                    if r2 < day.header_row and all(
+                        cell.formula is None and _raw(cell) is None
+                        for reference, cell in snapshot.cells.items()
+                        for row, column in (split_cell_reference(reference),)
+                        if r1 <= row <= r2 and c1 <= column <= c2
+                    ):
+                        continue
+                    if not (header_start <= r1 <= day.header_row and r2 < first_base_row
+                            and (c1, c2) == (min(pair), max(pair))):
+                        reject("pair intersects an unsafe merge")
+                    header_end = max(header_end, r2)
+                    for row in range(r1, r2 + 1):
+                        for column in pair:
+                            cell = snapshot.cells.get(make_cell_reference(row, column))
+                            if (row, column) != (r1, c1) and cell is not None and _raw(cell) is not None:
+                                reject("merged header contains text outside its top-left cell")
+            for row in range(header_start, header_end + 1):
+                for column in pair:
+                    cell = snapshot.cells.get(make_cell_reference(row, column))
+                    text = _raw(cell)
+                    if cell is not None and (cell.formula is not None or (text and normalize_name(text) != key)):
+                        reject(f"pair header slot {make_cell_reference(row, column)} contains alternate text or a formula: {text!r}")
+            if not any(
+                _raw(snapshot.cells.get(make_cell_reference(row, day.columns["exercise"])))
+                and all(make_cell_reference(row, col) in snapshot.cells for col in pair)
+                for row in range(day.header_row + 1, day.end_row + 1)
+            ):
+                reject("pair cells are absent from this day exercise table")
+            weeks.append(observed.get(key) or replace(anchor, aligned_inherited=True))
+        aligned.append(replace(day, weeks=tuple(weeks)))
+    return aligned
 
 
 def _discover_sheet_layouts(
@@ -347,6 +455,8 @@ def _discover_sheet_layouts(
 
     layouts: list[_BlockLayout] = []
     for block_index, days in enumerate(grouped, start=1):
+        if config.program.week_header_coverage_policy == "aligned_union_base_only":
+            days = _align_base_week_headers(snapshot, days, week_pattern, config.program)
         common: dict[str, str] = {
             normalize_name(week.label): week.label
             for week in days[0].weeks
@@ -395,6 +505,9 @@ def _parse_integer(raw: str | None) -> int | None:
 
 def _parse_set_count(raw: str | None, range_policy: str = "block") -> int | None:
     exact = _parse_integer(raw)
+    per_side = re.fullmatch(r"(\d+)\s+(?:ea\.?|each)(?:\s+(?:leg|side))?", raw or "", re.I)
+    if per_side:
+        exact = _parse_integer(per_side.group(1))
     if exact is not None or raw is None or range_policy != "upper":
         return exact
     match = re.fullmatch(r"(\d+)\s*(?:[-–]|to)\s*(\d+)(?:\s*sets?)?", raw, re.IGNORECASE)
@@ -429,27 +542,56 @@ def _parse_rep_list(raw: str | None) -> tuple[tuple[int, int | None], ...]:
     return tuple((value, value) for value in values) if all(value > 0 for value in values) else ()
 
 
-def _parse_rest(raw: str | None, range_policy: str = "block") -> int | None:
+@dataclass(frozen=True)
+class _RestTarget:
+    seconds: int
+    ranged: bool
+    unitless: bool
+    qualifier: bool
+
+    @property
+    def source(self) -> str:
+        if self.unitless:
+            return ("coach_unitless_seconds_range_upper_by_policy" if self.ranged
+                    else "coach_unitless_seconds_by_policy")
+        return "coach_range_upper_by_policy" if self.ranged else "coach_base"
+
+
+def _rest_target(raw: str | None, range_policy: str = "block",
+                 unitless_policy: str = "block") -> _RestTarget | None:
     if raw is None:
         return None
+    unit = r"(?:s|sec|secs|second|seconds|m|min|mins|minute|minutes)"
     match = re.fullmatch(
-        r"(\d+)(?:\s*(?:[-–]|to)\s*(\d+))?\s*"
-        r"(s|sec|secs|second|seconds|m|min|mins|minute|minutes)"
-        r"(?:\s*rest)?(?:\s*\(timed\))?",
+        rf"(\d+)\s*({unit})?(?:\s*(?:[-–]|to)\s*(\d+)\s*({unit})?)?"
+        r"(?:\s*rest)?(?:\s+(max)|\s*\((timed)\))?",
         raw,
         re.IGNORECASE,
     )
     if not match:
         return None
-    amount = int(match.group(1))
-    if amount < 1:
+    low, low_unit, high, high_unit, ceiling, timed = match.groups()
+    lower, upper = int(low), int(high or low)
+    ranged = high is not None
+    unitless = not (low_unit or high_unit)
+    if lower < 1 or upper < lower or (ranged and range_policy != "upper"):
         return None
-    if match.group(2):
-        upper = int(match.group(2))
-        if range_policy != "upper" or upper < amount:
-            return None
-        amount = upper
-    return amount * 60 if match.group(3).casefold().startswith("m") else amount
+    if unitless and unitless_policy != "seconds":
+        return None
+    # A range may share its trailing unit or repeat equivalent units. An omitted
+    # trailing unit after an explicit leading one, or mixed units, needs review.
+    if ranged and low_unit and (not high_unit or low_unit.lower().startswith("m")
+                               != high_unit.lower().startswith("m")):
+        return None
+    resolved_unit = high_unit or low_unit or "seconds"
+    return _RestTarget(upper * (60 if resolved_unit.lower().startswith("m") else 1),
+                       ranged, unitless, bool(ceiling or timed))
+
+
+def _parse_rest(raw: str | None, range_policy: str = "block") -> int | None:
+    # Weekly instructions never inherit the base-column unitless policy.
+    target = _rest_target(raw, range_policy)
+    return target.seconds if target else None
 
 
 def _parse_rir(raw: str) -> int | None:
@@ -828,7 +970,8 @@ def _prescriptions(
         for key in ("style", "sets", "reps", "rest")
     }
     set_count = _parse_set_count(base_raw.get("sets"), config.program.set_count_range_policy)
-    ranged_sets = set_count is not None and _parse_integer(base_raw.get("sets")) is None
+    ranged_sets = set_count is not None and _parse_set_count(base_raw.get("sets")) is None
+    per_side_sets = bool(set_count is not None and re.search(r"\b(?:ea\.?|each)\b", base_raw.get("sets", ""), re.I))
     rep_range = _parse_reps(base_raw.get("reps"))
     rep_list = _parse_rep_list(base_raw.get("reps"))
     rep_cell = snapshot.cells.get(cells["reps"])
@@ -844,7 +987,17 @@ def _prescriptions(
             sheet=sheet, day=day.label, exercise=exercise, cell=cells["reps"],
             raw_text=base_raw.get("reps"),
         ))
-    rest_seconds = _parse_rest(base_raw.get("rest"), config.program.rest_range_policy)
+    rest_target = _rest_target(base_raw.get("rest"), config.program.rest_range_policy,
+                               config.program.unitless_rest_policy)
+    rest_seconds = rest_target.seconds if rest_target else None
+    if rest_target and rest_target.unitless and not suppress_blockers:
+        issues.append(ProgramIssue(
+            severity="warning", code="unitless_rest_seconds_by_policy",
+            message=("Configured base Rest units: seconds; using the upper range bound" if rest_target.ranged
+                     else "Configured base Rest units: seconds"),
+            sheet=sheet, day=day.label, exercise=exercise, cell=cells["rest"],
+            raw_text=base_raw.get("rest"),
+        ))
     for key, valid in (("sets", set_count is not None), ("reps", rep_range is not None or bool(rep_list))):
         if key in overridden and not valid and not suppress_blockers:
             issues.append(ProgramIssue(
@@ -992,7 +1145,7 @@ def _prescriptions(
             notes += (f"{week_label}: {raw_week}",)
         if notes_policy and date_rep:
             notes += ("Rep target needs review: Excel stored the coach rep cell as a date.",)
-        if notes_policy and rest_seconds is not None and _parse_rest(base_raw.get("rest")) is None:
+        if notes_policy and rest_target and rest_target.ranged:
             notes += (f"Import setting: use upper rest duration ({rest_seconds} seconds).",)
         if notes_policy and ranged_sets:
             notes += (f"Import setting: use upper set count ({set_count} sets).",)
@@ -1054,10 +1207,9 @@ def _prescriptions(
                           _field(hi, "coach_base", cells["reps"], base_raw.get("reps")))
                 for lo, hi in rep_list
             ))
-        if (rest_seconds is not None and _parse_rest(base_raw.get("rest")) is None
-                and prescription.rest_seconds.source != "conflict"):
+        if rest_target and prescription.rest_seconds.source == "coach_base":
             prescription = replace(prescription, rest_seconds=_field(
-                prescription.rest_seconds.value, "coach_range_upper_by_policy",
+                prescription.rest_seconds.value, rest_target.source,
                 cells["rest"], base_raw.get("rest"),
             ))
         if ranged_sets and prescription.set_count.source == "coach_base":
@@ -1095,6 +1247,10 @@ def _prescriptions(
                 concise.append(f"Coach rep guidance: {base_raw['reps']}")
             if rep_range and re.search(r"\b(?:ea\.?|each)\b", base_raw.get("reps", ""), re.IGNORECASE):
                 concise.append("Reps are per side.")
+            if per_side_sets:
+                concise.append("Sets are per side.")
+            if rest_target and rest_target.qualifier:
+                concise.append(f"Rest: {base_raw['rest']}")
             if raw_week:
                 concise.append(raw_week)
             prescription = replace(prescription, notes=tuple(dict.fromkeys(concise)))
@@ -1241,6 +1397,13 @@ def parse_coach_program(
     skipped: list[dict[str, object]] = []
     workout_days: list[WorkoutDay] = []
     for day_order, day in enumerate(layout.days, start=1):
+        for week in day.weeks:
+            if week.aligned_inherited:
+                issues.append(ProgramIssue(
+                    severity="warning", code="aligned_week_header_inherited",
+                    message="Missing week header uses the verified same-block column alignment",
+                    sheet=sheet_name, cell=week.header_cell, day=day.label, cycle=week.label,
+                ))
         designation, designation_cell, ambiguous = _day_designation(snapshot, day)
         day_optional = day.optional or bool(designation and "optional" in normalize_name(designation))
         day_exercises: list[OrderedExercise] = []
@@ -1250,6 +1413,18 @@ def parse_coach_program(
             coach_name = _raw(snapshot.cells.get(exercise_cell))
             if coach_name is None:
                 continue
+            if config.program.week_header_coverage_policy == "aligned_union_base_only":
+                for week in day.weeks:
+                    plan_reference = make_cell_reference(row, week.plan_column)
+                    plan_cell = snapshot.cells.get(plan_reference)
+                    if (normalize_name(week.label) in normalized_weeks and plan_cell is not None
+                            and plan_cell.formula is not None):
+                        issues.append(ProgramIssue(
+                            severity="blocking", code="aligned_week_plan_formula",
+                            message="Aligned weekly planned cells require literal text for retention",
+                            sheet=sheet_name, cell=plan_reference, day=day.label,
+                            exercise=coach_name, cycle=week.label,
+                        ))
             raw_base = {
                 key: value
                 for key in ("style", "sets", "reps", "rest")

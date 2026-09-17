@@ -114,8 +114,10 @@ def _load_program_config(
     for key, choices, default in (
         ("sheet_order", ("left_to_right", "right_to_left"), "left_to_right"),
         ("rest_range_policy", ("block", "upper"), "block"),
+        ("unitless_rest_policy", ("block", "seconds"), "block"),
         ("set_count_range_policy", ("block", "upper"), "block"),
         ("prescription_source", ("selected_week", "base"), "selected_week"),
+        ("week_header_coverage_policy", ("intersection", "aligned_union_base_only"), "intersection"),
         ("notes_mode", ("full", "concise"), "full"),
         ("minimum_rep_policy", ("block", "notes_only"), "block"),
         ("color", (None, *VERIFIED_PROGRAM_COLORS), None),
@@ -125,6 +127,10 @@ def _load_program_config(
         if value not in choices:
             raise ConfigError(f"program.{key} must be one of {choices}")
         policy_values[key] = value
+    if policy_values["week_header_coverage_policy"] == "aligned_union_base_only" and (
+        policy_values["prescription_source"] != "base" or week_pair_layout is None
+    ):
+        raise ConfigError("program.week_header_coverage_policy aligned_union_base_only requires base prescription_source and explicit week_pair_layout")
     for key in ("allow_blank_targets", "preserve_coach_notes", "exclude_warmups", "exclude_cardio",
                 "resize_template_workouts", "use_day_designations"):
         value = payload.get(key, False)
