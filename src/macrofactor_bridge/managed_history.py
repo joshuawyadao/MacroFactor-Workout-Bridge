@@ -122,7 +122,7 @@ def workspace_fingerprint(root: Path) -> tuple:
     root = Path(root).resolve()
     validate_root(root)
     paths = []
-    for relative in ("inbox/coach", "inbox/macrofactor", "archive/coach", "archive/macrofactor", "manifests"):
+    for relative in ("inbox/coach", "inbox/macrofactor", "archive/coach", "archive/macrofactor", "manifests", "current"):
         directory = root / relative
         if directory.is_dir():
             paths.extend(p for p in directory.iterdir() if not p.name.startswith((".", "~$")))

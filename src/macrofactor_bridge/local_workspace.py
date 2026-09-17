@@ -247,6 +247,9 @@ def _replace_current_link(current: Path, archive: Path) -> None:
         raise LocalWorkspaceError(
             f"Refusing to replace a regular file in the managed current directory: {current}"
         )
+    relative_target = os.path.relpath(archive, start=current.parent)
+    if current.is_symlink() and current.readlink() == Path(relative_target):
+        return
     temporary = current.with_name(f".{current.name}.tmp-{file_sha256(archive)[:12]}")
     if temporary.exists() or temporary.is_symlink():
         if not temporary.is_symlink():
@@ -254,7 +257,6 @@ def _replace_current_link(current: Path, archive: Path) -> None:
                 f"Refusing to replace an unexpected temporary file: {temporary}"
             )
         temporary.unlink()
-    relative_target = os.path.relpath(archive, start=current.parent)
     temporary.symlink_to(relative_target)
     temporary.replace(current)
 
@@ -486,9 +488,6 @@ def archive_inbox(
                     "validation": validation,
                 }
             )
-    if new_only and not manifest["entries"]:
-        # No new data: do not rewrite current links or emit an empty manifest.
-        return manifest
     try:
         selection_entries = [
             *_archived_history_entries(workspace),
@@ -503,6 +502,9 @@ def archive_inbox(
                 "error": str(exc),
             }
         )
+    if new_only and not manifest["entries"]:
+        # Retry current-link reconciliation, but never emit an empty ingest manifest.
+        return manifest
     manifest_name = timestamp.strftime("%Y%m%dT%H%M%S%fZ") + "--ingest.json"
     manifest_path = workspace / "manifests" / manifest_name
     with manifest_path.open("x", encoding="utf-8") as handle:

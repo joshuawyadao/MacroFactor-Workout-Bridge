@@ -58,6 +58,33 @@ class ManagedHistoryTests(unittest.TestCase):
         self.assertEqual(result.dashboard.set_count, 10)
         self.assertEqual(sum(r.workout_date == date(2026, 9, 1) for r in result.dashboard.records), 3)
 
+    def test_current_shortcuts_retry_known_archives_after_obstruction_is_removed(self):
+        current = self.root / "current/MacroFactor Exercise Log - Current.csv"
+        current.write_text("Keep this regular file", encoding="utf-8")
+        first = load_managed_history(self.root)
+        manifests = tuple((self.root / "manifests").iterdir())
+        self.assertTrue(any("Refusing to replace a regular file" in issue for issue in first.issues))
+        self.assertEqual(current.read_text(encoding="utf-8"), "Keep this regular file")
+
+        still_blocked = load_managed_history(self.root)
+        self.assertTrue(any("Refusing to replace a regular file" in issue for issue in still_blocked.issues))
+        self.assertEqual(tuple((self.root / "manifests").iterdir()), manifests)
+        blocked_fingerprint = workspace_fingerprint(self.root)
+        current.unlink()
+        self.assertNotEqual(workspace_fingerprint(self.root), blocked_fingerprint)
+
+        recovered = load_managed_history(self.root)
+        self.assertEqual(recovered.issues, ())
+        self.assertEqual(recovered.dashboard.records, first.dashboard.records)
+        self.assertTrue(current.is_symlink())
+        self.assertEqual(current.resolve(), recovered.baseline.path)
+        self.assertEqual(tuple((self.root / "manifests").iterdir()), manifests)
+
+        healthy_fingerprint = workspace_fingerprint(self.root)
+        load_managed_history(self.root)
+        self.assertEqual(workspace_fingerprint(self.root), healthy_fingerprint)
+        self.assertEqual(tuple((self.root / "manifests").iterdir()), manifests)
+
     def test_newer_narrow_export_extends_history_without_dropping_old_dates(self):
         write_export(self.root / "inbox/macrofactor/recent.csv", [
             "2026-08-24,Day A,Tempo Back Squat,Standard Set,500,5,",
