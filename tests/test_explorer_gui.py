@@ -11,6 +11,7 @@ from tests.comparison_fixture import comparison_inputs
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
+    from tests.gui_support import dispose_widget
     from PySide6.QtWidgets import QApplication, QMessageBox
     from macrofactor_bridge.desktop import BridgeWindow
 
@@ -28,7 +29,7 @@ class ExplorerGuiTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.export, self.coach, self.annotations = comparison_inputs(Path(temporary.name))
         self.window = BridgeWindow()
-        self.addCleanup(self.window.close)
+        self.addCleanup(dispose_widget, self.window)
         self.window.history_export_path.setText(str(self.export))
         self.window.history_workbook_path.setText(str(self.coach))
         self.window.history_annotations_path.setText(str(self.annotations))

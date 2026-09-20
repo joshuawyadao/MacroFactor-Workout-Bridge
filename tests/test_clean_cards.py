@@ -15,6 +15,7 @@ from tests.comparison_fixture import comparison_inputs
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
+    from tests.gui_support import dispose_widget
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication, QLabel, QProgressBar, QPushButton
@@ -36,7 +37,7 @@ class CleanCardTests(unittest.TestCase):
         self.annotations = load_dashboard_annotations(annotation_path)
         self.dashboard = build_history_dashboard(export, coach, load_config(ROOT / "config/exercises.example.json"), self.annotations)
         self.home = HistoryHome()
-        self.addCleanup(self.home.close)
+        self.addCleanup(dispose_widget, self.home)
         self.home.set_history(self.dashboard, self.annotations)
         self.home.resize(860, 590)
         self.home.show()

@@ -12,10 +12,13 @@
 
 ## Verification
 
-- [ ] `PYTHONPATH=src python3 -m unittest discover -s tests -v`
+- [ ] `./scripts/test.sh` completed, including the offscreen GUI tests.
+- [ ] Final test count, elapsed time, skipped tests (if any), and process exit status are recorded below.
 - [ ] `python3 -m compileall -q src tests packaging`
 - [ ] `git diff --check`
 - [ ] Relevant manual macOS checks are described below, or are not applicable.
+
+<!-- Include the terminal test summary; partial output is not a complete result. See CONTRIBUTING.md for long-running sessions. -->
 
 ## Manual checks and screenshots
 

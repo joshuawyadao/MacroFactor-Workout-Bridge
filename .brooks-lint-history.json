@@ -75,5 +75,16 @@
       "suggestion": 0
     },
     "scope": "PR #19 follow-up review of narrow recency, raw-weight inspection and displayed-feedback ownership fixes, including manual override regressions"
+  },
+  {
+    "date": "2026-09-20",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "GUI fixture disposal and terminal verification follow-up vs origin/main; tests and documentation only"
   }
 ]
