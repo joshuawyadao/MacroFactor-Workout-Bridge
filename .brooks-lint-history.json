@@ -97,5 +97,16 @@
       "suggestion": 0
     },
     "scope": "PR #21 branch changes vs origin/main; reviewed comparison default selection, GUI regressions, and user-facing workflow documentation after fixes"
+  },
+  {
+    "date": "2026-09-21",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #13 vs origin/main; sampled the highest-risk coach parser, OOXML template writer, source/output audits, batch publication path, CLI boundaries, and corresponding synthetic regressions after integrating current main"
   }
 ]
