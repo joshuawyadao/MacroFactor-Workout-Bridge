@@ -43,6 +43,7 @@ class ProgramConfig:
     resize_template_workouts: bool = False
     prescription_source: str = "selected_week"
     notes_mode: str = "full"
+    note_text_policy: str = "verbatim"
     use_day_designations: bool = False
     minimum_rep_policy: str = "block"
     color: str | None = None

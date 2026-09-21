@@ -119,6 +119,7 @@ def _load_program_config(
         ("prescription_source", ("selected_week", "base"), "selected_week"),
         ("week_header_coverage_policy", ("intersection", "aligned_union_base_only"), "intersection"),
         ("notes_mode", ("full", "concise"), "full"),
+        ("note_text_policy", ("verbatim", "conservative"), "verbatim"),
         ("minimum_rep_policy", ("block", "notes_only"), "block"),
         ("color", (None, *VERIFIED_PROGRAM_COLORS), None),
         ("icon", (None, *VERIFIED_PROGRAM_ICONS), None),

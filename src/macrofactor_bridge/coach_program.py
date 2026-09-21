@@ -32,6 +32,7 @@ from .program_models import (
     SupersetMembership,
     WorkoutDay,
 )
+from .program_text import prepare_program_notes
 
 
 @dataclass(frozen=True)
@@ -522,7 +523,7 @@ def _parse_reps(raw: str | None) -> tuple[int, int | None] | None:
         return None
     match = re.fullmatch(
         r"(\d+)(?:(\+)|\s*(?:[-–]|to)\s*(\d+))?(?:\s*reps?)?"
-        r"(?:\s*(?:ea\.?|each)(?:\s+(?:leg|side))?)?(?:\s+again)?",
+        r"(?:\s*(?:ea\.?|each)(?:\s+(?:leg|side))?)?(?:\s+(?:again|here))?",
         raw,
         re.IGNORECASE,
     )
@@ -1277,6 +1278,12 @@ def _prescriptions(
                     sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
                     cycle=week_label, raw_text=raw_minimum,
                 ))
+        prescription = replace(
+            prescription,
+            notes=prepare_program_notes(
+                prescription.notes, config.program.note_text_policy
+            ),
+        )
         prescriptions.append(prescription)
     return tuple(prescriptions)
 

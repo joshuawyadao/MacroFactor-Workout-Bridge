@@ -17,6 +17,7 @@ from .config import normalize_name
 from .models import BridgeConfig, ExerciseRule
 from .ooxml import MAIN_NS, WorkbookError, XlsxPackage, make_cell_reference, split_cell_reference, split_range
 from .program_models import ProgramBlockOption, ProgramIssue, ProgramPreviewReport
+from .program_text import prepare_program_notes
 
 
 @dataclass(frozen=True)
@@ -90,7 +91,7 @@ def _reps(text: str | None) -> tuple[tuple[int, int | None], ...]:
         values = tuple(_integer(value.strip()) for value in text.split(","))
         return tuple((value, value) for value in values) if all(values) else ()
     value = text.lower().strip()
-    value = re.sub(r"\s+again$", "", value)
+    value = re.sub(r"\s+(?:again|here)$", "", value)
     value = re.sub(r"\s*(?:ea\.?|each)(?:\s+(?:leg|side))?$", "", value)
     value = re.sub(r"\s*reps?$", "", value).strip()
     if value.endswith("+"):
@@ -697,5 +698,12 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                 required_notes.append(effective["reps"])
         elif effective.get("reps") and not reps:
             fail("unsupported_reps", "Unsupported rep instruction has no approved notes-retention policy")
-        if any(text not in notes for text in required_notes):
+        expected_notes = prepare_program_notes(
+            required_notes, config.program.note_text_policy
+        )
+        comparable_notes = notes.casefold()
+        if any(
+            text.rstrip(".?!").casefold() not in comparable_notes
+            for text in expected_notes
+        ):
             fail("notes", "Required coach target text or explicitly approved residual cue is missing from notes")

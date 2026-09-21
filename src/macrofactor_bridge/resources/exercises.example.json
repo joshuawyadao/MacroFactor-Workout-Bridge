@@ -16,6 +16,7 @@
     "sets_header_labels": ["Sets"],
     "reps_header_labels": ["Reps", "Rep Target"],
     "rest_header_labels": ["Rest"],
+    "note_text_policy": "verbatim",
     "defaults": {
       "rep_min": null,
       "rep_max": null,

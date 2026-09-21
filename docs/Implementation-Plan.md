@@ -6,6 +6,18 @@ Extend the verified Part 1 result-transfer baseline with a separate, prescriptio
 - In: the existing conservative Python/OOXML CLI workflow; the next chronological block's private mapping review and guarded generation; desktop program preview followed by generation/manual-import handoff; reconciliation with newer history features; anonymized tests, docs, issue updates and reviewable feature-branch checkpoints.
 - Out: invented exercise identities or prescription decisions, unverified periodized/native-minimum/drop-set encodings, set-column expansion, broad compatibility claims, Google Drive, private-service or phone automation, committing private artifacts, and modifying or merging into main.
 
+## Imported-target and note-clarity correction
+
+The representative import exposed two presentation defects: an unambiguous `7 to 12 here` prescription was retained only in Notes instead of becoming a 7–12 target, and verbatim coach text can contain distracting spelling or unmatched-parenthesis errors. Fix the narrow target grammar and add an explicit conservative cleanup policy for exported exercise Notes. Preserve every source string unchanged in raw review/provenance data; do not use fuzzy rewriting or alter exercise identities, URLs, completed results or weekly-plan separation.
+
+[x] Reproduce both defects with anonymized synthetic tests and the existing private candidate. Accept only a literal numeric target followed by the harmless terminal word `here`; continue blocking other trailing prose.
+[x] Add an opt-in note-text cleanup policy that normalizes whitespace, corrects a small allow-list of clear spelling mistakes, standardizes well-known workout abbreviations and appends missing closing parentheses. Keep verbatim mode as the backward-compatible default.
+[x] Extend the independent source audit to expect the cleaned presentation while still verifying the original raw cell text and exact source provenance. Add configuration, generation, output-audit and Part 1 isolation regressions without weakening existing assertions.
+[x] Apply the policy in a new ignored block profile, generate a distinct replacement workbook through the production Python/OOXML path and independently inspect the rep targets and Notes against the verified reference. Keep the coach source, template and every previous output byte-for-byte unchanged.
+[x] Update README and local workflow guidance, run focused and canonical tests, compilation, configuration parity, privacy and diff checks, then save/push the feature branch and update issue #16/draft PR #13. Manual MacroFactor import remains required; do not merge or mark Part 2 complete.
+
+Evidence: the anonymized regression proves that a terminal `here` yields numeric bounds while additional prose remains unsupported, the default keeps notes byte-for-byte verbatim, and the conservative policy retains raw cell provenance while independently auditing its cleaned presentation. The ignored replacement candidate contains four cycles and four workout days; the independent source audit covered 27 rows, the structural output audit passed, read-only workbook inspection found 7–12 in all three active BSS set targets, and exported Notes contained neither unmatched parentheses nor allow-listed spelling errors. Manual import of this replacement is the remaining validation step.
+
 ## Reviewed identity and residual-cue follow-up
 
 The user authorized choosing appropriate known exercise identities while retaining tempo, pauses, speed and other execution details in notes. This is a human-reviewed mapping workflow, not permission for fuzzy runtime matching, invented exercise names, or silent equipment/injury substitutions. The verified schema supports exercise Notes; no program/session-note field is assumed.

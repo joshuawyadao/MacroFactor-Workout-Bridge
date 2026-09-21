@@ -11,10 +11,13 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from macrofactor_bridge.cli import main
+from macrofactor_bridge.coach_program import discover_program_blocks
 from macrofactor_bridge.config import ConfigError, load_config
 from macrofactor_bridge.ooxml import WorkbookError, XlsxPackage, file_sha256
+from macrofactor_bridge.program_audit import audit_coach_program
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template, template_generation_issues
+from macrofactor_bridge.program_text import clean_program_note, prepare_program_notes
 from tests.test_program_preview import exercise_row
 from tests.test_program_generation import rewrite_zip_member
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
@@ -33,6 +36,7 @@ class ProgramCorrectionTests(unittest.TestCase):
             "program": {"week_pair_layout": "plan_then_result", "prescription_source": "base",
                         "use_day_designations": True, "allow_blank_targets": True,
                         "preserve_coach_notes": True, "notes_mode": "concise",
+                        "note_text_policy": "verbatim",
                         "exclude_warmups": True, "exclude_cardio": True,
                         "defaults": {"set_type": "standard"}},
             "exercises": [{"canonical": "Synthetic Alpha", "coach_aliases": ["Coach Alpha"]},
@@ -104,7 +108,7 @@ class ProgramCorrectionTests(unittest.TestCase):
     def test_supported_rep_suffixes_and_single_values(self):
         for raw, expected in [(11, (11, 11)), ("7 to 11 ea", (7, 11)),
                               ("9 ea leg", (9, 9)), ("6-9 each side", (6, 9)),
-                              ("11 to 14 again", (11, 14))]:
+                              ("11 to 14 again", (11, 14)), ("7 to 12 here", (7, 12))]:
             with self.subTest(raw=raw):
                 self.cells["G7"] = raw
                 report = self.preview()
@@ -113,6 +117,85 @@ class ProgramCorrectionTests(unittest.TestCase):
                 self.assertEqual((rx.rep_min.value, rx.rep_max.value), expected)
                 self.assertEqual(report.program.days[0].exercises[0].raw_base_fields["reps"], str(raw))
         self.assertNotIn("Coach sets", " ".join(self.first(report).notes))
+
+    def test_here_suffix_is_narrow_and_does_not_swallow_other_rep_prose(self):
+        for raw in ("7 to 12 here if possible", "7 to 12 before failure", "7 to 12 today"):
+            with self.subTest(raw=raw):
+                self.cells["G7"] = raw
+                report = self.preview()
+                rx = self.first(report)
+                self.assertIsNone(rx.rep_min.value)
+                self.assertIsNone(rx.rep_max.value)
+                self.assertIn(raw, " ".join(rx.notes))
+
+    def test_conservative_note_cleanup_keeps_verbatim_source_provenance(self):
+        self.payload["program"]["note_text_policy"] = "conservative"
+        self.payload["exercises"][0]["program_notes"] = [
+            "b.s.s (pause 1 count at bottom",
+            "maintain control thorugh the movmement",
+            "perform amrap reps",
+        ]
+        self.cells["G7"] = "7 to 12 here"
+        report = self.preview()
+        self.assertTrue(report.generation_safe, report.blocking_issues)
+        exercise = report.program.days[0].exercises[0]
+        self.assertEqual(exercise.raw_base_fields["reps"], "7 to 12 here")
+        rx = exercise.prescriptions[0]
+        self.assertEqual((rx.rep_min.value, rx.rep_max.value), (7, 12))
+        self.assertEqual(rx.rep_min.raw_text, "7 to 12 here")
+        self.assertEqual(rx.notes, (
+            "BSS (pause 1 count at bottom).",
+            "Maintain control through the movement.",
+            "Perform AMRAP reps.",
+        ))
+        config = self.config()
+        block = next(option for option in discover_program_blocks(self.coach, config)
+                     if option.sheet == "Synthetic Block")
+        self.assertTrue(audit_coach_program(self.coach, config, block, report).passed)
+        raw_rx = replace(rx, notes=(
+            "b.s.s (pause 1 count at bottom",
+            "maintain control thorugh the movmement",
+            "perform amrap reps",
+        ))
+        raw_exercise = replace(
+            exercise, prescriptions=(raw_rx, *exercise.prescriptions[1:])
+        )
+        day = report.program.days[0]
+        raw_program = replace(
+            report.program,
+            days=(replace(day, exercises=(raw_exercise, *day.exercises[1:])),),
+        )
+        raw_report = replace(report, program=raw_program)
+        self.assertIn(
+            "source_audit_notes",
+            {issue.code for issue in audit_coach_program(
+                self.coach, config, block, raw_report
+            ).issues},
+        )
+        generate_program(report, self.template, self.output)
+        cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
+        self.assertEqual(cells["F4"].value, "7 - 12")
+        self.assertEqual(cells["D4"].value, "\n".join(rx.notes))
+
+    def test_note_cleanup_is_allow_listed_and_verbatim_is_the_default(self):
+        raw = "maintain parrallell ROM thorugh the movmement (amrap"
+        self.assertEqual(prepare_program_notes((raw,), "verbatim"), (raw,))
+        self.assertEqual(
+            clean_program_note(raw),
+            "Maintain parallel ROM through the movement (AMRAP).",
+        )
+        self.assertEqual(
+            clean_program_note("https://example.test/coach(note"),
+            "https://example.test/coach(note",
+        )
+        # Unknown wording is formatted, not silently rewritten or interpreted.
+        self.assertEqual(clean_program_note("tempo-ish coach phrase"),
+                         "Tempo-ish coach phrase.")
+        self.assertEqual(
+            clean_program_note("rope tricep pushdown; chest supported; 60-75 degree; ghd sit up"),
+            "Rope triceps pushdown; chest-supported; 60-75 degrees; GHD sit-up.",
+        )
+        self.assertEqual(clean_program_note("reps: your choice"), "Reps: Your choice.")
 
     def test_minimum_only_target_does_not_invent_maximum_and_blocks_output(self):
         self.cells["G7"] = "14+ reps"
@@ -466,6 +549,7 @@ class ProgramCorrectionTests(unittest.TestCase):
 
     def test_new_configuration_fields_are_strictly_validated(self):
         for key, value in [("prescription_source", "guess"), ("notes_mode", "guess"),
+                           ("note_text_policy", "guess"),
                            ("use_day_designations", 1)]:
             with self.subTest(key=key):
                 original = self.payload["program"][key]
