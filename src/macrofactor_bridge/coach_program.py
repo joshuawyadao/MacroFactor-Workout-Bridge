@@ -1095,7 +1095,7 @@ def _prescriptions(
                 cycle=week_label, raw_text=source_week,
             ))
         parsed_week = _parse_week(raw_week)
-        if notes_policy and raw_week and re.fullmatch(r"\d+(?:\.\d+)?", raw_week):
+        if raw_week and re.fullmatch(r"\d+(?:\.\d+)?", raw_week):
             # Unlabelled numbers in coach weeks can be weights, not rep targets.
             parsed_week = None
         raw_unparsed = raw_week if raw_week is not None and parsed_week is None else None

@@ -479,6 +479,37 @@ class ProgramPreviewTests(unittest.TestCase):
                     any(issue.code == "unsupported_week_instruction" for issue in report.issues)
                 )
 
+    def test_bare_week_number_is_ambiguous_without_note_retention(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(
+            cells,
+            6,
+            name="Alpha Move",
+            reps=None,
+            week_one=140,
+        )
+        workbook = self.write_workbook(cells)
+
+        report = build_program_preview(
+            workbook,
+            self.config,
+            "Shifted Program Sheet",
+            "block-1",
+            ("Week 1",),
+        )
+        prescription = report.program.days[0].exercises[0].prescriptions[0]
+
+        self.assertEqual(prescription.raw_unparsed_text, "140")
+        self.assertEqual(
+            (prescription.rep_min.value, prescription.rep_max.value),
+            (8, 12),
+        )
+        self.assertIn(
+            "unsupported_week_instruction",
+            {issue.code for issue in report.blocking_issues},
+        )
+
     def test_defaults_are_visible_and_distinct_from_coach_values(self) -> None:
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")
