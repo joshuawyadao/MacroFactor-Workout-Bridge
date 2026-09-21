@@ -326,4 +326,4 @@ Codex review found five direct-preview paths where workbook ambiguity could bypa
 - [x] Fail discovery when a recognizable day heading lacks any required base header instead of dropping that day.
 - [x] Treat a bare numeric planned-week value as ambiguous regardless of the note-retention policy.
 - [x] Refuse inherited week pairs when their header slots contain alternate text or formulas.
-- [ ] Add one or more synthetic regressions for every finding, run focused parser tests and the canonical suite, then confirm CI, review threads, and mergeability on the final pushed head.
+- [x] Add one or more synthetic regressions for every finding and run the local release gates. All 170 focused Part 2 tests and all 444 canonical tests pass; compilation, configuration parity, tracked-file privacy scanning, and `git diff --check` also pass. Final CI, thread state, and mergeability are live PR evidence checked after the final push rather than another repository change.

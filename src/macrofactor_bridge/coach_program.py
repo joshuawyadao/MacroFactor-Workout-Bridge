@@ -440,12 +440,25 @@ def _discover_sheet_layouts(
     provisional: list[_DayLayout] = []
     for index, (row, label, number, optional, columns) in enumerate(candidates):
         end_row = candidates[index + 1][0] - 1 if index + 1 < len(candidates) else max_row
+        header_start = row
+        if row > 1 and all(
+            cell is None or (_raw(cell) is None and cell.formula is None)
+            for column in columns.values()
+            for cell in (snapshot.cells.get(make_cell_reference(row - 1, column)),)
+        ) and any(
+            split_cell_reference(reference)[0] == row - 1
+            and isinstance(cell.value, str)
+            and week_pattern.fullmatch(cell.value.strip())
+            for reference, cell in snapshot.cells.items()
+        ):
+            header_start -= 1
         weeks = _week_layouts(
             snapshot,
             row,
             end_row,
             week_pattern,
             config.program.week_pair_layout,
+            header_start=header_start,
         )
         # A block may label its week columns only above its first day.
         # Never inherit across a day-number reset or a changed base layout.
@@ -1506,9 +1519,21 @@ def parse_coach_program(
                 plan_cell = snapshot.cells.get(plan_reference)
                 if (normalize_name(week.label) in normalized_weeks and plan_cell is not None
                         and plan_cell.formula is not None):
+                    aligned = (
+                        config.program.week_header_coverage_policy
+                        == "aligned_union_base_only"
+                    )
                     issues.append(ProgramIssue(
-                        severity="blocking", code="formula_prescription_cell",
-                        message="Selected weekly planned cells must be literal, not cached formulas",
+                        severity="blocking",
+                        code=(
+                            "aligned_week_plan_formula"
+                            if aligned else "formula_prescription_cell"
+                        ),
+                        message=(
+                            "Aligned weekly planned cells require literal text for retention"
+                            if aligned else
+                            "Selected weekly planned cells must be literal, not cached formulas"
+                        ),
                         sheet=sheet_name, cell=plan_reference, day=day.label,
                         exercise=coach_name, cycle=week.label,
                         raw_text=_raw(plan_cell),
