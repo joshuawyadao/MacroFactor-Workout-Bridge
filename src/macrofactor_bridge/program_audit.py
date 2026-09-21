@@ -93,6 +93,7 @@ def _reps(text: str | None) -> tuple[tuple[int, int | None], ...]:
     value = text.lower().strip()
     value = re.sub(r"\s+(?:again|here)$", "", value)
     value = re.sub(r"\s*(?:ea\.?|each)(?:\s+(?:leg|side))?$", "", value)
+    value = re.sub(r"\s+(?:rep\s+)?range$", "", value)
     value = re.sub(r"\s*reps?$", "", value).strip()
     if value.endswith("+"):
         minimum = _integer(value[:-1])
@@ -175,6 +176,25 @@ def _headers(snapshot, config: BridgeConfig) -> tuple[list[_Header], dict[int, d
         column, label, match = labels[0]
         result.append(_Header(row, label, float(match.group(1)), columns, column))
     return result, rows
+
+
+def _has_authored_table_content(
+    header: _Header,
+    *,
+    end_row: int,
+    rows: dict[int, dict[int, object]],
+) -> bool:
+    """Independently distinguish an unfinished heading from a later reference table."""
+    leading_blanks = 0
+    for row in range(header.row + 1, end_row + 1):
+        values = [_text(rows.get(row, {}).get(column)) for column in header.columns.values()]
+        if any(values):
+            return True
+        leading_blanks += 1
+        # One blank base row can carry a designation in the separate day-label column.
+        if leading_blanks >= 2:
+            return False
+    return False
 
 
 def _rules(name: str, variation: str, raw: dict[str, str], config: BridgeConfig) -> list[ExerciseRule]:
@@ -371,6 +391,7 @@ def audit_coach_program(
         fail("block_boundary", "Selected block start is not independently supported by literal day/header cells")
         return finish()
     selected = matches[0]
+    all_selected = selected
     reference_boundary = None
     if reference_boundary_marker is not None:
         try:
@@ -380,16 +401,48 @@ def audit_coach_program(
             return finish()
         checks += ("Exact block-scoped reviewed reference marker, merge and blank-cell guards",)
         limitations += ("Content at and below the explicitly reviewed reference marker is outside this block's exercise-table audit.",)
+    if config.program.exclude_empty_days:
+        populated = []
+        omitted = []
+        for header in selected:
+            next_headers = [item.row for item in headers if item.row > header.row]
+            end = min(next_headers) - 1 if next_headers else max(rows, default=header.row)
+            if reference_boundary is not None and header.row == all_selected[-1].row:
+                end = reference_boundary - 1
+            (populated if _has_authored_table_content(header, end_row=end, rows=rows)
+             else omitted).append(header)
+        selected = populated
+        skipped = tuple(
+            item.get("day") for item in report.skipped_items
+            if item.get("reason") == "No coach-authored exercise rows"
+        )
+        if skipped != tuple(header.label for header in omitted):
+            fail("empty_day_coverage", "Source-empty day omissions differ from explicit skipped-item provenance")
+        checks += ("Independent source-empty day detection with explicit omission provenance",)
     if tuple(day.label for day in program.days) != tuple(header.label for header in selected):
         fail("day_coverage", "Preview omits, adds or reorders independently discovered workout days")
         return finish()
     if tuple(day.order for day in program.days) != tuple(range(1, len(selected) + 1)):
         fail("day_order", "Workout day order does not follow the source")
     cycles = tuple(cycle.label for cycle in program.cycles)
-    if (not cycles or cycles != report.included_weeks or len(set(map(normalize_name, cycles))) != len(cycles)
-            or tuple(cycle.order for cycle in program.cycles) != tuple(range(1, len(cycles) + 1))
-            or not set(map(normalize_name, cycles)).issubset(map(normalize_name, block.week_labels))):
-        fail("cycles", "Program cycles do not match the explicitly selected source weeks")
+    configured_cycles = (
+        tuple(f"Cycle {number}" for number in range(1, config.program.base_cycle_count + 1))
+        if config.program.base_cycle_count is not None else None
+    )
+    invalid_cycles = (
+        not cycles
+        or cycles != report.included_weeks
+        or len(set(map(normalize_name, cycles))) != len(cycles)
+        or tuple(cycle.order for cycle in program.cycles) != tuple(range(1, len(cycles) + 1))
+    )
+    if configured_cycles is not None:
+        invalid_cycles = invalid_cycles or cycles != configured_cycles or block.week_labels != configured_cycles
+    else:
+        invalid_cycles = invalid_cycles or not set(map(normalize_name, cycles)).issubset(
+            map(normalize_name, block.week_labels)
+        )
+    if invalid_cycles:
+        fail("cycles", "Program cycles do not match the explicit configured duration or selected source weeks")
     week_pattern = re.compile(config.program.week_header_pattern, re.I)
     prior_weeks: dict[str, int] = {}
     common_weeks: set[str] | None = None
@@ -408,7 +461,7 @@ def audit_coach_program(
     for header, day in zip(selected, program.days):
         next_headers = [item.row for item in headers if item.row > header.row]
         end = min(next_headers) - 1 if next_headers else max(rows, default=header.row)
-        if reference_boundary is not None and header.row == selected[-1].row:
+        if reference_boundary is not None and header.row == all_selected[-1].row:
             end = reference_boundary - 1
         designations = [(make_cell_reference(row, header.label_column), rows.get(row, {}).get(header.label_column))
                         for row in range(header.row + 1, end + 1)
@@ -448,7 +501,7 @@ def audit_coach_program(
         all_visible_weeks.update(weeks)
         if config.program.week_pair_layout not in {"plan_then_result", "result_then_plan"}:
             fail("week_layout", "Plan/result direction has not been explicitly configured", day=day.label)
-        if not set(map(normalize_name, cycles)).issubset(weeks):
+        if configured_cycles is None and not set(map(normalize_name, cycles)).issubset(weeks):
             fail("week_coverage", "Selected cycles lack independent planned-column headers", day=day.label)
         if any(cell.formula is not None for cell in rows.get(header.row, {}).values()):
             fail("formula", "Day/header row contains formulas; literal source audit is required", day=day.label)
@@ -558,9 +611,13 @@ def audit_coach_program(
                     continue
                 _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                                      config, cycles, weeks, date_styles, row_fail)
-    if set(map(normalize_name, block.week_labels)) != (common_weeks or set()):
+    if configured_cycles is not None:
+        if all_visible_weeks:
+            fail("configured_cycle_headers", "Configured base cycles require no independently visible week headers")
+        checks += ("Explicit base-cycle duration with no source week-header claim",)
+    elif set(map(normalize_name, block.week_labels)) != (common_weeks or set()):
         fail("week_coverage", "Discovered selectable weeks differ from independently visible common week headers")
-    if require_complete_week_coverage:
+    if require_complete_week_coverage and configured_cycles is None:
         checks += ("All independently visible day-week headers are shared and represented by selected cycles",)
         if (all_visible_weeks != (common_weeks or set())
                 or all_visible_weeks != set(map(normalize_name, cycles))):
@@ -674,6 +731,10 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                 fail("weekly_retention", "Weekly planned text was lost or replaced with completed results")
             if plan_cell and plan_cell.formula is not None:
                 fail("formula", "Weekly planned cell contains a formula; literal retention cannot be verified")
+        elif config.program.base_cycle_count is not None and (
+            rx.raw_week_text is not None or rx.raw_unparsed_text is not None
+        ):
+            fail("weekly_retention", "Configured base cycles must not claim unlabeled weekly cells as source instructions")
         notes = "\n".join(rx.notes)
         required_notes = []
         if config.program.preserve_coach_notes:

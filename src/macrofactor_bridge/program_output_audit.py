@@ -99,7 +99,14 @@ def audit_program_output(
         if value(reference) != expected:
             errors.append(f"{reference}: {label} does not match the reviewed program")
 
-    if _layout(schema) != _layout(template_schema):
+    output_layout = _layout(schema)
+    template_layout = _layout(template_schema)
+    # Opt-in generation may remove trailing workout groups while preserving the
+    # verified header, role and set-column contract. Program coverage below is
+    # the independent authority for the resulting workout count.
+    output_layout.pop("day_count")
+    template_layout.pop("day_count")
+    if output_layout != template_layout:
         errors.append("Output header/metadata layout differs from the verified template")
     if schema.sheet_name != template_schema.sheet_name:
         errors.append("Output worksheet identity differs from the verified template")

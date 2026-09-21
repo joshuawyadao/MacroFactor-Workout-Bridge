@@ -256,3 +256,20 @@ The user approved upper-bound set counts and the private exercise-match proposal
 - `f7c1682`: tightened result-column isolation, report non-overwrite behavior, superset completeness, mapping status, selected-cycle labels, and exercise ordering.
 - `ca68a77`: added verified template inspection, conservative homogeneous-cycle generation, OOXML integrity checks, synthetic fixtures, tests, and documentation.
 - Draft PR #13 contains the reviewable parser and generator checkpoints and awaits corrected-candidate manual validation on issue #12. Differing-cycle layouts and native minimum-only encoding remain future schema limits, not prerequisites for the approved repeated-base, notes-only workflow.
+
+## Headerless base-cycle and incomplete-day slice
+
+The newest coach block has two populated strength days followed by two day headings with no coach-authored exercise rows. Its week-area columns have no safe literal week headers. The requested temporary import is therefore a four-cycle repetition of the base table containing only the two populated workouts. Duration and empty-day omission must be explicit configuration, visible in preview, and strict by default; neither worksheet position nor formatting is evidence for invented weeks or exercises.
+
+- [x] Add an opt-in positive base-cycle count for blocks with no safely discovered week labels. Generate neutral `Cycle N` labels, read only base prescription cells, and reject this setting outside base-prescription mode.
+- [x] Add an opt-in source-empty-day omission policy. Retain a visible warning and skipped-item record for each omitted heading, preserve populated and fully excluded days, and renumber exported workouts without changing source labels.
+- [x] Accept only the narrowly reviewed `N to M range`, `N to M rep range`, and unilateral variants as exact rep targets. Preserve arbitrary trailing prose as unsupported text.
+- [x] Extend the independent source audit for configured cycles and reviewed source-empty-day omission without treating synthetic cycle labels as source week headers.
+- [x] Add anonymized config, discovery, preview, CLI, audit, generation, immutability, non-overwrite and regression tests; preserve all existing Part 1 and Part 2 assertions.
+- [x] Update README, local workflow guidance and CLI descriptions for the two opt-in policies and their limits.
+- [x] Generate one distinct private two-workout, four-cycle candidate through the production Python/OOXML path. Inspect it read-only with spreadsheet tooling; keep the coach source, template, report and private exact mappings unchanged and uncommitted.
+- [x] Run targeted tests, `./scripts/test.sh`, compilation, configuration parity, privacy, source/template hash and diff checks. Save and push only the feature branch; keep the draft PR unmerged.
+
+Verification: 164 focused Part 2 tests and the complete 314-test canonical suite pass. Compilation, example-config parity and `git diff --check` pass. The independent production audit checked 317 output cells, confirmed two workouts and four cycles, and confirmed that both private source workbooks remained byte-for-byte unchanged. The candidate remains pending manual MacroFactor import validation.
+
+Final handoff: ask the user to import the generated workbook manually and confirm the two workout names, four-cycle duration, exercise identities, targets and notes. Do not claim the new block is validated until that import succeeds.

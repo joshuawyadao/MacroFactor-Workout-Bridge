@@ -260,7 +260,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     program_inspect = subparsers.add_parser(
         "program-inspect",
-        help="Part 2: list coach program blocks and structurally separated plan weeks",
+        help="Part 2: list coach program blocks and safe source weeks/configured base cycles",
     )
     program_inspect.add_argument("--workbook", required=True)
     program_inspect.add_argument("--config", required=True)
@@ -276,7 +276,8 @@ def build_parser() -> argparse.ArgumentParser:
     program_preview.add_argument(
         "--week",
         action="append",
-        help="Included week; repeat for multiple cycles. In base mode, all repeat the base table",
+        help=("Included source week; repeat for multiple cycles. Omit when base_cycle_count "
+              "provides duration for a headerless base block"),
     )
     program_preview.add_argument(
         "--template",
@@ -297,7 +298,8 @@ def build_parser() -> argparse.ArgumentParser:
     program_generate.add_argument(
         "--week",
         action="append",
-        help="Included week; repeat for multiple cycles. In base mode, all repeat the base table",
+        help=("Included source week; repeat for multiple cycles. Omit when base_cycle_count "
+              "provides duration for a headerless base block"),
     )
     program_generate.add_argument("--report", help="Optional private JSON report path")
     program_batch = subparsers.add_parser(

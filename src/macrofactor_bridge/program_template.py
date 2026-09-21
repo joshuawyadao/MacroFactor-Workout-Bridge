@@ -424,8 +424,8 @@ def prepare_program_schema(
     counts = [sum(not exercise.excluded for exercise in day.exercises) for day in program.days]
     if not resize_workouts or counts == [len(day.rows) for day in schema.days]:
         return schema
-    if len(counts) != len(schema.days):
-        raise WorkbookError("Workout resizing cannot add or remove template days")
+    if len(counts) > len(schema.days):
+        raise WorkbookError("Workout resizing cannot add template days")
     if any(count < 2 for count in counts) or any(len(day.rows) < 2 for day in schema.days):
         raise WorkbookError("Workout resizing currently requires at least two exercises per day")
     expected_rows = list(range(schema.header_row + 1, schema.days[-1].rows[-1] + 1))
@@ -864,7 +864,12 @@ def _resize_workout_rows(
     for day in original.days:
         for number in day.rows:
             sheet_data.removeChild(rows[number])
-    for source_day, target_day in zip(original.days, target.days, strict=True):
+    # Target days map to the leading template groups. Any remaining source
+    # groups are removed as trailing, unused capacity; new groups are never
+    # invented because prepare_program_schema rejects target growth.
+    for source_day, target_day in zip(
+        original.days[:len(target.days)], target.days, strict=True
+    ):
         for index, number in enumerate(target_day.rows):
             if index == 0:
                 source_number = source_day.rows[0]

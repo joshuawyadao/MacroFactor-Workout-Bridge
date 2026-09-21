@@ -133,11 +133,23 @@ def _load_program_config(
     ):
         raise ConfigError("program.week_header_coverage_policy aligned_union_base_only requires base prescription_source and explicit week_pair_layout")
     for key in ("allow_blank_targets", "preserve_coach_notes", "exclude_warmups", "exclude_cardio",
-                "resize_template_workouts", "use_day_designations"):
+                "exclude_empty_days", "resize_template_workouts", "use_day_designations"):
         value = payload.get(key, False)
         if not isinstance(value, bool):
             raise ConfigError(f"program.{key} must be a boolean")
         policy_values[key] = value
+    base_cycle_count = payload.get("base_cycle_count")
+    if base_cycle_count is not None and (
+        type(base_cycle_count) is not int or not 1 <= base_cycle_count <= 52
+    ):
+        raise ConfigError("program.base_cycle_count must be an integer from 1 through 52 or null")
+    if base_cycle_count is not None and policy_values["prescription_source"] != "base":
+        raise ConfigError("program.base_cycle_count requires program.prescription_source: base")
+    if (base_cycle_count is not None
+            and policy_values["week_header_coverage_policy"] != "intersection"):
+        raise ConfigError(
+            "program.base_cycle_count requires the default intersection week-header policy"
+        )
     if policy_values["minimum_rep_policy"] == "notes_only" and not (
         policy_values["allow_blank_targets"] and policy_values["preserve_coach_notes"]
     ):
@@ -200,6 +212,7 @@ def _load_program_config(
         variation_header_labels=_string_list(
             payload, "variation_header_labels", ProgramConfig.variation_header_labels, "program"
         ),
+        base_cycle_count=base_cycle_count,
         **policy_values,
     )
 

@@ -42,6 +42,8 @@ class ProgramConfig:
     exclude_cardio: bool = False
     resize_template_workouts: bool = False
     prescription_source: str = "selected_week"
+    base_cycle_count: int | None = None
+    exclude_empty_days: bool = False
     notes_mode: str = "full"
     note_text_policy: str = "verbatim"
     use_day_designations: bool = False

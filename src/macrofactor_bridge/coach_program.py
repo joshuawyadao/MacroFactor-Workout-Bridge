@@ -209,19 +209,30 @@ def _day_table_end(
     header_row: int,
     provisional_end_row: int,
     columns: dict[str, int],
+    stop_before_reference_rows: bool = False,
 ) -> int:
     # Standalone weekly notes below a table do not extend its exercise rows.
     relevant_columns = tuple(columns.values())
     exercise_column = columns["exercise"]
     found_exercise = False
+    leading_blank_rows = 0
     for row in range(header_row + 1, provisional_end_row + 1):
         if _raw(snapshot.cells.get(make_cell_reference(row, exercise_column))) is not None:
             found_exercise = True
-        if found_exercise and all(
+            leading_blank_rows = 0
+        row_is_blank = all(
             _raw(snapshot.cells.get(make_cell_reference(row, column))) is None
             for column in relevant_columns
-        ):
+        )
+        if found_exercise and row_is_blank:
             return row - 1
+        if not found_exercise and stop_before_reference_rows:
+            leading_blank_rows = leading_blank_rows + 1 if row_is_blank else 0
+            # One leading blank row accommodates the day designation beside the table.
+            # A second blank row is a structural separator, not permission to absorb
+            # later reference material as exercises in an unfinished day.
+            if leading_blank_rows >= 2:
+                return row - 1
     return provisional_end_row
 
 
@@ -402,6 +413,7 @@ def _discover_sheet_layouts(
             header_row=row,
             provisional_end_row=end_row,
             columns=columns,
+            stop_before_reference_rows=config.program.exclude_empty_days,
         )
         if inherited_weeks:
             weeks = tuple(
@@ -470,6 +482,15 @@ def _discover_sheet_layouts(
             normalize_name(week.label) for week in days[0].weeks if week.safe
         ]
         labels = tuple(common[key] for key in first_week_order if key in common)
+        if (
+            not labels
+            and config.program.base_cycle_count is not None
+            and not any(day.weeks for day in days)
+        ):
+            labels = tuple(
+                f"Cycle {number}"
+                for number in range(1, config.program.base_cycle_count + 1)
+            )
         end_row = days[-1].end_row
         option = ProgramBlockOption(
             identifier=f"block-{block_index}",
@@ -523,6 +544,7 @@ def _parse_reps(raw: str | None) -> tuple[int, int | None] | None:
         return None
     match = re.fullmatch(
         r"(\d+)(?:(\+)|\s*(?:[-–]|to)\s*(\d+))?(?:\s*reps?)?"
+        r"(?:\s+(?:rep\s+)?range)?"
         r"(?:\s*(?:ea\.?|each)(?:\s+(?:leg|side))?)?(?:\s+(?:again|here))?",
         raw,
         re.IGNORECASE,
@@ -1039,12 +1061,15 @@ def _prescriptions(
     prescriptions: list[CyclePrescription] = []
     for week_label in weeks:
         week = next(
-            candidate
+            (candidate
             for candidate in day.weeks
-            if normalize_name(candidate.label) == normalize_name(week_label)
+            if normalize_name(candidate.label) == normalize_name(week_label)),
+            None,
         )
-        week_cell = make_cell_reference(row, week.plan_column)
-        source_week = _raw(snapshot.cells.get(week_cell))
+        if week is None and config.program.base_cycle_count is None:
+            raise WorkbookError(f"Selected cycle has no safely discovered source week: {week_label}")
+        week_cell = make_cell_reference(row, week.plan_column) if week is not None else None
+        source_week = _raw(snapshot.cells.get(week_cell)) if week_cell is not None else None
         raw_week = source_week if config.program.prescription_source == "selected_week" else None
         if source_week and config.program.prescription_source == "base" and not suppress_blockers:
             issues.append(ProgramIssue(
@@ -1626,6 +1651,21 @@ def parse_coach_program(
             sheet_name=sheet_name,
             issues=issues,
         )
+        if not day_exercises and config.program.exclude_empty_days:
+            skipped.append({
+                "day": day.label,
+                "exercise": None,
+                "canonical": None,
+                "reason": "No coach-authored exercise rows",
+            })
+            issues.append(ProgramIssue(
+                severity="warning",
+                code="empty_day_excluded",
+                message="Configured policy omitted a day heading with no coach-authored exercise rows",
+                sheet=sheet_name,
+                day=day.label,
+            ))
+            continue
         if ambiguous and config.program.use_day_designations:
             issues.append(ProgramIssue(
                 severity="warning", code="ambiguous_day_designation",
@@ -1635,7 +1675,7 @@ def parse_coach_program(
         workout_days.append(
             WorkoutDay(
                 label=day.label,
-                order=day_order,
+                order=len(workout_days) + 1,
                 optional=day_optional,
                 exercises=tuple(day_exercises),
                 designation=designation,

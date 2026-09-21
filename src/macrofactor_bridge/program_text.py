@@ -10,6 +10,7 @@ from collections.abc import Iterable
 
 
 _SPELLING_CORRECTIONS = {
+    "coutn": "count",
     "convenitonal": "conventional",
     "dumbell": "dumbbell",
     "gased": "gassed",
@@ -17,6 +18,7 @@ _SPELLING_CORRECTIONS = {
     "parrallell": "parallel",
     "pressdiwn": "pressdown",
     "thorugh": "through",
+    "weigth": "weight",
     "weighte": "weighted",
     "zottiman": "zottman",
 }
