@@ -14,6 +14,7 @@ from tests.test_managed_history import managed_inputs, write_export
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
+    from tests.gui_support import dispose_widget
     from PySide6.QtCore import QSettings
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
@@ -33,7 +34,7 @@ class ManagedGuiTests(unittest.TestCase):
         self.root = managed_inputs(self.directory)
         self.settings = QSettings(str(self.directory / "preferences.ini"), QSettings.Format.IniFormat)
         self.window = BridgeWindow(autoload=True, settings=self.settings, workspace_root=self.root)
-        self.addCleanup(self.window.close)
+        self.addCleanup(dispose_widget, self.window)
         self.wait_for(lambda: self.window.managed.snapshot is not None)
 
     def wait_for(self, condition):
@@ -56,7 +57,7 @@ class ManagedGuiTests(unittest.TestCase):
         self.assertFalse(self.window.history_sources.isEnabled())
         self.assertEqual(self.settings.value("workspace"), str(self.root))
         second = BridgeWindow(autoload=True, settings=self.settings)
-        self.addCleanup(second.close)
+        self.addCleanup(dispose_widget, second)
         self.wait_for(lambda: second.managed.snapshot is not None)
         self.assertEqual(second._history_dashboard.set_count, 7)
         self.assertEqual(second.managed.root, self.root)
@@ -180,7 +181,7 @@ class ManagedGuiTests(unittest.TestCase):
         self.assertEqual(self.settings.value("workspace"), str(self.root))
 
         restarted = BridgeWindow(autoload=True, settings=self.settings)
-        self.addCleanup(restarted.close)
+        self.addCleanup(dispose_widget, restarted)
         self.wait_for(lambda: restarted.managed.snapshot is not None)
         self.assertEqual(restarted.managed.snapshot.root, self.root)
         self.assertEqual(restarted._history_dashboard.set_count, 7)
@@ -211,7 +212,7 @@ class ManagedGuiTests(unittest.TestCase):
         self.wait_for(lambda: controller._job is None)
 
         restarted = BridgeWindow(autoload=True, settings=self.settings)
-        self.addCleanup(restarted.close)
+        self.addCleanup(dispose_widget, restarted)
         self.wait_for(lambda: restarted.managed.snapshot is not None)
         self.assertEqual(restarted.managed.snapshot.root, replacement_root)
         self.assertEqual(restarted._history_annotations.blocks[block].weeks[week].notes, "Replacement workspace feedback")

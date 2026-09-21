@@ -7,6 +7,7 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
+    from tests.gui_support import dispose_widget
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QColor, QPalette
     from PySide6.QtWidgets import QApplication, QMessageBox
@@ -38,9 +39,9 @@ class DesktopThemeTests(unittest.TestCase):
 
     def test_dark_palette_reaches_calendar_popup_lists_and_dialogs(self):
         window = BridgeWindow()
-        self.addCleanup(window.close)
+        self.addCleanup(dispose_widget, window)
         dialog = QMessageBox(window)
-        self.addCleanup(dialog.close)
+        self.addCleanup(dispose_widget, dialog)
         self.app.processEvents()
         for widget, background, foreground in (
             (window, BACKGROUND, TEXT), (window.from_date.calendarWidget(), BACKGROUND, TEXT),

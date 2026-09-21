@@ -12,6 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 
 if HAS_QT:
+    from tests.gui_support import dispose_widget
     from PySide6.QtCore import QDate, Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
@@ -36,6 +37,7 @@ class DesktopGuiTests(unittest.TestCase):
 
     def test_anonymized_workflow_populates_preview_and_review_panels(self) -> None:
         window = BridgeWindow()
+        self.addCleanup(dispose_widget, window)
         window.export_path.setText(str(ROOT / "tests" / "fixtures" / "macrofactor-log.xlsx"))
         window.workbook_path.setText(str(ROOT / "tests" / "fixtures" / "coach-template.xlsx"))
         window.config_path.setText(str(ROOT / "config" / "exercises.example.json"))
@@ -47,11 +49,11 @@ class DesktopGuiTests(unittest.TestCase):
         self.assertEqual(window.week_combo.currentText(), "Week 1")
         self.assertIn("Unmatched exercises: 1", window.review_panel.toPlainText())
         self.assertTrue(window.create_button.isEnabled())
-        window.close()
+        dispose_widget(window)
 
     def test_dashboard_is_first_with_clear_names_and_keyboard_navigation(self):
         window = BridgeWindow()
-        self.addCleanup(window.close)
+        self.addCleanup(dispose_widget, window)
         self.assertEqual([window.tabs.tabText(i) for i in range(window.tabs.count())],
                          ["Dashboard", "Update coach workbook"])
         self.assertEqual(window.tabs.currentIndex(), 0)
@@ -81,7 +83,7 @@ class DesktopGuiTests(unittest.TestCase):
 
     def test_renamed_workbook_save_still_creates_only_a_new_copy(self):
         window = BridgeWindow()
-        self.addCleanup(window.close)
+        self.addCleanup(dispose_widget, window)
         window.tabs.setCurrentWidget(window.workbook_tab)
         export = ROOT / "tests/fixtures/macrofactor-log.xlsx"
         coach = ROOT / "tests/fixtures/coach-template.xlsx"
@@ -133,6 +135,7 @@ class DesktopGuiTests(unittest.TestCase):
         )
 
         window = BridgeWindow()
+        self.addCleanup(dispose_widget, window)
         window._display_report(report)
 
         self.assertEqual(window.preview_table.rowCount(), 1)
@@ -143,12 +146,13 @@ class DesktopGuiTests(unittest.TestCase):
             self.assertEqual(item.background().color().name(), "#ffff00")
             self.assertEqual(item.foreground().color().name(), "#101113")
         self.assertIn("Empty-day review markers: 1", window.review_panel.toPlainText())
-        window.close()
+        dispose_widget(window)
 
     def test_history_dashboard_loads_and_saves_private_week_context(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             annotations = Path(directory) / "annotations" / "history.json"
             window = BridgeWindow()
+            self.addCleanup(dispose_widget, window)
             window.history_export_path.setText(
                 str(ROOT / "tests" / "fixtures" / "macrofactor-log.xlsx")
             )
@@ -184,7 +188,7 @@ class DesktopGuiTests(unittest.TestCase):
             self.assertEqual(week.reason, "vacation")
             self.assertEqual(week.affected_movements, ("Squat", "Deadlift"))
             self.assertIn("Saved private context", window.history_status.text())
-            window.close()
+            dispose_widget(window)
 
     def test_irregular_history_layout_survives_desktop_save_and_reload(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -196,7 +200,7 @@ class DesktopGuiTests(unittest.TestCase):
                 'Training Block': BlockAnnotation(week_layout=LAYOUT),
             }))
             window = BridgeWindow()
-            self.addCleanup(window.close)
+            self.addCleanup(dispose_widget, window)
             window.history_export_path.setText(str(ROOT / 'tests/fixtures/macrofactor-log.xlsx'))
             window.history_workbook_path.setText(str(coach))
             window.history_config_path.setText(str(ROOT / 'config/exercises.example.json'))
@@ -223,6 +227,7 @@ class DesktopGuiTests(unittest.TestCase):
         for field_name in fields:
             with self.subTest(field=field_name), tempfile.TemporaryDirectory() as directory:
                 window = BridgeWindow()
+                self.addCleanup(dispose_widget, window)
                 window.history_export_path.setText(
                     str(ROOT / "tests" / "fixtures" / "macrofactor-log.xlsx")
                 )
@@ -247,7 +252,7 @@ class DesktopGuiTests(unittest.TestCase):
                 self.assertEqual(window.history_block_table.rowCount(), 0)
                 self.assertEqual(window.history_trend_table.rowCount(), 0)
                 self.assertIn("inputs changed", window.history_status.text())
-                window.close()
+                dispose_widget(window)
 
 
 if __name__ == "__main__":

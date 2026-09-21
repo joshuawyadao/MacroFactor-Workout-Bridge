@@ -14,6 +14,7 @@ from macrofactor_bridge.ooxml import file_sha256
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
+    from tests.gui_support import dispose_widget
     from PySide6.QtWidgets import QApplication, QMessageBox
     from macrofactor_bridge.desktop import BridgeWindow
 
@@ -31,7 +32,7 @@ class ComparisonGuiTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.export, self.coach, self.path = comparison_inputs(Path(temporary.name))
         self.window = BridgeWindow()
-        self.addCleanup(self.window.close)
+        self.addCleanup(dispose_widget, self.window)
         self.window.history_export_path.setText(str(self.export))
         self.window.history_workbook_path.setText(str(self.coach))
         self.window.history_config_path.setText(str(ROOT / "config/exercises.example.json"))
