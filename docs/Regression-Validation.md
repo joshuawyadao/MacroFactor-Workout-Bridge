@@ -24,6 +24,8 @@ Environment: macOS arm64, Python 3.11.2, PySide6 6.11.2, `QT_QPA_PLATFORM=offscr
 
 These are observed local durations, not benchmark guarantees; the runs overlapped with other focused validation work. GitHub CI and review status are tracked on the follow-up pull request.
 
+Hosted verification on implementation commit `8e409cd` also passed: [CI Verify run 35546162895](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/runs/35546162895) ran all 198 tests in 59.417 seconds, with no skips, and passed dependency auditing, compilation and diff checks. [Codex review](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20#issuecomment-5753693701) found no major issues. See [PR #20](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20) for checks on subsequent documentation-only commits.
+
 ## Validation boundary
 
 Offscreen tests exercise widget layout, interaction, background loading, feedback safety and navigation against synthetic fixtures. They do not replace native macOS visual inspection or verification of a newly built application bundle. This change modifies test cleanup and verification guidance only; no bundle rebuild or installed-app replacement is required.

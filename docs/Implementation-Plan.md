@@ -14,8 +14,8 @@ Close the September 20 regression scan's incomplete GUI validation by following 
 [x] Update CONTRIBUTING.md and the PR template to require the canonical runner and terminal evidence; document that partial output is inconclusive and source-only runs may skip GUI coverage.
 [x] Record baseline and corrected full-suite results and the remaining boundary of offscreen validation in docs/Regression-Validation.md.
 [x] Run compilation, source app-entry smoke verification and diff checks; inspect the completed diff for privacy and accuracy.
-[ ] Commit and push the validated changes using save-branch, then open the PR against main and request Codex review.
-[ ] Complete Brooks review, terminal CI Verify, Codex feedback handling and fresh mergeability checks; leave the PR unmerged.
+[x] Commit and push the validated changes using save-branch, then open the PR against main and request Codex review.
+[x] Complete Brooks review, terminal CI Verify, Codex feedback handling and mergeability checks on implementation commit 8e409cd; leave PR #20 unmerged. Recheck hosted CI after this documentation-only record is pushed.
 
 ## Open questions
 - None. The user authorized a feature branch and a PR; any application fix remains contingent on a reproduced failure.
@@ -28,3 +28,6 @@ Close the September 20 regression scan's incomplete GUI validation by following 
 - Independent patch review found no actionable issue; representative comparison, managed-refresh and timeline-dialog tests each leave zero Qt widgets. Production code, existing assertions and CI timeouts are unchanged.
 - Complete canonical validation: all 198 tests pass in 81.669s with no skips and exit status 0. The original baseline also completed: 194 tests passed in 527.235s, no skips, exit status 0. Compilation, source app-entry smoke verification and diff checks pass.
 - Brooks PR review of the completed patch: 100/100, no actionable findings; all changed fixtures retain their application assertions and optional-Qt import guards. No production code, dependency or workflow-timeout change is needed.
+- Saved implementation as 8e409cd on codex/complete-gui-regression-validation and opened [PR #20](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20) against main.
+- CI Verify [run 35546162895](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/runs/35546162895) passed every step on 8e409cd, including the dependency audit, all 198 tests in 59.417s, compilation and diff checks.
+- Codex [review of 8e409cd](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20#issuecomment-5753693701) found no major issues; no actionable review threads, reactions to fixes or conflict resolutions were needed. GitHub reported CLEAN/MERGEABLE. The PR remains unmerged; current hosted status is authoritative for the final documentation commit.
