@@ -1,10 +1,28 @@
 # Plan
 
-Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the Part 1 safety contract and existing Part 2 history. The current follow-up applies newly confirmed rest and combined-movement policies, validates a larger direct template and investigates activity-based duration evidence. Preserve the newer read-only history dashboard and layout fixes now on `origin/main` (`7d8a91c`, including PR #19) when updating the feature branch.
+Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the Part 1 safety contract and existing Part 2 history. The current follow-up applies reviewed identity choices with residual coaching notes and reruns the remaining-block audit. Preserve the newer read-only history dashboard and layout fixes now on `origin/main` (`7d8a91c`, including PR #19) when updating the feature branch.
 
 ## Scope
 - In: the existing conservative Python/OOXML CLI workflow; the next chronological block's private mapping review and guarded generation; desktop program preview followed by generation/manual-import handoff; reconciliation with newer history features; anonymized tests, docs, issue updates and reviewable feature-branch checkpoints.
 - Out: invented exercise identities or prescription decisions, unverified periodized/native-minimum/drop-set encodings, set-column expansion, broad compatibility claims, Google Drive, private-service or phone automation, committing private artifacts, and modifying or merging into main.
+
+## Reviewed identity and residual-cue follow-up
+
+The user authorized choosing appropriate known exercise identities while retaining tempo, pauses, speed and other execution details in notes. This is a human-reviewed mapping workflow, not permission for fuzzy runtime matching, invented exercise names, or silent equipment/injury substitutions. The verified schema supports exercise Notes; no program/session-note field is assumed.
+
+[x] Add reviewed exact variation/context mappings and concise residual cues in new ignored block profiles, leaving earlier profiles and Part 1 configuration unchanged. Separate cue-only matches from material identity choices that still need evidence.
+[x] Add synthetic end-to-end coverage proving exact identity plus residual-cue round trips, source/output audits, raw-text retention and weekly/result isolation. Do not change production parsing or weaken existing assertions when existing interfaces suffice.
+[x] Run the remaining-block batch against the unchanged direct reference into a new output directory. Generate only fully audited candidates, retain all discovery/interpretation blockers, and verify source/reference/prior-artifact hashes.
+[x] Document the review policy and run focused/canonical tests, compilation, parity and diff/privacy checks. Save/push this validated feature checkpoint and record redacted evidence on issue #16/draft PR #13; keep representative/newest manual imports, desktop integration and main reconciliation outstanding.
+
+### Reviewed-identity checkpoint evidence
+
+- Three new synthetic end-to-end regressions pass, along with all 306 canonical tests and 230 focused Part 2 tests. Exact reviewed cues survive generation and both audits; similar unconfigured variations remain blocked; notes cannot conceal malformed targets. Production code and dependencies are unchanged because the existing exact mapping and exercise Notes interfaces cover this workflow.
+- Reviewed known identities and explicit coach alternatives resolved 49 consolidated mapping items across four new private profiles. Independent review confirmed exact context scoping, retained policies and no unintended cross-context or superset conflicts. The consolidated list decreased from 69 to 20 items; these include technical diagnostics, not 20 separate user decisions. No notes, personal aliases, workbook identifiers or reports are tracked.
+- The next chronological candidate passed a 27-source-row audit and a 701-cell independent output audit, retaining four cycles, four days, ordered exercises, a standard/myo sequence, native supersets and residual cues. Unparsed/deferred targets remain in Notes for manual review; automated safety does not mean every target has been resolved numerically. Only worksheet/shared-string OOXML members changed, and the writer's 676-cell structural validation passed.
+- The batch reached all six remaining selected sheets: one candidate generated, three parsed blocks still gated, and two sheets retain explicit discovery failures. The newest block is not ready. Remaining gates include missing/ambiguous identities, unsupported literal rest, header annotations and auxiliary-row coverage. No cycle was removed based on absent activity.
+- The direct reference was inspected read-only with spreadsheet tooling. All 98 protected input and prior-artifact hashes remain unchanged; the batch's own source/template/profile/manifest/evidence checks also passed. Earlier reviewed profiles and outputs were not overwritten. The new candidate has no manual-import approval.
+- Issue #16 stays open, and PR #13 remains draft and unmerged. Main/history reconciliation and desktop #17/#18 remain separate work; no desktop, packaging or main changes were made.
 
 ## Confirmed-policy follow-up
 
