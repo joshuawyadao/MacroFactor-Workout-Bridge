@@ -262,6 +262,63 @@ class ProgramPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkbookError, "missing required header"):
             discover_program_blocks(workbook, self.config)
 
+    def test_week_inheritance_refuses_alternate_header_text_or_formulas(self) -> None:
+        for formula_backed in (False, True):
+            with self.subTest(formula_backed=formula_backed):
+                cells: dict[str, object | None] = {}
+                add_day_header(cells, row=5, day="Day 1")
+                exercise_row(cells, 6, name="Alpha Move")
+                add_day_header(
+                    cells,
+                    row=12,
+                    day="Day 2",
+                    week_one="Load",
+                    week_two="Tempo",
+                )
+                exercise_row(cells, 13, name="Alpha Move")
+                workbook = self.write_workbook(
+                    cells,
+                    merges=("J5:K5", "L5:M5", "J12:K12", "L12:M12"),
+                )
+                if formula_backed:
+                    def add_formula(data: bytes) -> bytes:
+                        root = ET.fromstring(data)
+                        namespace = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+                        cell = next(
+                            node for node in root.iter(namespace + "c")
+                            if node.attrib["r"] == "J12"
+                        )
+                        ET.SubElement(cell, namespace + "f").text = '"Load"'
+                        return ET.tostring(root)
+
+                    rewrite_zip_member(
+                        workbook, "xl/worksheets/sheet1.xml", add_formula
+                    )
+
+                block = discover_program_blocks(workbook, self.config)[0]
+                self.assertEqual(block.day_labels, ("Day 1", "Day 2"))
+                self.assertEqual(block.week_labels, ())
+
+    def test_week_inheritance_keeps_literal_blank_header_slots(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Alpha Move")
+        add_day_header(
+            cells,
+            row=12,
+            day="Day 2",
+            week_one="",
+            week_two="",
+        )
+        exercise_row(cells, 13, name="Alpha Move")
+        workbook = self.write_workbook(
+            cells,
+            merges=("J5:K5", "L5:M5", "J12:K12", "L12:M12"),
+        )
+
+        block = discover_program_blocks(workbook, self.config)[0]
+        self.assertEqual(block.week_labels, ("Week 1", "Week 2"))
+
     def test_preserves_coach_style_without_treating_a_slot_label_as_set_type(self) -> None:
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")

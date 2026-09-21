@@ -208,6 +208,42 @@ def _week_layouts(
     return tuple(layouts)
 
 
+def _week_header_slots_are_blank(
+    snapshot: SheetSnapshot,
+    header_row: int,
+    weeks: tuple[_WeekLayout, ...],
+) -> bool:
+    """Allow block-wide inheritance only through literally blank header slots."""
+    header_rows = set(range(max(1, header_row - 1), header_row + 1))
+    pair_columns = {
+        column
+        for week in weeks
+        for column in (week.plan_column, *week.completed_columns)
+    }
+    for row in header_rows:
+        for column in pair_columns:
+            cell = snapshot.cells.get(make_cell_reference(row, column))
+            if cell is not None and (
+                cell.formula is not None or _raw(cell) is not None
+            ):
+                return False
+    for merged in snapshot.merges:
+        start_row, start_column, end_row, end_column = split_range(merged)
+        if not header_rows.intersection(range(start_row, end_row + 1)):
+            continue
+        if not pair_columns.intersection(range(start_column, end_column + 1)):
+            continue
+        for reference, cell in snapshot.cells.items():
+            row, column = split_cell_reference(reference)
+            if (
+                start_row <= row <= end_row
+                and start_column <= column <= end_column
+                and (cell.formula is not None or _raw(cell) is not None)
+            ):
+                return False
+    return True
+
+
 def _day_table_end(
     snapshot,
     *,
@@ -416,7 +452,11 @@ def _discover_sheet_layouts(
         inherited_weeks = False
         if not weeks and provisional:
             previous = provisional[-1]
-            if number > previous.number and columns == previous.columns:
+            if (
+                number > previous.number
+                and columns == previous.columns
+                and _week_header_slots_are_blank(snapshot, row, previous.weeks)
+            ):
                 weeks = previous.weeks
                 inherited_weeks = bool(weeks)
         end_row = _day_table_end(

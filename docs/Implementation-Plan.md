@@ -325,5 +325,5 @@ Codex review found five direct-preview paths where workbook ambiguity could bypa
 - [x] Reject duplicate week labels after normalization instead of selecting the first header pair.
 - [x] Fail discovery when a recognizable day heading lacks any required base header instead of dropping that day.
 - [x] Treat a bare numeric planned-week value as ambiguous regardless of the note-retention policy.
-- [ ] Refuse inherited week pairs when their header slots contain alternate text or formulas.
+- [x] Refuse inherited week pairs when their header slots contain alternate text or formulas.
 - [ ] Add one or more synthetic regressions for every finding, run focused parser tests and the canonical suite, then confirm CI, review threads, and mergeability on the final pushed head.
