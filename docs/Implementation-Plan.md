@@ -1,6 +1,6 @@
 # Plan
 
-Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the Part 1 safety contract and existing Part 2 history. The current follow-up applies reviewed identity choices with residual coaching notes and reruns the remaining-block audit. Preserve the newer read-only history dashboard and layout fixes now on `origin/main` (`7d8a91c`, including PR #19) when updating the feature branch.
+Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the Part 1 safety contract and existing Part 2 history. The current follow-up applies reviewed identity choices with residual coaching notes and reruns the remaining-block audit. Preserve the read-only history dashboard, lifecycle fixes, and comparison defaults now on `origin/main` through PR #21 when updating the feature branch.
 
 ## Scope
 - In: the existing conservative Python/OOXML CLI workflow; the next chronological block's private mapping review and guarded generation; desktop program preview followed by generation/manual-import handoff; reconciliation with newer history features; anonymized tests, docs, issue updates and reviewable feature-branch checkpoints.
@@ -273,3 +273,46 @@ The newest coach block has two populated strength days followed by two day headi
 Verification: 164 focused Part 2 tests and the complete 314-test canonical suite pass. Compilation, example-config parity and `git diff --check` pass. The independent production audit checked 317 output cells, confirmed two workouts and four cycles, and confirmed that both private source workbooks remained byte-for-byte unchanged. The candidate remains pending manual MacroFactor import validation.
 
 Final handoff: ask the user to import the generated workbook manually and confirm the two workout names, four-cycle duration, exercise identities, targets and notes. Do not claim the new block is validated until that import succeeds.
+
+## Integrated main dashboard and comparison baseline
+
+Prepare the dashboard comparison-default branch for a focused pull request by rebasing it onto current `main`, preserving the GUI lifecycle fix from PR #20, and completing the repository's canonical validation gate.
+
+### Scope
+- In: branch rebase and conflict resolution, Qt test cleanup, focused and canonical validation, documentation of final evidence, commit and push, and preparation of the pull-request review evidence.
+- Out: merging the pull request, rebuilding the installed app before merge, changing comparison calculations beyond the approved default-selection behavior, dependency upgrades, or modifying private workout data.
+
+### Action items
+[x] Compare the branch with current remote `main`, identify the implementation-plan and comparison-test conflicts, and diagnose the direct Qt-window cleanup finding.
+[x] Rebase the two branch commits onto `origin/main` while preserving the local app-update guide, current comparison plan, PR #20's test support, and the feature tests.
+[x] Replace direct cleanup for the new comparison test window with `tests.gui_support.dispose_widget`.
+[x] Run the focused comparison tests, then `./scripts/test.sh` to terminal completion, the dependency audit, compilation, source smoke test, and `git diff --check`.
+[x] Recheck the disposable September-export comparison and confirm private source and annotation files remain unchanged.
+[x] Record the final validation and conflict resolution here and prepare the rebased branch for a force-with-lease push.
+[x] Prepare a focused pull-request description with the behavior, privacy, validation, and review evidence required for the post-save PR review cycle.
+
+### Open questions
+- None. The user explicitly requested the rebase, conflict fixes, complete verification, and PR review cycle; the final merge remains theirs.
+
+### Conflict resolution
+- Rebased the two feature commits onto `origin/main` at `ebaef7e`.
+- Resolved the implementation-plan conflict in favor of the current feature plan while retaining the local app-update guide from the branch.
+- Preserved PR #20's shared `dispose_widget` helper and applied it to the new comparison-window regression fixture.
+
+### Validation record
+- All 16 focused comparison and GUI-lifecycle tests passed.
+- The canonical `./scripts/test.sh` run passed all 200 tests in 70.924 seconds.
+- The hash-locked dependency audit reported no known vulnerabilities.
+- Python compilation, the source GUI smoke test, and `git diff --check` passed.
+- The disposable September-export check selected an exercise with four metric-bearing weeks in each initial block. SHA-256 comparisons confirmed both source exports and the live annotation file still matched their untouched snapshots; no private data was added to Git.
+
+## Part 2 pull-request readiness
+
+The latest private two-workout, four-cycle candidate has now completed a successful manual MacroFactor import check. That evidence validates the reviewed representative workflow without claiming universal compatibility for unproved sparse layouts, differing prescriptions by cycle, native minimum-only targets, or drop-set encodings. Prepare PR #13 for review while keeping the final merge as a user action.
+
+- [x] Merge current `origin/main` (`cd7e901`) into the Part 2 feature branch without modifying `main`.
+- [x] Resolve README, implementation-plan, and local-workflow conflicts by preserving both the Part 2 generator history and the merged dashboard/comparison guidance.
+- [x] Re-run the 164 focused Part 2 tests and the complete 438-test canonical suite after integration.
+- [x] Run Python compilation, example/bundled configuration parity, tracked-file privacy scanning, `git diff --check`, and the hash-locked dependency audit. No known dependency vulnerabilities were found.
+- [ ] Commit and push the integrated feature branch, update PR #13 with current evidence, and mark it ready for review.
+- [ ] Complete Codex and Brooks review, address actionable findings, and confirm required GitHub checks and mergeability without merging the pull request.

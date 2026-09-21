@@ -406,6 +406,22 @@ class IntegrationTests(unittest.TestCase):
             self.assertGreater(len(xlsx_records), 10)
             self.assertEqual(xlsx_records[0].weight, load_exercise_log(LOG)[0].weight)
 
+    def test_xlsx_import_preserves_optional_rir_and_workout_duration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            export = Path(directory) / "history.xlsx"
+            copy_xlsx_with_extra_cells(
+                LOG,
+                export,
+                {
+                    "I2": "2",
+                },
+            )
+
+            record = load_exercise_log(export)[0]
+
+        self.assertEqual(record.rir, Decimal("2"))
+        self.assertEqual(record.workout_duration_seconds, Decimal("60"))
+
     def test_rejects_duplicate_canonical_weight_headers_in_csv_and_xlsx(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

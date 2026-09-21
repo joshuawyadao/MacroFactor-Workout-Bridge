@@ -24,7 +24,12 @@ By participating, you agree to follow the [Contributor Covenant Code of Conduct]
 
    The first run provisions the pinned desktop test dependencies under the primary checkout's ignored `.venv/worktree-tests/` directory. Environments are keyed by Python version and test-lock fingerprint, so compatible worktrees reuse dependencies without allowing divergent branches to modify one another's environment.
 
+   Follow the command until the process exits. The offscreen GUI suite can take several minutes; a short command-output window is not a test timeout. If your terminal or automation tool returns a running session, continue collecting that session's output instead of starting another copy of the suite. Record the final `Ran ... tests in ...s` summary, `OK` or failure result, skipped-test count, and exit status in the PR. A partial list of passing cases is not a complete result. Do not claim GUI coverage from a source-only `python -m unittest` run that skips tests because PySide6 is unavailable.
+
 3. Add or update focused tests when behavior changes. Fixtures must be synthetic or deliberately anonymized.
+
+   GUI fixtures should register `self.addCleanup(dispose_widget, widget)` from `tests.gui_support` immediately after creating a top-level widget, inside the existing optional-Qt import guard. Register temporary-directory cleanup first so the widget and its workers finish before fixture files are removed. The helper closes the widget, waits for background jobs, and processes Qt's deferred deletion; `close()` alone can retain hidden widgets and make later application-wide styling progressively slower.
+
 4. Run the complete verification gate:
 
    ```sh

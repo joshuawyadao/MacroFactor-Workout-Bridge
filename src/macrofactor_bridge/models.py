@@ -54,6 +54,9 @@ class SetRecord:
     set_type: str
     weight: Decimal | None
     reps: Decimal | None
+    rir: Decimal | None = None
+    workout_duration_seconds: Decimal | None = None
+    source_file: str = ""
 
 
 @dataclass(frozen=True)

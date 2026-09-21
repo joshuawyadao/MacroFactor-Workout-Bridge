@@ -10,6 +10,7 @@ from PySide6.QtCore import QDate, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDateEdit,
     QFileDialog,
@@ -27,12 +28,20 @@ from PySide6.QtWidgets import (
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from . import __version__
 from .config import load_config
+from .comparison_view import BlockComparisonPanel
+from .explorer_view import ExerciseExplorer, HistoryHome
+from .explorer import LIFT_FAMILIES
+from .timeline_view import TrainingTimeline
+from .managed_desktop import ManagedHistoryController
+from .history_navigation import HistoryTabs
+from .desktop_theme import SummaryCard, apply_dark_theme, style_calendar
 from .desktop_model import (
     bundled_config_path,
     copy_mapping,
@@ -40,6 +49,22 @@ from .desktop_model import (
     discover_sheet_weeks,
     latest_export_week,
     review_text,
+)
+from .history import (
+    BLOCK_TYPE_OPTIONS,
+    WEEK_REASON_OPTIONS,
+    WEEK_STATUS_OPTIONS,
+    DashboardAnnotations,
+    HistoryDashboard,
+    build_history_dashboard,
+    decimal_text,
+    default_dashboard_annotations_path,
+    duration_text,
+    load_dashboard_annotations,
+    option_label,
+    save_dashboard_annotations,
+    update_block_annotation,
+    update_week_annotation,
 )
 from .models import BridgeReport
 from .service import apply_changes, build_preview
@@ -49,32 +74,46 @@ APP_NAME = "MacroFactor Workout Bridge"
 
 
 class BridgeWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, *, autoload=False, settings=None, workspace_root=None) -> None:
         super().__init__()
+        self.managed = None
+        apply_dark_theme(QApplication.instance())
         self._report: BridgeReport | None = None
         self._choices: dict[str, tuple[str, ...]] = {}
+        self._history_dashboard: HistoryDashboard | None = None
+        self._history_annotations = DashboardAnnotations()
         self.setWindowTitle(APP_NAME)
-        self.resize(1040, 760)
-        self.setMinimumSize(850, 620)
+        self.resize(1120, 820)
+        self.setMinimumSize(900, 680)
         self._build_ui()
-        self.config_path.setText(str(bundled_config_path()))
+        bundled = str(bundled_config_path())
+        self.config_path.setText(bundled)
+        self.history_config_path.setText(bundled)
         self._set_status("Choose a MacroFactor export and coach workbook to begin.")
+        self.managed = ManagedHistoryController(self, autoload=autoload, settings=settings, root=workspace_root)
+
+    def closeEvent(self, event):
+        if self.managed:
+            self.managed.shutdown()
+        super().closeEvent(event)
 
     def _build_ui(self) -> None:
-        central = QWidget()
-        outer = QVBoxLayout(central)
+        bridge_tab = QWidget()
+        outer = QVBoxLayout(bridge_tab)
         outer.setContentsMargins(26, 22, 26, 22)
         outer.setSpacing(16)
 
-        title = QLabel(APP_NAME)
+        title = QLabel("Update coach workbook")
         title_font = QFont()
         title_font.setPointSize(24)
         title_font.setWeight(QFont.Weight.DemiBold)
         title.setFont(title_font)
         subtitle = QLabel(
-            "Preview completed MacroFactor sets, then create a safe copy of your coach workbook."
+            "Copy logged MacroFactor sets into a selected week of a new coach workbook copy. "
+            "Your original stays unchanged. Use Dashboard for progress and weekly feedback."
         )
         subtitle.setObjectName("subtitle")
+        subtitle.setWordWrap(True)
         outer.addWidget(title)
         outer.addWidget(subtitle)
 
@@ -117,13 +156,14 @@ class BridgeWindow(QMainWindow):
         target_grid.setColumnStretch(3, 1)
         self.sheet_combo = QComboBox()
         self.week_combo = QComboBox()
-        refresh_button = QPushButton("Discover")
-        refresh_button.clicked.connect(self._discover_targets)
+        self.discover_button = QPushButton("Load workbook weeks")
+        self.discover_button.setToolTip("Read the coach workbook's worksheets and weeks; no files are changed.")
+        self.discover_button.clicked.connect(self._discover_targets)
         target_grid.addWidget(QLabel("Worksheet"), 0, 0)
         target_grid.addWidget(self.sheet_combo, 0, 1)
         target_grid.addWidget(QLabel("Coach week"), 0, 2)
         target_grid.addWidget(self.week_combo, 0, 3)
-        target_grid.addWidget(refresh_button, 0, 4)
+        target_grid.addWidget(self.discover_button, 0, 4)
 
         self.from_date = QDateEdit()
         self.to_date = QDateEdit()
@@ -146,7 +186,8 @@ class BridgeWindow(QMainWindow):
         self.preview_button = QPushButton("Preview workbook changes")
         self.preview_button.setObjectName("primaryButton")
         self.preview_button.clicked.connect(self._preview)
-        self.create_button = QPushButton("Create safe workbook copy…")
+        self.create_button = QPushButton("Save updated workbook copy…")
+        self.create_button.setToolTip("Save previewed results to a new file, leaving the original coach workbook unchanged.")
         self.create_button.clicked.connect(self._create_output)
         self.create_button.setEnabled(False)
         self.save_report_button = QPushButton("Save review report…")
@@ -192,7 +233,15 @@ class BridgeWindow(QMainWindow):
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
         outer.addWidget(self.status)
-        self.setCentralWidget(central)
+        self.tabs = QTabWidget()
+        self.dashboard_tab = self._build_history_ui()
+        self.workbook_tab = bridge_tab
+        self.tabs.addTab(self.dashboard_tab, "Dashboard")
+        self.tabs.addTab(self.workbook_tab, "Update coach workbook")
+        self.tabs.setTabToolTip(0, "Review workout trends and add weekly feedback.")
+        self.tabs.setTabToolTip(1, "Copy logged sets into a new coach workbook; originals stay unchanged.")
+        self.tabs.setCurrentWidget(self.dashboard_tab)
+        self.setCentralWidget(self.tabs)
 
         self.sheet_combo.currentTextChanged.connect(self._sheet_changed)
         self.week_combo.currentTextChanged.connect(self._selection_changed)
@@ -202,23 +251,309 @@ class BridgeWindow(QMainWindow):
         self.from_date.dateChanged.connect(self._invalidate_preview)
         self.to_date.dateChanged.connect(self._invalidate_preview)
 
-        self.setStyleSheet(
-            """
-            QMainWindow { background: #f5f7fa; }
-            QGroupBox { background: white; border: 1px solid #d9dee7; border-radius: 10px;
-                        margin-top: 12px; padding: 12px; font-weight: 600; }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; }
-            QLineEdit, QComboBox, QDateEdit, QPlainTextEdit, QTableWidget {
-                background: white; border: 1px solid #cdd3dd; border-radius: 6px; padding: 5px;
-            }
-            QPushButton { min-height: 28px; padding: 2px 12px; }
-            QPushButton#primaryButton { background: #1769e0; color: white; border: none;
-                                        border-radius: 7px; font-weight: 600; min-height: 34px; }
-            QPushButton#primaryButton:hover { background: #0d5dcc; }
-            QLabel#subtitle { color: #586174; }
-            QLabel#status { background: #eaf2ff; color: #214b84; border-radius: 7px; padding: 9px; }
-            """
+        for table in self.findChildren(QTableWidget):
+            table.setAlternatingRowColors(True)
+            table.setShowGrid(False)
+            table.verticalHeader().hide()
+        for date_control in self.findChildren(QDateEdit):
+            style_calendar(date_control.calendarWidget())
+
+    def _build_history_ui(self) -> QWidget:
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        self.history_outer = outer
+        outer.setContentsMargins(26, 10, 26, 10)
+        outer.setSpacing(6)
+
+        title = QLabel("Training dashboard")
+        title_font = QFont()
+        title_font.setPointSize(22)
+        title_font.setWeight(QFont.Weight.DemiBold)
+        title.setFont(title_font)
+        subtitle = QLabel(
+            "Review calendar-week exercise trends and coach-program blocks. "
+            "This dashboard never changes either source file."
         )
+        subtitle.setObjectName("subtitle")
+        subtitle.setWordWrap(True)
+        outer.addWidget(title)
+        outer.addWidget(subtitle)
+        self.history_title = title
+        self.history_subtitle = subtitle
+
+        inputs = QGroupBox("History sources")
+        self.history_sources = inputs
+        grid = QGridLayout(inputs)
+        grid.setColumnStretch(1, 1)
+        self.history_export_path = QLineEdit()
+        self.history_export_path.setPlaceholderText(
+            "MacroFactor all-time exercise-log export (.csv or .xlsx)"
+        )
+        export_button = QPushButton("Choose…")
+        export_button.clicked.connect(self._choose_history_export)
+        grid.addWidget(QLabel("All-time export"), 0, 0)
+        grid.addWidget(self.history_export_path, 0, 1)
+        grid.addWidget(export_button, 0, 2)
+
+        self.history_workbook_path = QLineEdit()
+        self.history_workbook_path.setPlaceholderText("Newest coach workbook (.xlsx)")
+        workbook_button = QPushButton("Choose…")
+        workbook_button.clicked.connect(self._choose_history_workbook)
+        grid.addWidget(QLabel("Coach workbook"), 1, 0)
+        grid.addWidget(self.history_workbook_path, 1, 1)
+        grid.addWidget(workbook_button, 1, 2)
+
+        self.history_config_path = QLineEdit()
+        config_button = QPushButton("Choose…")
+        config_button.clicked.connect(self._choose_history_config)
+        grid.addWidget(QLabel("Exercise mapping"), 2, 0)
+        grid.addWidget(self.history_config_path, 2, 1)
+        grid.addWidget(config_button, 2, 2)
+
+        self.history_annotations_path = QLineEdit()
+        self.history_annotations_path.setPlaceholderText(
+            "Private local annotation file (.json); created when you save"
+        )
+        annotations_button = QPushButton("Choose existing…")
+        annotations_button.clicked.connect(self._choose_history_annotations)
+        grid.addWidget(QLabel("Private annotations"), 3, 0)
+        grid.addWidget(self.history_annotations_path, 3, 1)
+        grid.addWidget(annotations_button, 3, 2)
+        outer.addWidget(inputs)
+
+        actions = QHBoxLayout()
+        self.history_load_button = QPushButton("Load history dashboard")
+        self.history_load_button.setObjectName("primaryButton")
+        self.history_load_button.clicked.connect(self._load_history)
+        self.history_overview = QLabel("Choose the two source files to summarize your history.")
+        self.history_overview.setWordWrap(True)
+        actions.addWidget(self.history_load_button)
+        self.history_sources_toggle = QPushButton("Hide sources")
+        self.history_sources_toggle.setCheckable(True)
+        self.history_sources_toggle.setChecked(True)
+        self.history_sources_toggle.toggled.connect(self._toggle_history_sources)
+        actions.addWidget(self.history_sources_toggle)
+        actions.addWidget(self.history_overview, 1)
+        outer.addLayout(actions)
+
+        analysis = QSplitter(Qt.Orientation.Vertical)
+        analysis.setChildrenCollapsible(False)
+        block_frame = QFrame()
+        block_layout = QVBoxLayout(block_frame)
+        block_layout.setContentsMargins(0, 0, 0, 0)
+        block_heading = QHBoxLayout()
+        block_heading.addWidget(QLabel("Coach blocks · workbook order"), 1)
+        self.history_context_button = QPushButton("Edit training notes →")
+        self.history_context_button.setEnabled(False)
+        self.history_context_button.setToolTip("Open context for the selected block; double-clicking its row also works.")
+        self.history_context_button.clicked.connect(self._open_selected_block_context)
+        block_heading.addWidget(self.history_context_button)
+        block_layout.addLayout(block_heading)
+        self.history_block_table = QTableWidget(0, 7)
+        self.history_block_table.setHorizontalHeaderLabels(
+            [
+                "Block",
+                "Weeks",
+                "Results",
+                "Type",
+                "Start",
+                "Mapped",
+                "Context",
+            ]
+        )
+        self.history_block_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers
+        )
+        self.history_block_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
+        self.history_block_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.history_block_table.cellDoubleClicked.connect(self._open_selected_block_context)
+        self.history_block_table.itemSelectionChanged.connect(
+            lambda: self.history_context_button.setEnabled(self.history_block_table.currentRow() >= 0)
+        )
+        block_header = self.history_block_table.horizontalHeader()
+        block_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column in range(1, 7):
+            block_header.setSectionResizeMode(
+                column, QHeaderView.ResizeMode.ResizeToContents
+            )
+        block_layout.addWidget(self.history_block_table)
+        analysis.addWidget(block_frame)
+
+        exercise_frame = QFrame()
+        exercise_layout = QVBoxLayout(exercise_frame)
+        exercise_layout.setContentsMargins(0, 0, 0, 0)
+        exercise_selector = QHBoxLayout()
+        exercise_selector.addWidget(QLabel("Exercise trend"))
+        self.history_exercise_combo = QComboBox()
+        exercise_selector.addWidget(self.history_exercise_combo, 1)
+        self.history_trend = QLabel("Estimated 1RM trend: —")
+        self.history_trend.setObjectName("trend")
+        exercise_selector.addWidget(self.history_trend)
+        exercise_layout.addLayout(exercise_selector)
+        self.history_trend_table = QTableWidget(0, 9)
+        self.history_trend_table.setHorizontalHeaderLabels(
+            [
+                "Week of",
+                "Block",
+                "Coach week",
+                "Days",
+                "Sets",
+                "Top lb",
+                "Est. 1RM",
+                "Volume",
+                "Avg RIR",
+            ]
+        )
+        self.history_trend_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers
+        )
+        trend_header = self.history_trend_table.horizontalHeader()
+        trend_header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        trend_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        trend_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        for column in range(3, 9):
+            trend_header.setSectionResizeMode(
+                column, QHeaderView.ResizeMode.ResizeToContents
+            )
+        exercise_layout.addWidget(self.history_trend_table)
+        analysis.addWidget(exercise_frame)
+        analysis.setSizes([160, 240])
+        self.history_analysis_tabs = HistoryTabs()
+        self.history_home = HistoryHome()
+        self.history_explorer = ExerciseExplorer()
+        self.history_timeline = TrainingTimeline()
+        self.history_home.explore.connect(self._explore_history_exercise)
+        self.history_home.focus_block.connect(self._focus_history_block)
+        self.history_home.range_changed.connect(lambda weeks: self.history_timeline.period.setCurrentIndex(self.history_timeline.period.findData(weeks)))
+        self.history_timeline.range_changed.connect(lambda weeks: self.history_home.period.setCurrentIndex(self.history_home.period.findData(weeks)))
+        self.history_home.variations_changed.connect(self._sync_timeline_variations)
+        self.history_timeline.variation_changed.connect(self._sync_home_variation)
+        self.history_timeline.back.connect(lambda: self.history_analysis_tabs.setCurrentWidget(self.history_home))
+        self.history_analysis_tabs.addTab(self.history_home, "Overview")
+        self.history_analysis_tabs.addTab(self.history_timeline, "Training timeline")
+        self.history_analysis_tabs.addTab(self.history_explorer, "Exercise trends")
+        overview = QWidget()
+        overview_layout = QVBoxLayout(overview)
+        overview_layout.setContentsMargins(0, 10, 0, 0)
+        cards = QHBoxLayout()
+        self.history_cards = [SummaryCard(label) for label in
+                              ("Logged sets", "Training days", "Coach blocks", "Sets with RIR")]
+        for card in self.history_cards:
+            cards.addWidget(card, 1)
+        overview_layout.addLayout(cards)
+        overview_layout.addWidget(analysis, 1)
+        self.history_analysis_tabs.addTab(overview, "Block summaries")
+        self.history_comparison = BlockComparisonPanel()
+        self.history_analysis_tabs.addTab(self.history_comparison, "Compare blocks")
+        outer.addWidget(self.history_analysis_tabs, 1)
+
+        annotations = QGroupBox("Training notes and weekly feedback")
+        self.history_context_page = annotations
+        annotation_grid = QGridLayout(annotations)
+        annotation_grid.setColumnStretch(1, 1)
+        annotation_grid.setColumnStretch(3, 1)
+        self.history_block_combo = QComboBox()
+        self.history_block_type_combo = QComboBox()
+        for value, label in BLOCK_TYPE_OPTIONS:
+            self.history_block_type_combo.addItem(label, value)
+        self.history_start_known = QCheckBox("Start date known")
+        self.history_start_date = QDateEdit()
+        self.history_start_date.setCalendarPopup(True)
+        self.history_start_date.setDisplayFormat("MMM d, yyyy")
+        self.history_start_date.setDate(QDate.currentDate())
+        self.history_start_date.setEnabled(False)
+        annotation_grid.addWidget(QLabel("Block"), 0, 0)
+        annotation_grid.addWidget(self.history_block_combo, 0, 1)
+        annotation_grid.addWidget(QLabel("Block type"), 0, 2)
+        annotation_grid.addWidget(self.history_block_type_combo, 0, 3)
+        annotation_grid.addWidget(self.history_start_known, 0, 4)
+        annotation_grid.addWidget(self.history_start_date, 0, 5)
+
+        self.history_block_notes = QLineEdit()
+        self.history_block_notes.setPlaceholderText("Optional block context")
+        annotation_grid.addWidget(QLabel("Block notes"), 1, 0)
+        annotation_grid.addWidget(self.history_block_notes, 1, 1, 1, 5)
+
+        self.history_week_combo = QComboBox()
+        self.history_week_status_combo = QComboBox()
+        for value, label in WEEK_STATUS_OPTIONS:
+            self.history_week_status_combo.addItem(label, value)
+        self.history_week_reason_combo = QComboBox()
+        for value, label in WEEK_REASON_OPTIONS:
+            self.history_week_reason_combo.addItem(label, value)
+        annotation_grid.addWidget(QLabel("Coach week"), 2, 0)
+        annotation_grid.addWidget(self.history_week_combo, 2, 1)
+        annotation_grid.addWidget(QLabel("Status"), 2, 2)
+        annotation_grid.addWidget(self.history_week_status_combo, 2, 3)
+        annotation_grid.addWidget(QLabel("Reason"), 2, 4)
+        annotation_grid.addWidget(self.history_week_reason_combo, 2, 5)
+
+        self.history_affected_movements = QLineEdit()
+        self.history_affected_movements.setPlaceholderText(
+            "Optional comma-separated movements"
+        )
+        self.history_week_notes = QLineEdit()
+        self.history_week_notes.setPlaceholderText("Optional week context")
+        annotation_grid.addWidget(QLabel("Affected movements"), 3, 0)
+        annotation_grid.addWidget(self.history_affected_movements, 3, 1, 1, 2)
+        annotation_grid.addWidget(QLabel("Week notes"), 3, 3)
+        annotation_grid.addWidget(self.history_week_notes, 3, 4, 1, 2)
+
+        self.history_save_annotation_button = QPushButton("Save training notes")
+        self.history_save_annotation_button.setToolTip("Save private block notes and weekly feedback locally; no workbook is updated.")
+        self.history_save_annotation_button.setEnabled(False)
+        self.history_save_annotation_button.clicked.connect(
+            self._save_history_annotation
+        )
+        privacy = QLabel(
+            "Vacation and injury remain context—not fatigue examples. "
+            "Annotations are saved only to the selected local JSON file."
+        )
+        privacy.setObjectName("subtitle")
+        privacy.setWordWrap(True)
+        annotation_grid.addWidget(self.history_save_annotation_button, 4, 0, 1, 2)
+        annotation_grid.addWidget(privacy, 4, 2, 1, 4)
+        self.history_analysis_tabs.addTab(annotations, "Training notes")
+        self.history_analysis_tabs.configure_secondary_views()
+
+        self.history_status = QLabel(
+            "Recovery and deload prediction are intentionally outside this milestone."
+        )
+        self.history_status.setObjectName("status")
+        self.history_status.setWordWrap(True)
+        outer.addWidget(self.history_status)
+        self.history_analysis_tabs.currentChanged.connect(self._history_view_changed)
+
+        self.history_exercise_combo.currentTextChanged.connect(
+            self._display_history_exercise
+        )
+        self.history_block_combo.currentTextChanged.connect(
+            self._history_block_changed
+        )
+        self.history_week_combo.currentTextChanged.connect(
+            self._history_week_changed
+        )
+        self.history_start_known.toggled.connect(
+            self.history_start_date.setEnabled
+        )
+        for field in (
+            self.history_export_path,
+            self.history_workbook_path,
+            self.history_config_path,
+            self.history_annotations_path,
+        ):
+            field.textChanged.connect(self._invalidate_history)
+        return tab
+
+    def _history_view_changed(self, *_args):
+        automatic = self.managed and self.managed.enabled
+        self.history_status.setVisible(not automatic or self.history_analysis_tabs.currentWidget() is self.history_context_page)
+
+    def _toggle_history_sources(self, visible: bool) -> None:
+        self.history_sources.setVisible(visible)
+        self.history_sources_toggle.setText("Hide sources" if visible else "Show sources")
 
     def _choose_export(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -244,6 +579,374 @@ class BridgeWindow(QMainWindow):
             self.config_path.setText(path)
             if self.workbook_path.text().strip():
                 self._discover_targets()
+
+    def _choose_history_export(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose MacroFactor all-time exercise log",
+            "",
+            "Workout exports (*.csv *.xlsx)",
+        )
+        if path:
+            self.history_export_path.setText(path)
+
+    def _choose_history_workbook(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose newest coach workbook", "", "Excel workbooks (*.xlsx)"
+        )
+        if not path:
+            return
+        self.history_workbook_path.setText(path)
+        if not self.history_annotations_path.text().strip():
+            self.history_annotations_path.setText(
+                str(default_dashboard_annotations_path(path))
+            )
+
+    def _choose_history_config(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose exercise mapping", "", "JSON mappings (*.json)"
+        )
+        if path:
+            self.history_config_path.setText(path)
+
+    def _choose_history_annotations(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose existing dashboard annotations",
+            "",
+            "JSON annotations (*.json)",
+        )
+        if path:
+            self.history_annotations_path.setText(path)
+
+    @staticmethod
+    def _set_combo_data(combo: QComboBox, value: str) -> None:
+        index = combo.findData(value)
+        combo.setCurrentIndex(index if index >= 0 else 0)
+
+    def _clear_history_dashboard(self, status: str) -> None:
+        self._history_dashboard = None
+        self._history_annotations = DashboardAnnotations()
+        self.history_comparison.set_history(None)
+        self.history_home.set_history(None)
+        self.history_explorer.set_history(None)
+        self.history_timeline.set_history(None)
+        self.history_save_annotation_button.setEnabled(False)
+        self.history_overview.setText("Load the selected files to summarize your history.")
+        self.history_overview.setToolTip("")
+        for card in self.history_cards:
+            card.value.setText("—")
+            card.setToolTip("")
+        self.history_context_button.setEnabled(False)
+        self.history_block_table.setRowCount(0)
+        self.history_trend_table.setRowCount(0)
+        self.history_block_combo.clear()
+        self.history_week_combo.clear()
+        self.history_exercise_combo.clear()
+        self.history_trend.setText("Estimated 1RM trend: —")
+        self.history_status.setText(status)
+
+    def _invalidate_history(self, *_args: object) -> None:
+        if self._history_dashboard is None:
+            return
+        self._clear_history_dashboard(
+            "History inputs changed. Load the dashboard again before saving context."
+        )
+
+    def _load_history(self, *_args: object) -> None:
+        if self.managed and self.managed.enabled:
+            self.managed.refresh(force=True)
+            return
+        selected_block = self.history_block_combo.currentText()
+        selected_week = self.history_week_combo.currentText()
+        selected_exercise = self.history_exercise_combo.currentText()
+        self._clear_history_dashboard("Loading the selected History inputs…")
+        try:
+            required = {
+                "MacroFactor all-time export": self.history_export_path.text().strip(),
+                "coach workbook": self.history_workbook_path.text().strip(),
+                "exercise mapping": self.history_config_path.text().strip(),
+            }
+            missing = [label for label, value in required.items() if not value]
+            if missing:
+                raise ValueError(f"Choose {', '.join(missing)} before loading history")
+            if not self.history_annotations_path.text().strip():
+                self.history_annotations_path.setText(
+                    str(
+                        default_dashboard_annotations_path(
+                            self.history_workbook_path.text().strip()
+                        )
+                    )
+                )
+            annotations = load_dashboard_annotations(
+                self.history_annotations_path.text().strip()
+            )
+            dashboard = build_history_dashboard(
+                self.history_export_path.text().strip(),
+                self.history_workbook_path.text().strip(),
+                load_config(self.history_config_path.text().strip()),
+                annotations,
+            )
+        except Exception as exc:
+            self._show_history_error("History dashboard could not be loaded", exc)
+            return
+        self._history_annotations = annotations
+        self._history_dashboard = dashboard
+        self._display_history_dashboard(dashboard)
+        if self.managed:
+            self.managed.snapshot = None
+            self.managed.note_saved()
+        self.history_sources_toggle.setChecked(False)
+        self.history_save_annotation_button.setEnabled(True)
+
+        if selected_block:
+            block_index = self.history_block_combo.findText(selected_block)
+            if block_index >= 0:
+                self.history_block_combo.setCurrentIndex(block_index)
+        if selected_week:
+            week_index = self.history_week_combo.findText(selected_week)
+            if week_index >= 0:
+                self.history_week_combo.setCurrentIndex(week_index)
+        if selected_exercise:
+            exercise_index = self.history_exercise_combo.findText(selected_exercise)
+            if exercise_index >= 0:
+                self.history_exercise_combo.setCurrentIndex(exercise_index)
+
+        warning_text = " ".join(dashboard.warnings)
+        status = (
+            "History loaded read-only; neither source file was changed. "
+            "Estimated 1RM uses weighted standard sets of 1–12 reps."
+        )
+        if warning_text:
+            status += f" {warning_text}"
+        self.history_status.setText(status)
+
+    def _display_history_dashboard(self, dashboard: HistoryDashboard) -> None:
+        rir_percent = round(dashboard.rir_set_count * 100 / dashboard.set_count)
+        duration = duration_text(dashboard.total_duration_seconds)
+        self.history_overview.setText(
+            f"{dashboard.first_workout:%b %d, %Y}–{dashboard.last_workout:%b %d, %Y}  •  "
+            f"{dashboard.set_count:,} sets"
+        )
+        detail = (
+            f"{dashboard.training_day_count} training days  •  "
+            f"{dashboard.workout_count} workouts  •  RIR {dashboard.rir_set_count}/{dashboard.set_count} "
+            f"({rir_percent}%)  •  {duration} logged across "
+            f"{dashboard.duration_session_count} workouts"
+        )
+        self.history_overview.setToolTip(detail)
+        rir_coverage = f"{rir_percent}%"
+        if 0 < dashboard.rir_set_count < dashboard.set_count:
+            if rir_percent == 0:
+                rir_coverage = "<1%"
+            elif rir_percent == 100:
+                rir_coverage = ">99%"
+        for card, value in zip(self.history_cards, (
+            f"{dashboard.set_count:,}", str(dashboard.training_day_count),
+            str(len(dashboard.blocks)), rir_coverage,
+        )):
+            card.value.setText(value)
+            card.setToolTip(detail)
+
+        self.history_block_table.setRowCount(len(dashboard.blocks))
+        for row, block in enumerate(dashboard.blocks):
+            values = (
+                block.name,
+                str(len(block.week_labels)),
+                f"{block.completed_results}/{block.programmed_results}",
+                option_label(BLOCK_TYPE_OPTIONS, block.block_type),
+                block.start_date.isoformat() if block.start_date else "Not set",
+                str(block.mapped_set_count) if block.start_date else "—",
+                str(block.annotated_week_count),
+            )
+            for column, value in enumerate(values):
+                self.history_block_table.setItem(row, column, QTableWidgetItem(value))
+
+        self.history_block_combo.blockSignals(True)
+        self.history_block_combo.clear()
+        self.history_block_combo.addItems(block.name for block in dashboard.blocks)
+        self.history_block_combo.blockSignals(False)
+
+        self.history_exercise_combo.blockSignals(True)
+        self.history_exercise_combo.clear()
+        self.history_exercise_combo.addItems(
+            summary.exercise for summary in dashboard.exercises
+        )
+        self.history_exercise_combo.blockSignals(False)
+        self._history_block_changed(self.history_block_combo.currentText())
+        self._display_history_exercise(self.history_exercise_combo.currentText())
+        self.history_comparison.set_history(dashboard, self._history_annotations)
+        self.history_timeline.set_history(dashboard, self._history_annotations)
+        self.history_home.set_history(dashboard, self._history_annotations)
+        self.history_explorer.set_history(dashboard, self._history_annotations)
+
+    def _explore_history_exercise(self, exercise: str) -> None:
+        if any(exercise in names for names in LIFT_FAMILIES.values()):
+            self.history_timeline.open_exercise(exercise)
+            self.history_analysis_tabs.setCurrentWidget(self.history_timeline)
+            return
+        self.history_explorer.open_exercise(exercise)
+        self.history_analysis_tabs.setCurrentWidget(self.history_explorer)
+
+    def _focus_history_block(self, name: str) -> None:
+        self.history_timeline.open_block(name)
+        self.history_analysis_tabs.setCurrentWidget(self.history_timeline)
+
+    def _sync_timeline_variations(self) -> None:
+        for card in self.history_home.cards:
+            selector = self.history_timeline.selectors[card.family]
+            if selector.findText(card.exercise.currentText()) >= 0:
+                selector.setCurrentText(card.exercise.currentText())
+
+    def _sync_home_variation(self, family: str, name: str) -> None:
+        for card in self.history_home.cards:
+            if card.family == family and card.exercise.findText(name) >= 0:
+                card.exercise.setCurrentText(name)
+
+    def _display_history_exercise(self, exercise: str) -> None:
+        dashboard = self._history_dashboard
+        if dashboard is None or not exercise:
+            self.history_trend.setText("Estimated 1RM trend: —")
+            self.history_trend_table.setRowCount(0)
+            return
+        summary = next(
+            (item for item in dashboard.exercises if item.exercise == exercise), None
+        )
+        trends = dashboard.trends_for(exercise)
+        if summary is None:
+            return
+        self.history_trend.setText(
+            f"Estimated 1RM trend: {summary.trend}  •  "
+            f"best {decimal_text(summary.best_estimated_1rm)} lb"
+        )
+        self.history_trend_table.setRowCount(len(trends))
+        for row, trend in enumerate(trends):
+            block = trend.block_name or "Unmapped"
+            values = (
+                trend.week_start.isoformat(),
+                block,
+                trend.block_week or "—",
+                str(trend.training_days),
+                str(trend.set_count),
+                decimal_text(trend.top_weight),
+                decimal_text(trend.estimated_1rm),
+                decimal_text(trend.volume_load, places=0),
+                decimal_text(trend.average_rir),
+            )
+            for column, value in enumerate(values):
+                self.history_trend_table.setItem(row, column, QTableWidgetItem(value))
+
+    def _open_selected_block_context(self, *_args: object) -> None:
+        row = self.history_block_table.currentRow()
+        item = self.history_block_table.item(row, 0)
+        if item is not None and self._history_dashboard is not None:
+            self.history_block_combo.setCurrentText(item.text())
+            self.history_analysis_tabs.setCurrentWidget(self.history_context_page)
+            self.history_block_combo.setFocus()
+
+    def _history_block_changed(self, block_name: str) -> None:
+        dashboard = self._history_dashboard
+        if dashboard is None or not block_name:
+            return
+        block = next((item for item in dashboard.blocks if item.name == block_name), None)
+        if block is None:
+            return
+        annotation = self._history_annotations.blocks.get(block_name)
+        self.history_week_combo.blockSignals(True)
+        self.history_week_combo.clear()
+        self.history_week_combo.addItems(block.week_labels)
+        self.history_week_combo.blockSignals(False)
+        self._set_combo_data(
+            self.history_block_type_combo,
+            annotation.block_type if annotation else "unspecified",
+        )
+        self.history_start_known.blockSignals(True)
+        self.history_start_known.setChecked(
+            bool(annotation and annotation.start_date is not None)
+        )
+        self.history_start_known.blockSignals(False)
+        self.history_start_date.setEnabled(self.history_start_known.isChecked())
+        if annotation and annotation.start_date:
+            self.history_start_date.setDate(_to_qdate(annotation.start_date))
+        self.history_block_notes.setText(annotation.notes if annotation else "")
+        self._history_week_changed(self.history_week_combo.currentText())
+
+    def _history_week_changed(self, week_name: str) -> None:
+        block_name = self.history_block_combo.currentText()
+        block = self._history_annotations.blocks.get(block_name)
+        annotation = block.weeks.get(week_name) if block and week_name else None
+        self._set_combo_data(
+            self.history_week_status_combo,
+            annotation.status if annotation else "normal",
+        )
+        self._set_combo_data(
+            self.history_week_reason_combo,
+            annotation.reason if annotation else "unspecified",
+        )
+        self.history_affected_movements.setText(
+            ", ".join(annotation.affected_movements) if annotation else ""
+        )
+        self.history_week_notes.setText(annotation.notes if annotation else "")
+
+    def _save_history_annotation(self, *_args: object) -> None:
+        if self._history_dashboard is None:
+            self._show_history_error(
+                "History required", ValueError("Load the dashboard before saving context.")
+            )
+            return
+        block_name = self.history_block_combo.currentText()
+        week_name = self.history_week_combo.currentText()
+        path = self.history_annotations_path.text().strip()
+        if not block_name or not week_name or not path:
+            self._show_history_error(
+                "Annotation could not be saved",
+                ValueError("Choose a block, week, and private annotation file."),
+            )
+            return
+        start_date = (
+            _from_qdate(self.history_start_date.date())
+            if self.history_start_known.isChecked()
+            else None
+        )
+        try:
+            if self.managed:
+                self.managed.check_save()
+            annotations = update_block_annotation(
+                self._history_annotations,
+                block_name,
+                block_type=str(self.history_block_type_combo.currentData()),
+                start_date=start_date,
+                notes=self.history_block_notes.text(),
+            )
+            annotations = update_week_annotation(
+                annotations,
+                block_name,
+                week_name,
+                status=str(self.history_week_status_combo.currentData()),
+                reason=str(self.history_week_reason_combo.currentData()),
+                affected_movements=tuple(
+                    item.strip()
+                    for item in self.history_affected_movements.text().split(",")
+                    if item.strip()
+                ),
+                notes=self.history_week_notes.text(),
+            )
+            save_dashboard_annotations(path, annotations)
+            self._history_annotations = annotations
+            if self.managed:
+                self.managed.note_saved()
+            self._load_history()
+            self.history_status.setText(
+                f"Saved private context for {block_name} · {week_name} at {path}. "
+                "Source files remain unchanged."
+            )
+        except Exception as exc:
+            self._show_history_error("Annotation could not be saved", exc)
+
+    def _show_history_error(self, title: str, error: Exception) -> None:
+        self.history_sources_toggle.setChecked(True)
+        QMessageBox.critical(self, title, str(error))
+        self.history_status.setText(str(error))
 
     def _save_mapping_copy(self) -> None:
         suggested = str(Path.home() / "Documents" / "macrofactor-exercise-mapping.json")
@@ -355,7 +1058,9 @@ class BridgeWindow(QMainWindow):
             for column, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if proposal.fill_color:
-                    item.setBackground(QColor(f"#{proposal.fill_color[-6:]}"))
+                    fill = QColor(f"#{proposal.fill_color[-6:]}")
+                    item.setBackground(fill)
+                    item.setForeground(QColor("#101113" if fill.lightnessF() >= 0.5 else "#ffffff"))
                 self.preview_table.setItem(row, column, item)
         self.review_panel.setPlainText(review_text(report))
 
@@ -367,7 +1072,7 @@ class BridgeWindow(QMainWindow):
             self.workbook_path.text().strip(), self.week_combo.currentText()
         )
         output, _ = QFileDialog.getSaveFileName(
-            self, "Create safe workbook copy", str(suggested), "Excel workbooks (*.xlsx)"
+            self, "Save updated workbook copy", str(suggested), "Excel workbooks (*.xlsx)"
         )
         if not output:
             return
@@ -459,7 +1164,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationDisplayName(APP_NAME)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("MacroFactor Workout Bridge")
-    window = BridgeWindow()
+    window = BridgeWindow(autoload=not args.smoke_test)
     if args.smoke_test:
         window.show()
         app.processEvents()
