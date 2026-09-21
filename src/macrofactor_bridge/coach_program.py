@@ -375,8 +375,14 @@ def _discover_sheet_layouts(
             "reps": _header_column(values, config.program.reps_header_labels),
             "rest": _header_column(values, config.program.rest_header_labels),
         }
-        if any(column is None for column in columns.values()):
-            continue
+        missing_headers = [
+            name for name, column in columns.items() if column is None
+        ]
+        if missing_headers:
+            raise WorkbookError(
+                f"Recognizable day heading {day_matches[0][0]!r} at row {row} is "
+                "missing required header(s): " + ", ".join(missing_headers)
+            )
         variation_column = _header_column(values, config.program.variation_header_labels)
         if variation_column is not None:
             columns["variation"] = variation_column

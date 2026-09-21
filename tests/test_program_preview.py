@@ -247,6 +247,21 @@ class ProgramPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkbookError, "Duplicate week label"):
             discover_program_blocks(workbook, self.config)
 
+    def test_recognizable_day_with_missing_required_header_fails_discovery(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Alpha Move")
+        add_day_header(cells, row=12, day="Day 2")
+        del cells["H12"]
+        exercise_row(cells, 13, name="Alpha Move")
+        workbook = self.write_workbook(
+            cells,
+            merges=("J5:K5", "L5:M5", "J12:K12", "L12:M12"),
+        )
+
+        with self.assertRaisesRegex(WorkbookError, "missing required header"):
+            discover_program_blocks(workbook, self.config)
+
     def test_preserves_coach_style_without_treating_a_slot_label_as_set_type(self) -> None:
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")
