@@ -1,25 +1,31 @@
 # Plan
 
-Make Compare blocks open with a useful exercise for its initial A/B block pair instead of the alphabetically first exercise when that exercise has no data there. Rank initial candidates by coverage in both selected blocks and availability for the selected chart metric, while preserving a user's explicit exercise selection across reloads.
+Prepare the dashboard comparison-default branch for a focused pull request by rebasing it onto current `main`, preserving the GUI lifecycle fix from PR #20, and completing the repository's canonical validation gate.
 
 ## Scope
-- In: initial Compare blocks exercise selection, deterministic fallback behavior, focused GUI regression coverage, comparison documentation, validation, commit, and push on the current branch.
-- Out: changing comparison calculations, combining exercise variations, automatically replacing an exercise after the user changes a selector, modifying workout sources or annotations, or opening another pull request.
+- In: branch rebase and conflict resolution, Qt test cleanup, focused and canonical validation, documentation of final evidence, commit and push, and preparation of the pull-request review evidence.
+- Out: merging the pull request, rebuilding the installed app before merge, changing comparison calculations beyond the approved default-selection behavior, dependency upgrades, or modifying private workout data.
 
 ## Action items
-[x] Add deterministic initial-exercise selection to `src/macrofactor_bridge/comparison_view.py` using the default or restored A/B blocks and existing weekly trends.
-[x] Preserve valid explicit exercise selections on reload and fall back safely when the selected blocks have no jointly logged exercise.
-[x] Extend `tests/test_comparison_gui.py` with a regression where the alphabetically first exercise has no selected-block data and confirm explicit selections remain stable.
-[x] Update `README.md` and `docs/Local-File-Workflow.md` to describe the comparison's useful-data default and selection-preservation behavior.
-[x] Run the focused comparison tests, the relevant dashboard/managed-history GUI suite, and compilation checks.
-[x] Exercise Compare blocks against the disposable copy of the latest weekly exports and confirm the initial table/chart contain logged data without changing private sources or annotations.
-[x] Review the diff and privacy scope and prepare only the requested files for commit and push on `codex/dashboard-rollout-wrapup`.
+[x] Compare the branch with current remote `main`, identify the implementation-plan and comparison-test conflicts, and diagnose the direct Qt-window cleanup finding.
+[x] Rebase the two branch commits onto `origin/main` while preserving the local app-update guide, current comparison plan, PR #20's test support, and the feature tests.
+[x] Replace direct cleanup for the new comparison test window with `tests.gui_support.dispose_widget`.
+[x] Run the focused comparison tests, then `./scripts/test.sh` to terminal completion, the dependency audit, compilation, source smoke test, and `git diff --check`.
+[x] Recheck the disposable September-export comparison and confirm private source and annotation files remain unchanged.
+[x] Record the final validation and conflict resolution here and prepare the rebased branch for a force-with-lease push.
+[x] Prepare a focused pull-request description with the behavior, privacy, validation, and review evidence required for the post-save PR review cycle.
 
 ## Open questions
-- None.
+- None. The user explicitly requested the rebase, conflict fixes, complete verification, and PR review cycle; the final merge remains theirs.
+
+## Conflict resolution
+- Rebased the two feature commits onto `origin/main` at `ebaef7e`.
+- Resolved the implementation-plan conflict in favor of the current feature plan while retaining the local app-update guide from the branch.
+- Preserved PR #20's shared `dispose_widget` helper and applied it to the new comparison-window regression fixture.
 
 ## Validation record
-- All 12 focused comparison GUI tests passed, including the two new default-selection and selection-preservation regressions.
-- All 62 comparison, timeline, managed-history, and managed-GUI tests passed after the production change.
-- Python compilation and `git diff --check` passed.
-- The disposable copy of the September weekly exports opened Compare blocks with one exercise containing logged weeks and estimated-1RM values in both initial blocks. No private input or annotation file was added to Git.
+- All 16 focused comparison and GUI-lifecycle tests passed.
+- The canonical `./scripts/test.sh` run passed all 200 tests in 70.924 seconds.
+- The hash-locked dependency audit reported no known vulnerabilities.
+- Python compilation, the source GUI smoke test, and `git diff --check` passed.
+- The disposable September-export check selected an exercise with four metric-bearing weeks in each initial block. SHA-256 comparisons confirmed both source exports and the live annotation file still matched their untouched snapshots; no private data was added to Git.

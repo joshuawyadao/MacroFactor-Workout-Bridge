@@ -91,7 +91,7 @@ class ComparisonGuiTests(unittest.TestCase):
             encoding="utf-8",
         )
         window = BridgeWindow()
-        self.addCleanup(window.close)
+        self.addCleanup(dispose_widget, window)
         window.history_export_path.setText(str(self.export))
         window.history_workbook_path.setText(str(self.coach))
         window.history_config_path.setText(str(ROOT / "config/exercises.example.json"))
