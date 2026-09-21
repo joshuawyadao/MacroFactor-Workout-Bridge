@@ -322,7 +322,7 @@ The latest private two-workout, four-cycle candidate has now completed a success
 Codex review found five direct-preview paths where workbook ambiguity could bypass the batch-only source audit. These are fail-closed parser corrections with no product-policy questions: formulas and ambiguous structures must block direct generation rather than relying on cached values or silently omitting source content.
 
 - [x] Reject formula-backed base prescription and selected planned-week cells in the parser itself; never resolve their cached values.
-- [ ] Reject duplicate week labels after normalization instead of selecting the first header pair.
+- [x] Reject duplicate week labels after normalization instead of selecting the first header pair.
 - [ ] Fail discovery when a recognizable day heading lacks any required base header instead of dropping that day.
 - [ ] Treat a bare numeric planned-week value as ambiguous regardless of the note-retention policy.
 - [ ] Refuse inherited week pairs when their header slots contain alternate text or formulas.

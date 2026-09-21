@@ -11,6 +11,7 @@ from xml.etree import ElementTree as ET
 from macrofactor_bridge.cli import build_parser, main
 from macrofactor_bridge.coach_program import discover_program_blocks
 from macrofactor_bridge.config import ConfigError, load_config
+from macrofactor_bridge.ooxml import WorkbookError
 from macrofactor_bridge.program_service import build_program_preview
 
 from tests.test_program_generation import rewrite_zip_member
@@ -232,6 +233,19 @@ class ProgramPreviewTests(unittest.TestCase):
                     self.assertNotEqual(prescription.rep_min.source, "coach_base")
                 else:
                     self.assertNotEqual(prescription.set_count.source, "coach_week")
+
+    def test_duplicate_normalized_week_labels_fail_discovery(self) -> None:
+        cells: dict[str, object | None] = {}
+        add_day_header(cells, row=5, day="Day 1")
+        exercise_row(cells, 6, name="Alpha Move")
+        cells.update({"N5": " WEEK 1 ", "N6": "different plan", "O6": "result"})
+        workbook = self.write_workbook(
+            cells,
+            merges=("J5:K5", "L5:M5", "N5:O5"),
+        )
+
+        with self.assertRaisesRegex(WorkbookError, "Duplicate week label"):
+            discover_program_blocks(workbook, self.config)
 
     def test_preserves_coach_style_without_treating_a_slot_label_as_set_type(self) -> None:
         cells: dict[str, object | None] = {}

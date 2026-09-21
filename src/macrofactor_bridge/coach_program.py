@@ -124,6 +124,11 @@ def _week_layouts(
             continue
         if isinstance(cell.value, str) and pattern.fullmatch(cell.value.strip()):
             candidates.append((row, column, reference, cell.value.strip()))
+    identities = Counter(normalize_name(candidate[3]) for candidate in candidates)
+    if any(count > 1 for count in identities.values()):
+        raise WorkbookError(
+            "Duplicate week label identity in one day header band"
+        )
     by_identity: dict[str, tuple[int, int, str, str]] = {}
     for candidate in sorted(candidates, key=lambda item: (-item[0], item[1])):
         by_identity.setdefault(normalize_name(candidate[3]), candidate)
