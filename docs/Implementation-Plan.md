@@ -316,3 +316,14 @@ The latest private two-workout, four-cycle candidate has now completed a success
 - [x] Run Python compilation, example/bundled configuration parity, tracked-file privacy scanning, `git diff --check`, and the hash-locked dependency audit. No known dependency vulnerabilities were found.
 - [x] Commit and push the integrated feature branch, update PR #13 with current evidence, and mark it ready for review.
 - [x] Review the final diff with the Brooks maintainability rubric and dispatch Codex/GitHub validation. The Brooks pass found no actionable defect; the unusually large review surface is a risk signal mitigated by its single bounded subsystem, conservative gates, independent audits, and extensive focused tests. Address any later remote finding before declaring the PR merge-ready, and never merge it automatically.
+
+## Codex parser-safety review follow-up
+
+Codex review found five direct-preview paths where workbook ambiguity could bypass the batch-only source audit. These are fail-closed parser corrections with no product-policy questions: formulas and ambiguous structures must block direct generation rather than relying on cached values or silently omitting source content.
+
+- [x] Reject formula-backed base prescription and selected planned-week cells in the parser itself; never resolve their cached values.
+- [ ] Reject duplicate week labels after normalization instead of selecting the first header pair.
+- [ ] Fail discovery when a recognizable day heading lacks any required base header instead of dropping that day.
+- [ ] Treat a bare numeric planned-week value as ambiguous regardless of the note-retention policy.
+- [ ] Refuse inherited week pairs when their header slots contain alternate text or formulas.
+- [ ] Add one or more synthetic regressions for every finding, run focused parser tests and the canonical suite, then confirm CI, review threads, and mergeability on the final pushed head.

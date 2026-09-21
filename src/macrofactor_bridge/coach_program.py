@@ -1069,7 +1069,12 @@ def _prescriptions(
         if week is None and config.program.base_cycle_count is None:
             raise WorkbookError(f"Selected cycle has no safely discovered source week: {week_label}")
         week_cell = make_cell_reference(row, week.plan_column) if week is not None else None
-        source_week = _raw(snapshot.cells.get(week_cell)) if week_cell is not None else None
+        source_cell = snapshot.cells.get(week_cell) if week_cell is not None else None
+        source_week = (
+            _raw(source_cell)
+            if source_cell is not None and source_cell.formula is None
+            else None
+        )
         raw_week = source_week if config.program.prescription_source == "selected_week" else None
         if source_week and config.program.prescription_source == "base" and not suppress_blockers:
             issues.append(ProgramIssue(
@@ -1445,36 +1450,51 @@ def parse_coach_program(
             coach_name = _raw(snapshot.cells.get(exercise_cell))
             if coach_name is None:
                 continue
-            if config.program.week_header_coverage_policy == "aligned_union_base_only":
-                for week in day.weeks:
-                    plan_reference = make_cell_reference(row, week.plan_column)
-                    plan_cell = snapshot.cells.get(plan_reference)
-                    if (normalize_name(week.label) in normalized_weeks and plan_cell is not None
-                            and plan_cell.formula is not None):
-                        issues.append(ProgramIssue(
-                            severity="blocking", code="aligned_week_plan_formula",
-                            message="Aligned weekly planned cells require literal text for retention",
-                            sheet=sheet_name, cell=plan_reference, day=day.label,
-                            exercise=coach_name, cycle=week.label,
-                        ))
-            raw_base = {
-                key: value
-                for key in ("style", "sets", "reps", "rest")
-                if (
-                    value := _raw(
-                        snapshot.cells.get(make_cell_reference(row, day.columns[key]))
-                    )
-                )
-                is not None
-            }
+            for week in day.weeks:
+                plan_reference = make_cell_reference(row, week.plan_column)
+                plan_cell = snapshot.cells.get(plan_reference)
+                if (normalize_name(week.label) in normalized_weeks and plan_cell is not None
+                        and plan_cell.formula is not None):
+                    issues.append(ProgramIssue(
+                        severity="blocking", code="formula_prescription_cell",
+                        message="Selected weekly planned cells must be literal, not cached formulas",
+                        sheet=sheet_name, cell=plan_reference, day=day.label,
+                        exercise=coach_name, cycle=week.label,
+                        raw_text=_raw(plan_cell),
+                    ))
+            raw_base: dict[str, str] = {}
+            for key in ("style", "sets", "reps", "rest"):
+                reference = make_cell_reference(row, day.columns[key])
+                cell = snapshot.cells.get(reference)
+                if cell is not None and cell.formula is not None:
+                    issues.append(ProgramIssue(
+                        severity="blocking", code="formula_prescription_cell",
+                        message="Base prescription cells must be literal, not cached formulas",
+                        sheet=sheet_name, cell=reference, day=day.label,
+                        exercise=coach_name, raw_text=_raw(cell),
+                    ))
+                    continue
+                if (value := _raw(cell)) is not None:
+                    raw_base[key] = value
             variation_column = day.columns.get("variation", day.columns["exercise"])
-            raw_base["variation"] = _raw(
-                snapshot.cells.get(make_cell_reference(row, variation_column))
-            ) or coach_name
+            variation_reference = make_cell_reference(row, variation_column)
+            variation_cell = snapshot.cells.get(variation_reference)
+            if variation_cell is not None and variation_cell.formula is not None:
+                issues.append(ProgramIssue(
+                    severity="blocking", code="formula_prescription_cell",
+                    message="Exercise variation cells must be literal, not cached formulas",
+                    sheet=sheet_name, cell=variation_reference, day=day.label,
+                    exercise=coach_name, raw_text=_raw(variation_cell),
+                ))
+                raw_base["variation"] = coach_name
+            else:
+                raw_base["variation"] = _raw(variation_cell) or coach_name
             context = tuple(raw_base.values())
             week_texts = tuple(
-                _raw(snapshot.cells.get(make_cell_reference(row, week.plan_column))) or ""
+                _raw(cell) or ""
                 for week in day.weeks if normalize_name(week.label) in normalized_weeks
+                for cell in (snapshot.cells.get(make_cell_reference(row, week.plan_column)),)
+                if cell is None or cell.formula is None
             )
             if config.program.prescription_source == "base":
                 week_texts = ()

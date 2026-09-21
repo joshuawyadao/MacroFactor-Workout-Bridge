@@ -6,12 +6,14 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from macrofactor_bridge.cli import build_parser, main
 from macrofactor_bridge.coach_program import discover_program_blocks
 from macrofactor_bridge.config import ConfigError, load_config
 from macrofactor_bridge.program_service import build_program_preview
 
+from tests.test_program_generation import rewrite_zip_member
 from tests.xlsx_factory import add_day_header, write_program_workbook
 
 
@@ -191,6 +193,45 @@ class ProgramPreviewTests(unittest.TestCase):
         self.assertIn(
             "direct_program_export_required", {issue.code for issue in report.blocking_issues}
         )
+
+    def test_formula_backed_prescriptions_block_direct_preview_and_ignore_cached_values(self) -> None:
+        for reference in ("G6", "J6"):
+            with self.subTest(reference=reference):
+                cells: dict[str, object | None] = {}
+                add_day_header(cells, row=5, day="Day 1")
+                exercise_row(cells, 6, name="Alpha Move")
+                workbook = self.write_workbook(cells)
+
+                def add_formula(data: bytes) -> bytes:
+                    root = ET.fromstring(data)
+                    namespace = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+                    cell = next(
+                        node for node in root.iter(namespace + "c")
+                        if node.attrib["r"] == reference
+                    )
+                    ET.SubElement(cell, namespace + "f").text = '"cached prescription"'
+                    return ET.tostring(root)
+
+                rewrite_zip_member(
+                    workbook, "xl/worksheets/sheet1.xml", add_formula
+                )
+                report = build_program_preview(
+                    workbook,
+                    self.config,
+                    "Shifted Program Sheet",
+                    "block-1",
+                    ("Week 1",),
+                )
+
+                self.assertIn(
+                    "formula_prescription_cell",
+                    {issue.code for issue in report.blocking_issues},
+                )
+                prescription = report.program.days[0].exercises[0].prescriptions[0]
+                if reference == "G6":
+                    self.assertNotEqual(prescription.rep_min.source, "coach_base")
+                else:
+                    self.assertNotEqual(prescription.set_count.source, "coach_week")
 
     def test_preserves_coach_style_without_treating_a_slot_label_as_set_type(self) -> None:
         cells: dict[str, object | None] = {}
