@@ -86,5 +86,16 @@
       "suggestion": 0
     },
     "scope": "GUI fixture disposal and terminal verification follow-up vs origin/main; tests and documentation only"
+  },
+  {
+    "date": "2026-09-21",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #21 branch changes vs origin/main; reviewed comparison default selection, GUI regressions, and user-facing workflow documentation after fixes"
   }
 ]

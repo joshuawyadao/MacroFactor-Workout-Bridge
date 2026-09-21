@@ -1,5 +1,6 @@
 """Desktop presentation of one exercise across two independently dated blocks."""
 
+from datetime import date
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
@@ -143,14 +144,55 @@ class BlockComparisonPanel(QWidget):
                         and block.name not in dashboard.overlapping_blocks]
             logged = [block.name for block in dashboard.blocks if block.mapped_set_count and block.name in eligible]
             preferred = logged + [name for name in eligible if name not in logged]
-            defaults = (self.exercise.currentText(),
-                        preferred[0] if preferred else self.first_block.currentText(),
-                        preferred[1] if len(preferred) > 1 else names[-1] if names else "")
-            for combo, saved, default in zip(selectors, self._selection, defaults):
+            block_defaults = (
+                preferred[0] if preferred else self.first_block.currentText(),
+                preferred[1] if len(preferred) > 1 else names[-1] if names else "",
+            )
+            for combo, saved, default in zip(
+                (self.first_block, self.second_block), self._selection[1:], block_defaults,
+            ):
                 combo.setCurrentText(saved if combo.findText(saved) >= 0 else default)
+            saved_exercise = self._selection[0]
+            default_exercise = self._default_exercise(
+                (self.first_block.currentText(), self.second_block.currentText()),
+                str(self.metric_selector.currentData()),
+            )
+            self.exercise.setCurrentText(
+                saved_exercise if self.exercise.findText(saved_exercise) >= 0 else default_exercise
+            )
         for combo in selectors:
             combo.blockSignals(False)
         self._refresh()
+
+    def _default_exercise(self, block_names: tuple[str, str], metric: str) -> str:
+        """Choose a useful initial exercise without replacing an explicit selection."""
+        if self._dashboard is None or not self._dashboard.exercises:
+            return ""
+        selected_blocks = frozenset(name for name in block_names if name)
+        best_exercise = self._dashboard.exercises[0].exercise
+        best_score: tuple[bool, bool, int, int, int, date, int] | None = None
+        for index, summary in enumerate(self._dashboard.exercises):
+            trends = tuple(
+                trend for trend in self._dashboard.trends_for(summary.exercise)
+                if trend.block_name in selected_blocks
+            )
+            logged_blocks = frozenset(trend.block_name for trend in trends)
+            metric_blocks = frozenset(
+                trend.block_name for trend in trends
+                if getattr(trend, metric, None) is not None
+            )
+            score = (
+                bool(selected_blocks) and logged_blocks == selected_blocks,
+                bool(selected_blocks) and metric_blocks == selected_blocks,
+                len(metric_blocks),
+                len(logged_blocks),
+                sum(trend.set_count for trend in trends),
+                max((trend.week_start for trend in trends), default=date.min),
+                -index,
+            )
+            if best_score is None or score > best_score:
+                best_exercise, best_score = summary.exercise, score
+        return best_exercise
 
     def _swap_blocks(self) -> None:
         first, second = self.first_block.currentIndex(), self.second_block.currentIndex()

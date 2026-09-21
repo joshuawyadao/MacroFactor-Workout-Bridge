@@ -54,6 +54,25 @@ Use `macrofactor-workspace --root /path/to/workout-data setup` for a custom loca
 5. To copy logged sets into a coach workbook, open MacroFactor Workout Bridge and choose the second top-level tab, **Update coach workbook**. Select `current/Coach Program - Current.xlsx` plus `current/MacroFactor Exercise Log - Current.csv` or `.xlsx`. These stable shortcuts are updated by the archive command. Click **Load workbook weeks**, select the worksheet and coach week, confirm the workout dates, then choose **Preview workbook changes**.
 6. Click **Save updated workbook copy…** and save the new workbook under `local-data/generated/workbooks/`, with its JSON report under `local-data/generated/reports/`. Logged sets are copied into the selected week in this new workbook; the original workbook and export stay unchanged. This optional update is not required to use **Dashboard** or **Weekly feedback**.
 
+## Updating the local app after a merge
+
+Merging a PR updates source code; it does not update an existing `.app`. To install the reviewed changes:
+
+1. Save pending training notes and quit the app. Identify the bundle you normally open, and copy it to a private backup outside `dist/` before building.
+2. Use a clean checkout containing the intended merged commit. Record that commit locally, then run `./scripts/build_macos_app.sh` from that checkout. The script rebuilds and verifies `dist/MacroFactor Workout Bridge.app`.
+3. Check the new bundle's embedded Qt runtime:
+
+   ```bash
+   QT_QPA_PLATFORM=offscreen \
+     "dist/MacroFactor Workout Bridge.app/Contents/MacOS/MacroFactor Workout Bridge" \
+     --smoke-test
+   ```
+
+4. If your normal installation is elsewhere, copy the verified bundle to that existing app path. Replace only the `.app`; preserve `local-data`, the local exercise mapping, saved annotations, and app preferences. No data migration or settings reset is needed for this dashboard update.
+5. Launch the installed copy. Confirm automatic loading and expected history coverage in **Source status…**. Check block dates in **Training notes**, chart trends, original-set drill-down, and existing **Weekly feedback**. Test saving and reopening feedback in a temporary workspace copy with isolated preferences, so acceptance checks do not add test notes to personal history. Keep the old bundle until these checks pass.
+
+The smoke test creates a window without loading history; it does not verify real-data behavior. Version `0.9.1` / build `13` also appeared before the final PR review fixes, so version text alone does not identify the installed code. Retain the source commit and compare the built and installed executable hashes when recording an update. Keep app bundles, workspace copies, private validation reports, and screenshots out of Git and public uploads.
+
 ## Dashboard workflow
 
 ### Automatic mode (0.9.1)
@@ -86,7 +105,7 @@ The **Overview** is the initial Dashboard view. Main-lift cards show exact varia
 
 Block report averages use full Monday–Sunday weeks inside both the chosen range and the export's observed date bounds; the denominator is shown on each card. Partial weeks remain visible but are excluded from averages. Interior no-log weeks count as zero logged workload, not confirmed skips. Partial/outside-range and invalidly dated blocks are labelled; no unavailable average is replaced by zero. **Notes & exact values** expands saved notes, methodology, best estimates and weekly averages in a table. **Training focus** keeps sets/week bars visible by exercise, not muscle group: no unverified muscle attribution or hard-set assumption is applied. Saved notes do not imply inferred causes for load changes.
 
-**Exercise trends** retains name search, family filters, chart metrics, and its independent all-history/4/12/24-week ranges anchored to the export's last workout week. Accessory workload buttons open this view. Earlier gaps and unmapped weeks remain visible; short exports prompt you to select all-time history. Full block/exercise tables are available in **Block summaries**, and the relative-week comparison is **Compare blocks**.
+**Exercise trends** retains name search, family filters, chart metrics, and its independent all-history/4/12/24-week ranges anchored to the export's last workout week. Accessory workload buttons open this view. Earlier gaps and unmapped weeks remain visible; short exports prompt you to select all-time history. Full block/exercise tables are available in **Block summaries**, and the relative-week comparison is **Compare blocks**. On first load, the comparison chooses an exercise with useful coverage across its initial A/B blocks; a later reload keeps an available exercise you selected.
 
 Cards display the selected variation's latest logged-week estimate in the selected range; the block table displays its best estimate per block within that range. These are different summaries, not recovery scores. Variations never combine automatically, and family navigation does not change aliases or workbook matching. Calendar shading does not create sets or infer skips. Saved context is descriptive only. Manual source changes clear the views; automatic updates replace them only after validation. Canonicalized set records are retained in memory for drill-down. No annotation-schema migration is required, and original exports/workbooks remain unchanged.
 

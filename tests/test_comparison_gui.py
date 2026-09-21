@@ -84,6 +84,38 @@ class ComparisonGuiTests(unittest.TestCase):
         self.assertEqual(load_dashboard_annotations(self.path).blocks["Training Block"].week_layout, layout)
         self.assertEqual(source_hashes, [file_sha256(p) for p in (self.export, self.coach)])
 
+    def test_initial_exercise_prefers_data_in_both_default_blocks(self):
+        self.export.write_text(
+            self.export.read_text(encoding="utf-8")
+            + "2026-07-27,Before,Aardvark Carry,Standard Set,50,10\n",
+            encoding="utf-8",
+        )
+        window = BridgeWindow()
+        self.addCleanup(dispose_widget, window)
+        window.history_export_path.setText(str(self.export))
+        window.history_workbook_path.setText(str(self.coach))
+        window.history_config_path.setText(str(ROOT / "config/exercises.example.json"))
+        window.history_annotations_path.setText(str(self.path))
+        window._load_history()
+        panel = window.history_comparison
+        self.assertEqual(panel.exercise.itemText(0), "Aardvark Carry")
+        self.assertEqual(panel.exercise.currentText(), "Tempo Back Squat")
+        self.assertEqual(panel.first_block.currentText(), "Training Block")
+        self.assertEqual(panel.second_block.currentText(), "Archive")
+        self.assertTrue(all(any(week.trend for week in series.weeks)
+                            for series in (panel.chart.comparison.first, panel.chart.comparison.second)))
+
+    def test_explicit_exercise_without_both_block_values_survives_reload(self):
+        self.export.write_text(
+            self.export.read_text(encoding="utf-8")
+            + "2026-07-27,Before,Aardvark Carry,Standard Set,50,10\n",
+            encoding="utf-8",
+        )
+        self.window._load_history()
+        self.panel.exercise.setCurrentText("Aardvark Carry")
+        self.window._load_history()
+        self.assertEqual(self.panel.exercise.currentText(), "Aardvark Carry")
+
     def test_swap_keeps_metric_and_exercise_and_is_disabled_without_history(self):
         self.panel.metric_selector.setCurrentIndex(1)
         before = self.panel.chart.plot_values()

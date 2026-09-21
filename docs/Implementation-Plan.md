@@ -1,33 +1,31 @@
 # Plan
 
-Close the September 20 regression scan's incomplete GUI validation by following the canonical test runner to a terminal result. Align contributor and PR verification guidance with the runner that includes the optional desktop dependencies, fix any reproduced failures, and prepare a reviewed PR against main.
+Prepare the dashboard comparison-default branch for a focused pull request by rebasing it onto current `main`, preserving the GUI lifecycle fix from PR #20, and completing the repository's canonical validation gate.
 
 ## Scope
-- In: complete offscreen GUI and non-GUI validation, contributor and PR verification guidance, an evidence record, narrow fixes if reproduced, review, commit and push.
-- Out: new dashboard features, unrelated refactoring, dependency upgrades, private workout data, installed-app replacement, and merging the PR.
+- In: branch rebase and conflict resolution, Qt test cleanup, focused and canonical validation, documentation of final evidence, commit and push, and preparation of the pull-request review evidence.
+- Out: merging the pull request, rebuilding the installed app before merge, changing comparison calculations beyond the approved default-selection behavior, dependency upgrades, or modifying private workout data.
 
 ## Action items
-[x] Inspect README, CONTRIBUTING.md, the previous implementation ledger, scripts/test.sh, CI Verify, and GUI test coverage; confirm the clean checkout matches main at 7d8a91c.
-[x] Create codex/complete-gui-regression-validation for the requested follow-up.
-[x] Run ./scripts/test.sh to terminal completion, retaining the final count, skipped-test status, elapsed time and exit status. Investigate any reproducible failure before changing code.
-[x] Reproduce the observed accumulation of closed Qt test windows; add shared test-only disposal that stops managed refresh, finishes workers, and processes deferred deletion. Cover cleanup with active jobs and apply it to the existing GUI fixtures without weakening assertions.
-[x] Update CONTRIBUTING.md and the PR template to require the canonical runner and terminal evidence; document that partial output is inconclusive and source-only runs may skip GUI coverage.
-[x] Record baseline and corrected full-suite results and the remaining boundary of offscreen validation in docs/Regression-Validation.md.
-[x] Run compilation, source app-entry smoke verification and diff checks; inspect the completed diff for privacy and accuracy.
-[x] Commit and push the validated changes using save-branch, then open the PR against main and request Codex review.
-[x] Complete Brooks review, terminal CI Verify, Codex feedback handling and mergeability checks on implementation commit 8e409cd; leave PR #20 unmerged. Recheck hosted CI after this documentation-only record is pushed.
+[x] Compare the branch with current remote `main`, identify the implementation-plan and comparison-test conflicts, and diagnose the direct Qt-window cleanup finding.
+[x] Rebase the two branch commits onto `origin/main` while preserving the local app-update guide, current comparison plan, PR #20's test support, and the feature tests.
+[x] Replace direct cleanup for the new comparison test window with `tests.gui_support.dispose_widget`.
+[x] Run the focused comparison tests, then `./scripts/test.sh` to terminal completion, the dependency audit, compilation, source smoke test, and `git diff --check`.
+[x] Recheck the disposable September-export comparison and confirm private source and annotation files remain unchanged.
+[x] Record the final validation and conflict resolution here and prepare the rebased branch for a force-with-lease push.
+[x] Prepare a focused pull-request description with the behavior, privacy, validation, and review evidence required for the post-save PR review cycle.
 
 ## Open questions
-- None. The user authorized a feature branch and a PR; any application fix remains contingent on a reproduced failure.
+- None. The user explicitly requested the rebase, conflict fixes, complete verification, and PR review cycle; the final merge remains theirs.
 
-## Review ledger
-- Baseline: the prior scan passed 92 focused tests, but did not retain terminal GUI-suite output. Existing historical runs took several minutes; a 30-second tool return alone does not establish a suite timeout.
-- Discovery: CI Verify and contributor guidance already use ./scripts/test.sh; the PR template still names the source-only unittest command, which may skip optional GUI tests.
-- Independent probe: closing four BridgeWindow instances retained 687, 1,374, 2,061 and 2,748 Qt widgets. Explicit deferred deletion returned the count to zero after each window. Reapplying the global theme to retained widgets makes subsequent tests increasingly expensive; fix the test fixtures, preserving production behavior and assertions.
-- Red/green validation: close-only cleanup produced four expected failures in the repeated-window and worker-order regressions. All four lifecycle tests pass with the helper; all 65 focused GUI tests pass in 70.663s with no skips. Optional-Qt-absent discovery skips those 65 tests cleanly.
-- Independent patch review found no actionable issue; representative comparison, managed-refresh and timeline-dialog tests each leave zero Qt widgets. Production code, existing assertions and CI timeouts are unchanged.
-- Complete canonical validation: all 198 tests pass in 81.669s with no skips and exit status 0. The original baseline also completed: 194 tests passed in 527.235s, no skips, exit status 0. Compilation, source app-entry smoke verification and diff checks pass.
-- Brooks PR review of the completed patch: 100/100, no actionable findings; all changed fixtures retain their application assertions and optional-Qt import guards. No production code, dependency or workflow-timeout change is needed.
-- Saved implementation as 8e409cd on codex/complete-gui-regression-validation and opened [PR #20](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20) against main.
-- CI Verify [run 35546162895](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/runs/35546162895) passed every step on 8e409cd, including the dependency audit, all 198 tests in 59.417s, compilation and diff checks.
-- Codex [review of 8e409cd](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/20#issuecomment-5753693701) found no major issues; no actionable review threads, reactions to fixes or conflict resolutions were needed. GitHub reported CLEAN/MERGEABLE. The PR remains unmerged; current hosted status is authoritative for the final documentation commit.
+## Conflict resolution
+- Rebased the two feature commits onto `origin/main` at `ebaef7e`.
+- Resolved the implementation-plan conflict in favor of the current feature plan while retaining the local app-update guide from the branch.
+- Preserved PR #20's shared `dispose_widget` helper and applied it to the new comparison-window regression fixture.
+
+## Validation record
+- All 16 focused comparison and GUI-lifecycle tests passed.
+- The canonical `./scripts/test.sh` run passed all 200 tests in 70.924 seconds.
+- The hash-locked dependency audit reported no known vulnerabilities.
+- Python compilation, the source GUI smoke test, and `git diff --check` passed.
+- The disposable September-export check selected an exercise with four metric-bearing weeks in each initial block. SHA-256 comparisons confirmed both source exports and the live annotation file still matched their untouched snapshots; no private data was added to Git.
