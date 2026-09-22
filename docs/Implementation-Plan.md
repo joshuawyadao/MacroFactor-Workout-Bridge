@@ -1,12 +1,288 @@
 # Plan
 
-Prepare the dashboard comparison-default branch for a focused pull request by rebasing it onto current `main`, preserving the GUI lifecycle fix from PR #20, and completing the repository's canonical validation gate.
+Extend the verified Part 1 result-transfer baseline with a separate, prescription-specific Part 2 path that parses selected coach program blocks into a neutral review model and generates only structures proved by a direct MacroFactor Export Program workbook. Preserve the Part 1 safety contract and existing Part 2 history. The current follow-up applies reviewed identity choices with residual coaching notes and reruns the remaining-block audit. Preserve the read-only history dashboard, lifecycle fixes, and comparison defaults now on `origin/main` through PR #21 when updating the feature branch.
 
 ## Scope
+- In: the existing conservative Python/OOXML CLI workflow; the next chronological block's private mapping review and guarded generation; desktop program preview followed by generation/manual-import handoff; reconciliation with newer history features; anonymized tests, docs, issue updates and reviewable feature-branch checkpoints.
+- Out: invented exercise identities or prescription decisions, unverified periodized/native-minimum/drop-set encodings, set-column expansion, broad compatibility claims, Google Drive, private-service or phone automation, committing private artifacts, and modifying or merging into main.
+
+## Imported-target and note-clarity correction
+
+The representative import exposed two presentation defects: an unambiguous `7 to 12 here` prescription was retained only in Notes instead of becoming a 7–12 target, and verbatim coach text can contain distracting spelling or unmatched-parenthesis errors. Fix the narrow target grammar and add an explicit conservative cleanup policy for exported exercise Notes. Preserve every source string unchanged in raw review/provenance data; do not use fuzzy rewriting or alter exercise identities, URLs, completed results or weekly-plan separation.
+
+[x] Reproduce both defects with anonymized synthetic tests and the existing private candidate. Accept only a literal numeric target followed by the harmless terminal word `here`; continue blocking other trailing prose.
+[x] Add an opt-in note-text cleanup policy that normalizes whitespace, corrects a small allow-list of clear spelling mistakes, standardizes well-known workout abbreviations and appends missing closing parentheses. Keep verbatim mode as the backward-compatible default.
+[x] Extend the independent source audit to expect the cleaned presentation while still verifying the original raw cell text and exact source provenance. Add configuration, generation, output-audit and Part 1 isolation regressions without weakening existing assertions.
+[x] Apply the policy in a new ignored block profile, generate a distinct replacement workbook through the production Python/OOXML path and independently inspect the rep targets and Notes against the verified reference. Keep the coach source, template and every previous output byte-for-byte unchanged.
+[x] Update README and local workflow guidance, run focused and canonical tests, compilation, configuration parity, privacy and diff checks, then save/push the feature branch and update issue #16/draft PR #13. Manual MacroFactor import remains required; do not merge or mark Part 2 complete.
+
+Evidence: the anonymized regression proves that a terminal `here` yields numeric bounds while additional prose remains unsupported, the default keeps notes byte-for-byte verbatim, and the conservative policy retains raw cell provenance while independently auditing its cleaned presentation. The ignored replacement candidate contains four cycles and four workout days; the independent source audit covered 27 rows, the structural output audit passed, read-only workbook inspection found 7–12 in all three active BSS set targets, and exported Notes contained neither unmatched parentheses nor allow-listed spelling errors. Manual import of this replacement is the remaining validation step.
+
+## Reviewed identity and residual-cue follow-up
+
+The user authorized choosing appropriate known exercise identities while retaining tempo, pauses, speed and other execution details in notes. This is a human-reviewed mapping workflow, not permission for fuzzy runtime matching, invented exercise names, or silent equipment/injury substitutions. The verified schema supports exercise Notes; no program/session-note field is assumed.
+
+[x] Add reviewed exact variation/context mappings and concise residual cues in new ignored block profiles, leaving earlier profiles and Part 1 configuration unchanged. Separate cue-only matches from material identity choices that still need evidence.
+[x] Add synthetic end-to-end coverage proving exact identity plus residual-cue round trips, source/output audits, raw-text retention and weekly/result isolation. Do not change production parsing or weaken existing assertions when existing interfaces suffice.
+[x] Run the remaining-block batch against the unchanged direct reference into a new output directory. Generate only fully audited candidates, retain all discovery/interpretation blockers, and verify source/reference/prior-artifact hashes.
+[x] Document the review policy and run focused/canonical tests, compilation, parity and diff/privacy checks. Save/push this validated feature checkpoint and record redacted evidence on issue #16/draft PR #13; keep representative/newest manual imports, desktop integration and main reconciliation outstanding.
+
+### Reviewed-identity checkpoint evidence
+
+- Three new synthetic end-to-end regressions pass, along with all 306 canonical tests and 230 focused Part 2 tests. Exact reviewed cues survive generation and both audits; similar unconfigured variations remain blocked; notes cannot conceal malformed targets. Production code and dependencies are unchanged because the existing exact mapping and exercise Notes interfaces cover this workflow.
+- Reviewed known identities and explicit coach alternatives resolved 49 consolidated mapping items across four new private profiles. Independent review confirmed exact context scoping, retained policies and no unintended cross-context or superset conflicts. The consolidated list decreased from 69 to 20 items; these include technical diagnostics, not 20 separate user decisions. No notes, personal aliases, workbook identifiers or reports are tracked.
+- The next chronological candidate passed a 27-source-row audit and a 701-cell independent output audit, retaining four cycles, four days, ordered exercises, a standard/myo sequence, native supersets and residual cues. Unparsed/deferred targets remain in Notes for manual review; automated safety does not mean every target has been resolved numerically. Only worksheet/shared-string OOXML members changed, and the writer's 676-cell structural validation passed.
+- The batch reached all six remaining selected sheets: one candidate generated, three parsed blocks still gated, and two sheets retain explicit discovery failures. The newest block is not ready. Remaining gates include missing/ambiguous identities, unsupported literal rest, header annotations and auxiliary-row coverage. No cycle was removed based on absent activity.
+- The direct reference was inspected read-only with spreadsheet tooling. All 98 protected input and prior-artifact hashes remain unchanged; the batch's own source/template/profile/manifest/evidence checks also passed. Earlier reviewed profiles and outputs were not overwritten. The new candidate has no manual-import approval.
+- Issue #16 stays open, and PR #13 remains draft and unmerged. Main/history reconciliation and desktop #17/#18 remain separate work; no desktop, packaging or main changes were made.
+
+## Confirmed-policy follow-up
+
+The user supplied a direct larger program export and confirmed that unitless rest uses seconds, a previously reviewed rep correction is a bounded minimum/maximum, and the listed count applies to each movement in combined rows performed as native supersets. These policies apply to new remaining-block configurations; earlier explicitly sequential configurations and generated files remain unchanged. Missing historical activity may identify inactive weeks only when an empty coach week has a reliable calendar alignment and corresponding log coverage. No sheet-title date inference or completed-result-to-prescription conversion is authorized.
+
+[x] Fetch origin and inspect the new direct export read-only. The existing schema reader recognizes its four workout groups and five complete set-column groups; no invented column expansion or runtime dependency is needed.
+[x] Add opt-in seconds interpretation for literal unitless base Rest cells, with explicit policy provenance. Conservatively accept supported repeated-unit ranges and bounded suffixes while retaining raw notes, conflicts, malformed-input blocks and weekly/result separation.
+[x] Cover literal per-side set counts without doubling their numeric value or silently losing the unilateral cue. Keep count-range provenance distinct from per-side interpretation.
+[x] Add synthetic five-slot generation/audit, immutable-source, inactive-slot clearing, non-overwrite and native-superset full-count tests. Preserve all 254 baseline tests and the sequential-expansion regressions.
+[x] Apply confirmed rep guards and exact combined-row superset mappings only in new ignored block-scoped profiles. Reuse existing exact identity evidence where applicable; retain genuinely ambiguous exercise choices instead of selecting substitutions automatically.
+[x] Inspect dated workout-log coverage and any proven coach-week calendar anchors. Record the user's inactive-week policy, but keep duration gated when alignment or historical coverage is unproven. Do not mistake a direct program export for activity history, future empty weeks for completed inactivity, or one missed day for a wholly inactive cycle. Private evidence supports retaining planned cycles in the affected blocks; missing repeated labels are structural omissions, not proof of inactivity. Activity after the log's coverage remains unobserved.
+[x] Add an explicit base-only aligned-header policy for repeated day tables with missing week labels: require a complete literal anchor and consistent non-overlapping plan/result column pairs within one block, preserve all planned cycles and raw planned text, reject contradictory/unsafe layouts, and independently audit the union. Keep legacy intersection selection as the default and keep activity classification separate from planned duration.
+[x] Run the private batch with the verified larger template, independently inspect any candidates, preserve all inputs/previous profiles/outputs and deliver updated consolidated exceptions. No structural check grants manual-import status.
+[x] Update README/local workflow/CLI guidance and this plan; run targeted/canonical tests, compilation, configuration parity, privacy and diff checks. Review the implementation independently; save/push the feature checkpoint and update existing issue #16/draft PR #13 without merging or changing desktop/main.
+
+### Confirmed-policy verification and remaining gates
+
+- Added 49 synthetic tests: 11 rest/per-side policy tests, seven five-slot reference tests and 31 aligned-header tests. All 303 canonical tests and 227 focused Part 2 tests pass, including the unchanged 254-test baseline. Compilation, configuration parity, CLI help, privacy and whitespace checks pass. Production remains Python/OOXML; spreadsheet tooling was used only for read-only reference inspection.
+- A disposable synthetic five-set program also passed generation and independent output audit against the actual new full-layout reference, including blank RIR values. The reference remained byte-for-byte unchanged. This is structural validation, not manual MacroFactor acceptance.
+- Real-source checks exposed multi-row headers, blank pre-header decoration and adjacent day tables. The guarded alignment now supports these structures with synthetic regressions. A preceding row is considered a header only when its base fields are blank and it contains an actual week-label candidate; previous exercise results and standalone notes cannot become headers. Formula and data-overlap guards remain intact.
+- The completed private run reached every remaining selected sheet: four parsed, while two retained explicit discovery blockers for prose occupying actual week-header slots. Those rows were not interpreted as week labels or silently skipped. The newest program now retains its full planned duration. No new candidate was emitted; one next-block identity choice and later mapping/prescription/header-annotation/auxiliary-row gates remain. New profiles retain approved corrections and native supersets without changing earlier sequential profiles.
+- All 71 source/reference/config/report/output files protected at the start remain unchanged, and the batch's own protected-input checks pass. All private inputs, new profiles, reports, activity findings and identity choices remain ignored. Actual inactivity is not inferred beyond the dated log's coverage, and no planned cycle is automatically removed.
+- Existing issue #16 remains open for remaining decisions and representative/newest manual imports. Draft PR #13 remains unmerged, with main/history reconciliation and desktop integration separately outstanding. This checkpoint does not mark Part 2 complete.
+
+## Batch-validation action items
+
+The user approved replacing per-block manual testing with automated checks across remaining blocks, consolidated exception review and representative manual imports plus the present-day program. This is a one-shot local CLI workflow, not a scheduled monitor. Existing per-block and Part 1 behavior remain unchanged. Distinct structural families or uncovered custom identities can still require additional representative imports; no untested file inherits app verification.
+
+[x] Inspect discovery, preview, generation, configuration and tests. Current validation is a model-to-file round trip; add separately implemented source checks rather than treating it as an independent interpretation oracle.
+[x] Add a base-mode `program-batch` CLI/service that walks discovery order through the newest sheet, supports an exact start-after selection, records sheets/blocks with discovery failures, continues past local blockers and generates only when explicitly requested and all checks pass.
+[x] Add a strict private manifest for exact block-scoped configs, explicitly skipped sheets/reasons and hash-guarded user-declared prior import evidence. Shared mappings must not silently carry reviewed corrections, notes, expansions or special-set choices across blocks.
+[x] Add an independent source audit for coverage/order, literal source provenance, exact mapping and supported numeric prescriptions/notes. Flag unsupported audit cases and coverage discrepancies; retain full raw review data without attempting to interpret prose or completed results. A reviewed exact merged reference heading can bound the final day only with explicit block-scoped evidence and formula/blank-cell guards; earlier blank gaps remain audited. Whole-block batch runs require the independent week-label union, shared intersection and selected cycles to agree, preventing silent duration loss.
+[x] Write private per-block reports, new output paths and consolidated JSON/Markdown review in a new run directory. Deduplicate repeated questions while retaining every location. Protect source/template/config/evidence hashes, refuse reuse and halt on global input drift. Independently audit unpublished output cells and defer all publication until final input checks pass.
+[x] Group structurally compatible outputs for representative manual testing, taking explicit prior evidence into account and always requesting the present block. Separate cycle/row-shape families and uncovered custom/block-only identity witnesses. Never set an untested file's `manual_import_verified` flag or infer acceptance from structural success.
+[x] Add synthetic batch/audit tests for continuation, chronology, omissions, wrong targets, scoped configuration, unknown inputs, exceptions, evidence tampering, representative selection, immutable sources, overwrite and privacy boundaries. Run targeted tests, all 175 existing tests, compilation, configuration parity and diff checks.
+[x] Run the batch on the remaining private blocks using only approved exact identities and general policies. Generate only safe outputs and deliver one exception list, without requiring a manual import for each historical block. Unknown choices remain blocked; do not silently exclude them.
+[x] Update README/local workflow/CLI help and this plan, and independently review the changes. Keep desktop/main-conflict work separate.
+
+Final save: checkpoint/push this validated slice with `save-branch` and record redacted evidence on existing issue #16 and draft PR #13. Do not close the manual-import or integration gates.
+
+### Batch checkpoint verification
+
+- Added 79 synthetic tests: 29 batch, 35 independent source-audit and 15 independent output-audit tests. All 254 canonical tests pass, including the 175-test pre-batch baseline; no existing assertions were weakened. Compilation, example/resource configuration parity, CLI help, whitespace and ignored-private-path checks pass.
+- Independent review identified and resolved late input-drift publication, uncovered custom-identity sampling and overly broad structural-family grouping. Additional tests cover final-publication failure, post-publication drift, duplicate diagnostics, scoped custom identities and reviewed reference-boundary guards. The final focused re-review passed with no actionable findings.
+- The private smoke run reached every remaining selected block, preserved all input and previously generated-file hashes, and produced a consolidated exception report. It deliberately emitted no new candidates: unknown exact identities, unsupported literal instructions, template capacity, inconsistent week coverage and unaccounted pre-reference rows remain blocked. Reference inspection was read-only; no personal mapping, workbook, filename, report, screenshot or evidence hash enters Git.
+- A verified full-layout direct Export Program template exists. This checkpoint does not expand its day/set capacity or introduce new import encodings. The existing next-block candidate remains unconfirmed, and the newest block is not yet generation-safe. Representative/manual acceptance is still required; Part 2 is not complete.
+- The only existing discovery interface change is additive `discover_program_blocks(..., sheet_name=None)` for per-sheet failure isolation. Existing preview/generation signatures and Part 1 behavior remain unchanged. New batch/source/output audit services do not add runtime dependencies or modify desktop/dashboard/packaging files.
+
+## Current follow-up action items
+
+[x] Inspect the next chronological block read-only with the existing parser and spreadsheet reference tooling. Preserve base/weekly/result separation and the source hash; keep all identifying findings in ignored private review material.
+[x] Inspect desktop integration and test seams independently. The existing preview/generation services remain authoritative; no spreadsheet runtime dependency enters production.
+[x] Inspect GitHub status and fetch origin. The feature branch is clean before this plan update, but PR #13 has conflicts with the newly merged history dashboard/layout work. Do not overwrite those features.
+[x] Receive approval for the proposed known-identity mappings, guarded corrections, split-prescription intent and three-issue breakdown. Keep identifying choices private; explicit sequential execution is not native superset authorization.
+[x] Verify exact MacroFactor names for the remaining new variations using the newly supplied direct export. All seven identities are present in the user-specified order; the read-only reference hash is unchanged. Keep identities and evidence private and use the earlier full-layout export for generation.
+[x] Record the user's approval of the latest earliest-block candidate as scoped manual-validation evidence in issue #12 and this plan. Issue #12 is closed for its satisfied direct-template/earliest-candidate criteria; later blocks and unverified encodings are not covered. Include the redacted outcome in the next PR checkpoint.
+[x] Publish approved vertical slices linked to this plan: [next-block review/export #16](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/16), [desktop preview #17](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/17), and [desktop generation/manual-import handoff #18](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/issues/18). Dependencies are #16 → #17 → #18. Mark #16 as needing input and the fully specified desktop issues ready for an agent only after their dependencies and ownership coordination are satisfied. Keep PR conflict/review cleanup on PR #13.
+[ ] Before desktop integration, update the feature branch from origin/main while preserving history features and resolving shared-file conflicts. Defer reconciliation until after this isolated conversion-core checkpoint to avoid overlapping the active desktop task. Use the applicable conflict/review workflow; never merge into main or merge the PR.
+[x] Add approved block-specific aliases, residual cues and guarded corrections in separate ignored configuration. Implement `program_expansion` for two sequential children with exact literal variation/set guards, explicit counts, provenance and independent availability checks. Reject per-set target allocation, special sets, supersets, stale/formula guards and incompatible policies. Preserve Part 1 behavior and the approved earlier configuration.
+[x] Generate one distinct next-block candidate after its preview has no blockers. Independently check every prescribed target, set sequence, cycle/day count, note and identity, plus input/prior-output hashes, non-overwrite and unrelated OOXML preservation. Manual import remains pending in #16.
+[ ] Coordinate #17 with the active desktop/dashboard workstream: integrate a program-preview mode into the existing app, not a second shell. Include coach/config/template inputs, dynamic worksheet/block/week selection, full warning/raw-text/provenance review and visible generation gating. Keep independent mode state; edits invalidate previews and stale discoveries. Use synthetic model/GUI tests for safe and blocked paths. Agree shared-file ownership before any UI edits.
+[ ] Coordinate #18 with the same desktop workstream for guarded generation and exclusive JSON-report saving through the conversion services. Require distinct non-existing paths, avoid output defaults inside read-only input locations, verify inputs at generation, and show the manual-import boundary. Preserve result transfer, history, annotations/settings, navigation and packaging; do not replace the installed app without a separate request.
+[x] Update README, local workflow guidance, CLI expansion wording and this plan; run targeted tests, the canonical suite, compilation, configuration parity, privacy and diff checks. GUI wording remains with the desktop owner.
+Final save and handoff: use `save-branch` for this validated conversion-core checkpoint, then update draft PR #13 and the desktop owner with its interface delta. PR conflict/review cleanup remains outstanding before desktop integration; do not merge or overstate validation.
+
+## Action items
+[x] Reconcile Part 1 issues #1–#4 against implementation and test evidence, and replace stale PR #10/#11 status with a durable baseline summary.
+[x] Record the failed direct Export Program discovery gate and create an explicit blocker requesting that workbook before generator implementation.
+[x] Add a prescription-specific neutral domain model and backward-compatible Part 2 configuration for exact mappings, exclusions, custom-exercise warnings, supersets, and explicit defaults with provenance.
+[x] Discover selectable program blocks, repeated day sections, base prescription roles, and included week groups dynamically from OOXML without fixed sheet names, rows, or columns.
+[x] Parse only allow-listed prescription values, keep weekly plans separate from completed-result cells, preserve source text, and report missing, conflicting, optional, warmup, cardio, unsupported, or ambiguous instructions without guessing.
+[x] Add a Part 2 preview service and CLI mode that reports days, exercises, cycles, exact mappings, raw text, visible defaults, custom/unavailable exercises, skipped/blocking items, hashes, and a false generation-safety state while the template is unverified.
+[x] Add anonymized tests for shifted layouts, block/day/week selection, planned/result separation, supported parsing, raw retention, conflicts, defaults, exact mapping, exclusions, custom exercises, and ordered supersets while preserving Part 1 assertions.
+[x] Update README, local workflow guidance, CLI help, and the implementation plan to explain the manual import boundary, private-template workflow, and remaining generator/desktop validation gates.
+[x] Run targeted tests, `./scripts/test.sh`, source compilation, configuration parity, privacy/diff checks, and review the implementation against every conservative parsing risk.
+[x] Publish the approved remaining vertical-slice issues as #16–#18, linked to this plan and scoped to the existing app.
+[x] Save the feature branch and open draft PR #13 without merging or marking Part 2 complete.
+[x] Verify the newly supplied workbook as a direct MacroFactor Export Program file and inspect it read-only without retaining private names or values.
+[x] Add a neutral template-schema model and inspector that discovers metadata, block/cycle headers, workout row groups, set columns, and formatting capacity without fixed cell coordinates.
+[x] Add an anonymized synthetic template fixture that preserves only the minimum verified structural contract and contains no private names, notes, mappings, or metadata.
+[x] Make Part 2 preview accept a template, report before/after template hashes, and block mismatched day/exercise shapes, excess set counts, unsupported set types, custom/unavailable exercises, or differing selected-cycle prescriptions.
+[x] Add a CLI generator that copies the template to a new path, replaces only validated program cells, rebuilds shared strings without stale template data, keeps both inputs unchanged, and validates all unrelated OOXML members byte-for-byte.
+[x] Add targeted tests for schema validation, homogeneous-cycle generation, template/source immutability, output non-overwrite, shared-string cleanup, structural round-trip inspection, and every generation blocker.
+[x] Update README, local workflow guidance, and CLI help with the verified scope and the remaining periodized/manual-import gates. Update issue #12 and draft PR #13 after saving the checkpoint.
+[x] Run focused tests, `./scripts/test.sh`, compilation, configuration parity, source/template hashes, privacy checks, and final diff review before saving and pushing the checkpoint.
+[x] Treat the coach `Style` field as preserved coach classification text and interpret it as a MacroFactor set type only when it exactly matches an allow-listed set-type alias.
+[x] End each discovered day table at the first structurally blank separator after its first exercise so trailing goals, notes, reference tables, or other non-program sections are not parsed as exercises.
+[x] Accept unambiguous `N to M` rep ranges, including an optional `rep`/`reps` suffix, while continuing to retain and block ambiguous prose.
+[x] Add anonymized regression tests for coach classification labels, blank-separated trailing reference content, and plain-language rep ranges without weakening the existing safety assertions.
+[x] Regenerate the private first-block review with the confirmed left-plan/right-result direction, verify both private workbook hashes remain unchanged, and keep the report and personal configuration ignored and uncommitted.
+[x] Update user-facing documentation, run the focused and canonical validation suites, review the privacy boundary and diff, then save and push the checkpoint to the feature branch.
+
+## Open questions
+- None for implementing the confirmed policies. Missing calendar alignment or new block-specific choices remain explicit per-block review gates; they do not justify inventing dates, substitutions or activity. Real MacroFactor acceptance still requires representative/manual testing, not an API or phone automation.
+
+The direct-export identity evidence clears the `plan-implement-save` clarification gate. Explicit sequential expansion is implemented and tested only for reviewed base prescriptions. The scoped earliest-block approval is recorded in closed issue #12; next-block manual validation remains #16.
+
+### Desktop coordination boundary
+
+The task titled “Part 3: Plan workout trends dashboard” owns desktop/dashboard development. With explicit user approval, #17/#18 and the conversion-service interface were sent there; it acknowledged ownership and reported its Dashboard-first checkpoint with 177 tests. Its subsequent PR #19 is now on main. This workstream owns conversion core and #16; it has made no desktop, navigation, packaging or installation changes. Coordinate a reconciled integration baseline explicitly and preserve all ongoing user work. The additive core interface change is `ExerciseRule.program_expansion`, `OrderedExercise.expansion`, `exact_expansion` mapping status and `config_program_expansion` provenance; public service signatures are unchanged.
+
+### Next-block checkpoint verification
+
+- Twelve new synthetic tests in `tests/test_program_expansion.py` cover strict configuration, two independent exercises, exact/formula guards, raw provenance, custom/unavailable children, unsupported per-set/superset/special instructions, CLI output, capacity, immutable inputs and output non-overwrite. A dedicated Part 1 preview/apply regression produces identical package contents with and without the Part 2 option.
+- All 99 focused Part 2 tests and all 175 canonical tests pass. Compilation, example/resource configuration parity, `git diff --check` and ignored-private-path checks pass. Independent review confirmed the fail-closed design; its narrow-scope and provenance recommendations were incorporated.
+- The private candidate passes every independently reviewed prescription/identity check and a 564-cell structural round trip. Only the intended worksheet/shared-string members change. All five source/reference workbooks, private configurations and prior candidates retain their hashes. The new sparse export is identity evidence, not a substitute full-layout template.
+- Production remains Python/OOXML. Spreadsheet tooling only inspects references read-only. No private file, filename, hash, report, screenshot or personal mapping is committed. Manual import of this candidate and main/history reconciliation remain explicit gaps; Part 2 is not marked complete.
+
+## Final private set-count correction
+
+The user reports that the corrected candidate imported and otherwise looks good, with one remaining count correction. Record that scoped manual evidence without publishing personal mappings or workbook details. The observed cause is a previously approved private override, not an application counting defect.
+
+- In: remove the superseded private override, generate one distinct replacement using the existing CLI, verify the exact output delta, and record redacted manual-test evidence.
+- Out: production behavior changes, source workbook edits, new conversion policies, broad compatibility claims, desktop expansion, issue closure or PR merge before the final correction is confirmed.
+
+[x] Reproduce the old count through preview and confirm removing only its private override restores coach-base provenance. A focused private check failed before the correction and passes across all selected cycles afterward. No production logic change was needed.
+[x] Add a synthetic override-removal regression covering coach-base provenance, all surplus type/rep/RIR/rest fields, exact output delta and immutable inputs/prior output; preserve all existing assertions.
+[x] Generate a non-existing replacement path; compare every cell with the previous candidate, allowing only the removed set's type/rep/RIR/rest cells to change. Only three previously populated surplus cells changed; RIR was already blank. Styles, all four inputs and both prior candidates remain unchanged. Read-only spreadsheet inspection confirms the removed set.
+[x] Run 40 targeted tests and all 163 canonical tests, compilation, configuration parity and privacy/diff checks; update this plan and the local workflow's override-removal guidance. README and CLI behavior are unchanged, so no additional app documentation or production edits are needed.
+Final save: commit/push only anonymized tests/docs with `save-branch`, update issue #12 and draft PR #13 with redacted evidence, and deliver the private workbook. The user's import/content confirmation applies to the preceding candidate except this final count correction; do not claim the replacement has already been imported.
+
+## Program appearance and target-format follow-up
+
+The latest reference was inspected read-only using spreadsheet tooling and the production OOXML reader. Its rep-range cells contain bounded equal targets, with no formulas or separate unbounded field. It does not resolve native minimum-only encoding. Its metadata independently confirms the existing Red and Rocket values. Choose those values for growth-oriented programs in the private configuration; preserve template metadata by default for other users and do not infer an unsupported color/icon catalog.
+
+[x] Inspect the new reference values and a rendered target range, verify its hash is unchanged, and distinguish the observed bounded encoding from the requested minimum-only semantics.
+[x] Resolve the rep-target fallback with the user: exact N becomes N–N; N+ remains in notes with blank targets. Add an opt-in notes-only minimum policy, retain strict blocking by default, and never alter the original coach source.
+[x] Add optional program color/icon configuration and preview provenance. Discover unique metadata cells dynamically, write only verified values, and preserve template defaults when no override is configured.
+[x] Add synthetic tests for metadata preservation/overrides, invalid or ambiguous metadata, rep fallback provenance and notes, output integrity, immutable inputs and non-overwrite. Keep native minimum-only support gated and preserve existing assertions.
+[x] Apply the approved target policy and chosen appearance to ignored configuration, then generate and structurally inspect one distinct corrected candidate through the production CLI.
+[x] Update README, local workflow guidance and this plan; run 86 targeted tests, all 162 canonical tests, compilation and privacy/diff checks.
+Final save: use `save-branch` to commit and push only the feature branch, update the existing blocker/draft PR with redacted evidence, and request a manual import test without merging or claiming completion.
+
+## Manual-import feedback correction slice
+
+The user has reported content defects after testing the first candidate: insufficient duration, blank rep targets, redundant notes, a set-count correction, and missing exercises. This is useful manual-test evidence, not acceptance of the generated program. The prior structural tests do not establish semantic fidelity inside MacroFactor. Keep PR #13 draft and issue #12 open. The clarification pause is resolved: use base-table prescriptions repeated across selected weeks, retain weekly updates separately for review, preserve the confirmed imported identity, and apply the explicit inclusion choices privately. Do not claim periodization or minimum-only output support without direct evidence.
+
+[x] Inspect the relevant coach prescription cells, both direct program references and the original candidate read-only; distinguish planned columns from completed results and verify all four files remain byte-for-byte unchanged.
+[x] Confirm that the original candidate contains the reported canonical-name discrepancy, that category-based warmup exclusion omitted other requested rows, and that the references contain bounded or blank rep targets but no minimum-only example. Keep all identifying evidence private.
+[x] Resolve the open questions and update this plan before implementation. Treat the latest explicit inclusion and count corrections as reviewed Part 2 overrides, never edits to the coach workbook or Part 1 mappings.
+[x] Add an opt-in base-table prescription mode: selected weeks determine repeated cycle count, while weekly coach text remains separate review data and cannot supply targets, set types, mapping context or exclusions. Preserve strict weekly mode by default.
+[x] Discover a unique designation below each day heading in the same dynamically located column. Preserve the original day identifier and full designation in review; use the designation for export names, falling back safely when missing or ambiguous. Cover shifted columns, merged headings, fractional days and multiple blocks.
+[x] Extend the neutral model and conservative parser for per-set rep lists, explicitly understood unilateral suffixes, and minimum-only targets. Preserve raw text, set-count/list-length checks, weekly conflicts and visible provenance; do not turn arbitrary numeric prose or date serials into targets.
+[x] Add exact-rule, reviewed corrections for ambiguous source values and narrow inclusion exceptions, with preview warnings showing when a correction differs from the source. Preserve global warmup/cardio exclusions elsewhere.
+[x] Separate concise exported exercise notes from full raw review data. Keep meaningful tempo, equipment, unilateral, progression and unsupported instructions without redundant field dumps; preserve the existing detailed-notes option and its safety behavior.
+[x] Implement the user-approved repeated-base workflow without inferring differing-cycle encoding. Keep native minimum-only output blocked until a direct reference proves it; the subsequent approved notes-only fallback is separate.
+[ ] Verify native minimum-only encoding if direct native support is pursued later. The approved notes-only fallback removes this prerequisite for the current candidate, without claiming native support.
+[x] Add anonymized regression coverage in the program preview, policy, generation and mixed-set tests for per-set reps, unilateral targets, minimum-only gating, corrections, inclusion exceptions, concise notes, cycle duration and exact output identities. Preserve all existing assertions and Part 1 behavior.
+[x] Update README, local workflow documentation, CLI help where applicable, and this plan with the new policies, verified scope and remaining manual-test gaps.
+[x] Run 76 targeted Part 2 tests and all 152 canonical tests, compilation, configuration parity and diff/privacy checks. Synthetic generation tests verify per-set targets, repeated-cycle metadata, day names, immutable inputs and non-overwrite. All three private input hashes and the prior candidate still match the saved evidence.
+[x] Generate a distinct private corrected candidate using the approved notes-only minimum fallback; leave the existing candidate unchanged.
+Final handoff: save and push the validated feature-branch correction checkpoint with `save-branch` and update tracking with redacted evidence. The replacement candidate now needs manual import/content confirmation; do not merge or mark Part 2 complete.
+
+## Verified mixed-set candidate
+
+A second direct program export demonstrates one standard set followed by two `Myo Set` values, with blank targets. Its all-blank rep targets omit rep-range columns entirely. Use that file only as read-only encoding evidence; retain the earlier full-layout export as the generation template. Do not expand support to sparse template layouts, drop sets, or periodization in this slice.
+
+[x] Add ordered per-set type fields to the prescription model and explicit, exact-rule Part 2 configuration for the approved mixed-type sequence and blank rep targets; preserve raw coach instructions and policy provenance.
+[x] Write only the proved standard/myo labels into the existing template set columns, checking sequence length, coach conflicts, unsupported types, supersets, and cycle consistency before generation.
+[x] Add minimal synthetic mixed-type fixtures and regression tests for blank targets, preview visibility, round trips, immutability, non-overwrite, conflict and invalid-configuration gates; preserve all existing assertions.
+[x] Apply the approved policy to the private exact mapping, generate a distinct earliest-block first-cycle candidate through the CLI, inspect its output and all input hashes, and leave manual MacroFactor import unverified.
+[x] Update README, local workflow guidance and this plan, run targeted/canonical tests, compilation and privacy/diff checks, and save the feature-branch checkpoint without private artifacts. Keep PR #13 draft and issue #12 open for remaining validation.
+[ ] Receive manual import confirmation, including exercise identities, mixed set types, blank targets, notes and preserved workout structure. Do not mark Part 2 complete or merge before that validation.
+
+## Earliest-block conversion policy
+
+The user clarified that chronological selection starts with the last worksheet and moves right to left. Exercise category and detailed variation must both remain available for exact mapping; the coach side of each weekly pair is planned input. Keep all days and optional exercises, honor explicit supersets, and exclude warmups and cardio. Use standard sets by explicit default, upper-bound rest ranges, no invented RIR, deferred rep targets for `Read week`, and full coaching detail in exercise notes. Unknown exercise identities, ambiguous set counts, special set encodings absent from the direct export, and unproved layouts remain concrete generation blockers.
+
+[x] Discover separate category/variation roles and safely inherit a block-wide week header across matching day tables; expose right-to-left worksheet ordering.
+[x] Add opt-in conversion settings for standard-set defaults, upper rest ranges, blank targets, coaching notes, and warmup/cardio exclusions while preserving strict and Part 1 behavior.
+[x] Preserve all base/weekly coaching detail and explicit special-set instructions, use variation for exact mapping context, and keep unresolved identities/set counts visible.
+[x] Verify blank active-set rep/RIR/rest cells in the direct export and support that structural contract in the generator with anonymized round-trip tests.
+[x] Add opt-in resizing of existing workout row groups, rejecting reference-bearing or irregular templates; preserve header/set-column structure, styles, source bytes, and unrelated OOXML parts with structural round-trip tests.
+[x] Preview the earliest worksheet under the approved policies and produce an ignored private decision list with proposed exact exercise names found in local history; do not use completed results as prescription data or apply unconfirmed mappings.
+[x] Generate the first candidate after exercise identities and ranged set counts are confirmed and a direct export demonstrates required special-set encoding. The candidate is generated privately; manual import is still pending.
+[x] Run targeted tests, the canonical suite, compilation and privacy/diff checks; update README and local workflow documentation.
+[x] Save the feature branch checkpoint with the policy/resizing validation evidence; leave the draft PR and manual-import gate open.
+
+## Baseline and tracking
+
+### Approved set ranges and mappings
+
+The user approved upper-bound set counts and the private exercise-match proposals. Implement an opt-in upper-bound base set-count policy with visible provenance and retained raw ranges, and apply approved identities only in ignored Part 2 configuration. The completed-result `+` notation is not evidence of native program myo-set encoding; the subsequent direct-export evidence resolves that gate for explicit standard/myo sequences only.
+
+[x] Add strict-by-default base set-count range handling; preserve exact weekly conflicts, malformed-value blockers, and template capacity checks.
+[x] Add anonymized parsing, provenance, conflict, capacity, and output round-trip tests without changing existing assertions.
+[x] Apply the approved private mappings separately from the Part 1 configuration, regenerate preview, and verify the remaining gate and unchanged input hashes. Only unsupported special-set encoding remains blocking for the selected first-cycle candidate.
+[x] Update README/local workflow guidance and run targeted/canonical tests, compilation, configuration parity and privacy/diff checks; save the validated feature-branch checkpoint without private inputs or mappings.
+
+### Historical baseline
+- PR #10 merged as `11fd219`, establishing Part 1 version 0.3.0 with its recorded 75-test, compile, diff, app-build, signature, and smoke verification.
+- `origin/main` advanced during discovery to `d3b8a23` through merged PR #11. That dependency-audit-only change raised the pre-Part-2 collected test count to 76 without changing application behavior.
+- Issues #1–#4 were reviewed acceptance criterion by acceptance criterion, received public completion evidence, and were closed after the current canonical suite passed.
+- A verified direct MacroFactor Export Program workbook is now available as a private read-only input. Its package contains a dedicated program worksheet, program metadata, one block/cycle table, merged workout row groups, exercise/skipped/notes fields, and repeated per-set type/rep-range/RIR/rest columns.
+- The verified export repeats one distinct cycle layout. It does not prove the OOXML layout for different prescriptions in different cycles, so periodized generation remains blocked pending a richer direct export or manual evidence.
+
+## Verification
+- Appearance/notes-only checkpoint: all 162 canonical tests and 86 targeted Part 2 tests pass, including 10 new anonymized regressions. Exact reps stay bounded; approved minimum-only fallback preserves notes and raw provenance with blank targets. Tests cover default blocking, defaults/conflicts, mixed-set blank overrides, note modes, verified appearance values, shifted/missing/ambiguous metadata, input immutability, unrelated OOXML preservation and output non-overwrite. Compilation, configuration parity and privacy/diff checks passed. A distinct corrected private candidate passed structural and independent expected-target checks; all four input hashes and the previous candidate hash remain unchanged. Read-only spreadsheet inspection confirmed metadata and representative targets/mixed types. Manual import remains unverified for the corrected candidate.
+- Manual-feedback correction checkpoint: all 152 canonical tests and 76 targeted Part 2 tests passed, including 22 new tests in `tests/test_program_corrections.py`. Coverage includes base/weekly separation, repeated duration, per-set reps, unilateral and minimum-only targets, exact-source corrections, concise notes, warmup inclusion, dynamic day designations and output integrity. Compilation, configuration parity, privacy and diff checks passed. The private corrected preview has one remaining minimum-only encoding gate; no replacement workbook is claimed. All three original input hashes and the first candidate hash remain unchanged.
+- Mixed-set checkpoint: 54 targeted Part 2 tests and all 130 canonical tests passed. Eight new anonymized tests cover native labels, ordered sequences, blank targets, CLI/report visibility, immutable-input/non-overwrite round trips, sequence length/conflicts, invalid configuration, differing-cycle order and independent RIR safety. Existing assertions remain unchanged.
+- The first private CLI-generated candidate passed a fresh 482-cell structural round trip against the current code. The coach source, full-layout template and mixed-set reference all retained their hashes. Native mixed types, blank rep/RIR cells, full coach notes, and unchanged unrelated OOXML members were checked. Output, evidence, reports and mappings remain ignored and uncommitted. Manual import is pending; no compatibility claim is made.
+- Compilation, example/bundled configuration parity, ignored-path checks and `git diff --check` passed for this checkpoint. Spreadsheet tooling was used only for read-only reference inspection; production remains Python/OOXML.
+- Approved-range checkpoint: 46 targeted Part 2 tests and all 122 canonical tests passed. Six additional anonymized tests cover upper-count provenance and round trips, malformed ranges, weekly conflicts, exact weekly provenance, template capacity, and invalid configuration. Input hashes, compilation, configuration parity, privacy and diff checks passed. No actual program candidate or manual import is claimed.
+- `PYTHONPATH=src python3 -m unittest tests.test_program_generation tests.test_program_preview -v`: 20 passed.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v`: 96 passed with 2 optional GUI tests skipped because the direct interpreter lacks PySide6.
+- `./scripts/test.sh`: all 96 tests passed, including the offscreen GUI tests.
+- A disposable, synthetic 4-day program was written through the private verified export and structurally re-inspected: 538 target cells round-tripped, no unrelated OOXML member changed, both private input hashes remained stable, and the temporary output was removed.
+- Independent final review added bidirectional set-type/superset consistency checks, unique set-header validation, required OOXML relationship/content-type/style validation, conservative rejection of rich shared strings that cannot be preserved safely, and blocking error handling for malformed worksheet XML.
+- `python3 -m compileall -q src tests packaging`, example/package configuration parity, source/template hash checks, privacy review, and branch diff checks passed.
+- The first private coach-block preview was regenerated with the confirmed planned/result direction. Both input hashes remained stable, the direct template schema was recognized, private reports and configuration remained ignored, and generation stayed blocked rather than guessing through unresolved review items.
+- `./scripts/test.sh`: all 99 tests passed after adding the classification, table-boundary, and plain-language rep-range regressions. Compilation, configuration parity, ignored-path checks, and `git diff --check` also passed.
+- Policy/resizing checkpoint: 40 targeted Part 2 tests and all 116 canonical tests passed, including Part 1 and GUI coverage. Added 17 anonymized policy tests without weakening existing assertions.
+- A disposable synthetic program with resized workout groups round-tripped 282 target cells through the private direct export; no unrelated OOXML members changed. The source/template hash checks passed, and private previews, configuration, and decision notes remain ignored and uncommitted.
+- Compilation, example/bundled configuration parity, `git diff --check`, and ignored-path checks passed for the policy/resizing checkpoint. The real export proves blank active-set targets and exercise notes, but not myo/drop encoding or differing cycle layouts; manual MacroFactor import remains unverified.
+
+## Checkpoints
+- `7c13560`: implemented and documented the gated Part 2 parser, neutral model, exact mapping/default review, CLI preview, and anonymized tests.
+- `4bc8aba`: recorded validation evidence, reconciled tracking, and opened the reviewable draft.
+- `f7c1682`: tightened result-column isolation, report non-overwrite behavior, superset completeness, mapping status, selected-cycle labels, and exercise ordering.
+- `ca68a77`: added verified template inspection, conservative homogeneous-cycle generation, OOXML integrity checks, synthetic fixtures, tests, and documentation.
+- Draft PR #13 contains the reviewable parser and generator checkpoints and awaits corrected-candidate manual validation on issue #12. Differing-cycle layouts and native minimum-only encoding remain future schema limits, not prerequisites for the approved repeated-base, notes-only workflow.
+
+## Headerless base-cycle and incomplete-day slice
+
+The newest coach block has two populated strength days followed by two day headings with no coach-authored exercise rows. Its week-area columns have no safe literal week headers. The requested temporary import is therefore a four-cycle repetition of the base table containing only the two populated workouts. Duration and empty-day omission must be explicit configuration, visible in preview, and strict by default; neither worksheet position nor formatting is evidence for invented weeks or exercises.
+
+- [x] Add an opt-in positive base-cycle count for blocks with no safely discovered week labels. Generate neutral `Cycle N` labels, read only base prescription cells, and reject this setting outside base-prescription mode.
+- [x] Add an opt-in source-empty-day omission policy. Retain a visible warning and skipped-item record for each omitted heading, preserve populated and fully excluded days, and renumber exported workouts without changing source labels.
+- [x] Accept only the narrowly reviewed `N to M range`, `N to M rep range`, and unilateral variants as exact rep targets. Preserve arbitrary trailing prose as unsupported text.
+- [x] Extend the independent source audit for configured cycles and reviewed source-empty-day omission without treating synthetic cycle labels as source week headers.
+- [x] Add anonymized config, discovery, preview, CLI, audit, generation, immutability, non-overwrite and regression tests; preserve all existing Part 1 and Part 2 assertions.
+- [x] Update README, local workflow guidance and CLI descriptions for the two opt-in policies and their limits.
+- [x] Generate one distinct private two-workout, four-cycle candidate through the production Python/OOXML path. Inspect it read-only with spreadsheet tooling; keep the coach source, template, report and private exact mappings unchanged and uncommitted.
+- [x] Run targeted tests, `./scripts/test.sh`, compilation, configuration parity, privacy, source/template hash and diff checks. Save and push only the feature branch; keep the draft PR unmerged.
+
+Verification: 164 focused Part 2 tests and the complete 314-test canonical suite pass. Compilation, example-config parity and `git diff --check` pass. The independent production audit checked 317 output cells, confirmed two workouts and four cycles, and confirmed that both private source workbooks remained byte-for-byte unchanged. The candidate remains pending manual MacroFactor import validation.
+
+Final handoff: ask the user to import the generated workbook manually and confirm the two workout names, four-cycle duration, exercise identities, targets and notes. Do not claim the new block is validated until that import succeeds.
+
+## Integrated main dashboard and comparison baseline
+
+Prepare the dashboard comparison-default branch for a focused pull request by rebasing it onto current `main`, preserving the GUI lifecycle fix from PR #20, and completing the repository's canonical validation gate.
+
+### Scope
 - In: branch rebase and conflict resolution, Qt test cleanup, focused and canonical validation, documentation of final evidence, commit and push, and preparation of the pull-request review evidence.
 - Out: merging the pull request, rebuilding the installed app before merge, changing comparison calculations beyond the approved default-selection behavior, dependency upgrades, or modifying private workout data.
 
-## Action items
+### Action items
 [x] Compare the branch with current remote `main`, identify the implementation-plan and comparison-test conflicts, and diagnose the direct Qt-window cleanup finding.
 [x] Rebase the two branch commits onto `origin/main` while preserving the local app-update guide, current comparison plan, PR #20's test support, and the feature tests.
 [x] Replace direct cleanup for the new comparison test window with `tests.gui_support.dispose_widget`.
@@ -15,17 +291,39 @@ Prepare the dashboard comparison-default branch for a focused pull request by re
 [x] Record the final validation and conflict resolution here and prepare the rebased branch for a force-with-lease push.
 [x] Prepare a focused pull-request description with the behavior, privacy, validation, and review evidence required for the post-save PR review cycle.
 
-## Open questions
+### Open questions
 - None. The user explicitly requested the rebase, conflict fixes, complete verification, and PR review cycle; the final merge remains theirs.
 
-## Conflict resolution
+### Conflict resolution
 - Rebased the two feature commits onto `origin/main` at `ebaef7e`.
 - Resolved the implementation-plan conflict in favor of the current feature plan while retaining the local app-update guide from the branch.
 - Preserved PR #20's shared `dispose_widget` helper and applied it to the new comparison-window regression fixture.
 
-## Validation record
+### Validation record
 - All 16 focused comparison and GUI-lifecycle tests passed.
 - The canonical `./scripts/test.sh` run passed all 200 tests in 70.924 seconds.
 - The hash-locked dependency audit reported no known vulnerabilities.
 - Python compilation, the source GUI smoke test, and `git diff --check` passed.
 - The disposable September-export check selected an exercise with four metric-bearing weeks in each initial block. SHA-256 comparisons confirmed both source exports and the live annotation file still matched their untouched snapshots; no private data was added to Git.
+
+## Part 2 pull-request readiness
+
+The latest private two-workout, four-cycle candidate has now completed a successful manual MacroFactor import check. That evidence validates the reviewed representative workflow without claiming universal compatibility for unproved sparse layouts, differing prescriptions by cycle, native minimum-only targets, or drop-set encodings. Prepare PR #13 for review while keeping the final merge as a user action.
+
+- [x] Merge current `origin/main` (`cd7e901`) into the Part 2 feature branch without modifying `main`.
+- [x] Resolve README, implementation-plan, and local-workflow conflicts by preserving both the Part 2 generator history and the merged dashboard/comparison guidance.
+- [x] Re-run the 164 focused Part 2 tests and the complete 438-test canonical suite after integration.
+- [x] Run Python compilation, example/bundled configuration parity, tracked-file privacy scanning, `git diff --check`, and the hash-locked dependency audit. No known dependency vulnerabilities were found.
+- [x] Commit and push the integrated feature branch, update PR #13 with current evidence, and mark it ready for review.
+- [x] Review the final diff with the Brooks maintainability rubric and dispatch Codex/GitHub validation. The Brooks pass found no actionable defect; the unusually large review surface is a risk signal mitigated by its single bounded subsystem, conservative gates, independent audits, and extensive focused tests. Address any later remote finding before declaring the PR merge-ready, and never merge it automatically.
+
+## Codex parser-safety review follow-up
+
+Codex review found five direct-preview paths where workbook ambiguity could bypass the batch-only source audit. These are fail-closed parser corrections with no product-policy questions: formulas and ambiguous structures must block direct generation rather than relying on cached values or silently omitting source content.
+
+- [x] Reject formula-backed base prescription and selected planned-week cells in the parser itself; never resolve their cached values.
+- [x] Reject duplicate week labels after normalization instead of selecting the first header pair.
+- [x] Fail discovery when a recognizable day heading lacks any required base header instead of dropping that day.
+- [x] Treat a bare numeric planned-week value as ambiguous regardless of the note-retention policy.
+- [x] Refuse inherited week pairs when their header slots contain alternate text or formulas.
+- [x] Add one or more synthetic regressions for every finding and run the local release gates. All 170 focused Part 2 tests and all 444 canonical tests pass; compilation, configuration parity, tracked-file privacy scanning, and `git diff --check` also pass. Final CI, thread state, and mergeability are live PR evidence checked after the final push rather than another repository change.

@@ -5,13 +5,13 @@
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://www.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-MacroFactor Workout Bridge is a conservative local macOS application for weekly workbook transfer and read-only workout-history review. It copies completed results from a MacroFactor exercise-log export into a selected week of a coach's Excel workbook, and it can summarize an all-time export alongside the workbook's training-block worksheets. It includes a double-clickable graphical app and an optional command-line interface for the transfer workflow.
+MacroFactor Workout Bridge is a conservative local macOS application for weekly workbook transfer, read-only workout-history review, and gated CLI program generation. Part 1 copies completed workout results into a selected coach week through the double-clickable app or CLI. The Dashboard summarizes an all-time export alongside the coach workbook's training blocks. Part 2 provides a CLI-only preview and generator for the narrow workbook structure proved by a direct MacroFactor program export.
 
-The supported write direction remains intentionally narrow:
+The established Part 1 write direction remains intentionally narrow:
 
 **MacroFactor exercise log → coach `.xlsx` workbook**
 
-The Dashboard tab never changes either source. The app does not create or import MacroFactor programs.
+The Dashboard never changes either source. Part 2 can create a new candidate program workbook only when its preview has no blockers and the coach selection matches the verified template structure. The desktop app does not create or import MacroFactor programs. Final MacroFactor import remains a manual action, and compatibility is not claimed until a generated file imports successfully.
 
 > **Project status:** Source-first personal utility. It processes files locally, has no hosted backend, and does not distribute a signed or notarized binary.
 
@@ -42,6 +42,12 @@ flowchart LR
     OOXML --> History
     Annotations["Private local annotations"] --> History
     History --> Dashboard["Block and exercise trends"]
+    Coach --> ProgramParser["Conservative program parser"]
+    Mapping --> ProgramParser
+    Template["Verified program export template"] --> ProgramWriter["Gated OOXML program writer"]
+    ProgramParser --> ProgramReview["Program preview and audit"]
+    ProgramReview -->|no blockers| ProgramWriter
+    ProgramWriter --> Candidate["New program workbook for manual import"]
 ```
 
 ```text
@@ -214,6 +220,237 @@ Run `macrofactor-bridge`, or use the source tree without installation:
 PYTHONPATH=src python3 -m macrofactor_bridge --help
 ```
 
+### Preview and generate a coach program for Part 2
+
+Part 2 begins with a separate, read-only preview path. It discovers repeated day sections and uses the explicit `program.week_pair_layout` setting (`plan_then_result` or `result_then_plan`) to identify planned and completed-result columns within each structurally proven week pair. Without that setting, no week is considered safe to preview. The parser never reads the configured completed-result column as a prescription.
+
+List selectable worksheets, program blocks, days, and safely separated weeks:
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-inspect \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config config/exercises.local.json
+```
+
+Preview one or more included weeks and optionally save a private JSON report:
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config config/exercises.local.json \
+  --template local-data/reference/macrofactor-program/template.xlsx \
+  --sheet "Selected worksheet" \
+  --block block-1 \
+  --week "Week 1" \
+  --week "Week 2" \
+  --report local-data/generated/reports/program-preview.json
+```
+
+Report paths must be new files and cannot reuse an input or generated workbook path; the CLI refuses to overwrite an existing report.
+
+The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
+
+Parsing is deliberately allow-listed. Base sets must be positive integers. Reps can be a single value, a range such as `8-12`, `8 to 12 reps`, `8 to 12 range`, or `8 to 12 rep range`, or a comma-separated positive per-set list whose length matches the set count. Single numbers become equal minimum/maximum targets. Explicit `ea`/`each` suffixes (optionally `leg`/`side`) mean per-side reps; a trailing `again` or `here` preserves the preceding exact target. Those suffixes must be terminal: additional prose remains uninterpreted. `N+ reps` has a minimum but no maximum: native generation remains blocked until a direct export verifies minimum-only encoding, unless the user explicitly enables the notes-only fallback below. Rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. `Read week`, `your choice`, RPE, AMRAP, weights, substitutions and progression prose remain raw and blocking unless an explicit notes/blank policy applies.
+
+The coach `Style` column is preserved as raw classification text. The separate `Variation` column is retained and used for exact exercise matching and context. A specific variation must match an exact alias/canonical name or a category alias with matching configured context; an unqualified category mapping from another block cannot replace it. A single block-wide week header may serve later days with matching base columns and proven plan/result pairs. Header inheritance stops when day numbers reset or the base layout changes.
+
+Within a discovered day, the exercise table begins at the first exercise and ends when all base columns are blank. Standalone weekly footer notes do not extend the exercise table into later reference sections. Review discovered boundaries before generation.
+
+The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
+
+#### Initial base program and workout names
+
+Use `program.prescription_source: "base"` when the left-hand table defines the initial program and weekly coach updates will be handled separately. Each selected week adds one cycle repeating the base prescription. Omitting `--week` in this mode selects all safely discovered weeks in the chosen block; explicit `--week` arguments limit the duration. The CLI prints the source mode and cycle count. Weekly coach text stays in the private report with `weekly_update_not_applied` warnings, but cannot supply targets, set types, mapping context, exclusions or exported notes. Completed results are never prescription inputs. This is a repeated base program, not automatic weekly progression. The default `"selected_week"` mode retains existing conflict checks.
+
+For a reviewed base block with **no literal week headers at all**, optional `program.base_cycle_count` can supply an explicit duration from 1 through 52. Discovery exposes neutral `Cycle 1` … `Cycle N` labels; prescriptions still come only from the base table, and unlabeled cells to the right are not treated as coach weeks or completed results. The option requires base mode and the default intersection header policy. It is not a fallback for partial, unsafe, formula-driven or conflicting week headers; those blocks remain unavailable rather than being reinterpreted.
+
+Optional `program.exclude_empty_days: true` omits only day headings that have no coach-authored base-table rows before a structural blank separator. Preview records one warning and skipped item per omitted heading, while populated days and days whose rows are all explicitly excluded remain visible. Exported workout order is renumbered without changing the source day labels. The default is false.
+
+Set `program.use_day_designations: true` to name exported workouts from the unique text beneath each day heading in the same discovered column. The report preserves the original identifier (including fractional days), full designation and source cell. No sheet, row or column is hard-coded. Missing designations use the original label; ambiguous or formula-driven designations warn and fall back without borrowing another day's title.
+
+#### Reviewed corrections and concise notes
+
+`program.notes_mode: "concise"` with `preserve_coach_notes: true` omits redundant structured-field dumps and import-setting boilerplate from exported notes. The private report still retains source values, weekly text and policy provenance. Unresolved targets and unilateral cues remain in notes. Exact-rule `program_notes` can supply a reviewed list of residual technique/equipment cues (an empty list removes redundant variation text). This replaces only the variation note, not unresolved target guidance. Without that list, unmatched variation wording is retained conservatively. The default `"full"` mode is unchanged.
+
+Optional `program.note_text_policy: "conservative"` improves only the exported exercise-note presentation. It collapses stray whitespace, corrects a small reviewed allow-list of unambiguous spelling mistakes, normalizes common workout abbreviations such as AMRAP/RIR/RPE/BSS, capitalizes the note, adds terminal punctuation and closes unmatched opening parentheses. It does not use fuzzy spell checking, infer a prescription, rename an exercise or alter URLs. The preview/report retains the exact coach cell text and source-cell provenance. The backward-compatible default is `"verbatim"`.
+
+`program.minimum_rep_policy: "notes_only"` requires both `allow_blank_targets: true` and `preserve_coach_notes: true`. Exact `15` still exports as `15 - 15`; a minimum such as `15+ reps` instead has **blank rep targets** and an explicit exercise note retaining the original text for manual entry. Preview marks this policy with `minimum_reps_in_notes`, retains raw text and identifies the blanks as policy choices. Reviewed concise notes cannot remove this guidance. Defaults do not supply an invented maximum, and weekly conflicts still block. The default policy is `"block"`. This fallback is not native minimum-only support.
+
+Optional `program.color` and `program.icon` override uniquely discovered template metadata cells. Omit them (or use null) to preserve the template. Currently verified override tokens are colors `Orange`/`Red` and icons `Chess Pawn`/`Rocket`, observed in direct exports—not a complete app catalog. For example, `"color": "Red", "icon": "Rocket"` provides a consistent growth-program theme. Preview identifies configured overrides; missing or ambiguous metadata and unverified override values block. No workbook styles are recolored, and the production runtime remains Python/OOXML. Confirm the displayed appearance during manual import.
+
+Keep corrections in a block-specific ignored Part 2 configuration, separate from Part 1. An exercise rule may use `program_include_warmup: true` for an explicitly reviewed warmup-classified strength exercise. It does not bypass cardio, mapping, custom-exercise, set-type or template checks, and cannot accompany `program_excluded: true`.
+
+For a reviewed base-cell correction, `program_base_overrides` accepts only `sets` and `reps`, with both an exact `expected` source string and a supported replacement `value`:
+
+```json
+"program_base_overrides": {
+  "sets": {"expected": "2", "value": "4"},
+  "reps": {"expected": "See instructions", "value": "7-11"}
+}
+```
+
+Corrections carry `config_reviewed_override` provenance and warnings. A changed source string blocks as `stale_base_override`; unsupported replacements remain blocked even with blank-target policy. Date-formatted rep cells still require human review rather than interpreting a date serial as reps. No correction changes the coach workbook.
+
+#### Reviewed sequential exercises from one row
+
+In base-prescription mode, one exact exercise rule can explicitly expand a combined coach row into **two independent, ordered exercises**. Each child requires its own exact MacroFactor name and positive set count; the count is for that child, not a total to divide. Keep this block-specific configuration private:
+
+```json
+"program_expansion": {
+  "expected_variation": "Coach combined movement",
+  "expected_sets": "2",
+  "exercises": [
+    {"canonical": "Synthetic First", "sets": 2},
+    {"canonical": "Synthetic Second", "sets": 2}
+  ]
+}
+```
+
+Both guards must match literal source text exactly. Preview retains the original row/cells/raw text, reports `exact_expansion`, child order and `config_program_expansion` set-count provenance, and shows a review warning. Shared rep/rest/RIR targets and notes are preserved. No superset is inferred. Stale/formula-driven guards, per-set rep lists, special-set sequences and source supersets block rather than allocating them. Configured supersets, set-count overrides and inclusion/exclusion exceptions cannot accompany expansion. Optional child `macrofactor_custom`/`macrofactor_available` booleans retain the existing warning/blocking behavior; specify these on each child, not the parent. Child names do not enter Part 1's result alias index.
+
+#### Other import policies
+
+For an import that carries coaching instructions in notes and leaves unspecified targets editable, these opt-in settings are available:
+
+```json
+{
+  "program": {
+    "week_pair_layout": "plan_then_result",
+    "sheet_order": "right_to_left",
+    "rest_range_policy": "upper",
+    "set_count_range_policy": "upper",
+    "allow_blank_targets": true,
+    "preserve_coach_notes": true,
+    "exclude_warmups": true,
+    "exclude_cardio": true,
+    "resize_template_workouts": true,
+    "defaults": {"set_type": "standard"}
+  }
+}
+```
+
+`right_to_left` lists the last worksheet first; it does not infer dates from worksheet names. All discovered days and optional exercises remain included unless explicitly excluded. `upper` selects the upper end of an exact rest range and identifies that choice in field provenance and notes. `allow_blank_targets` leaves missing reps, RIR, and rest blank when no explicit configured default is present. With `preserve_coach_notes`, `Read week` rep instructions remain deferred, unsupported rep instructions stay in notes with blank targets, and full base/selected-week coaching text is retained in the template's exercise Notes field. RPE is never converted to RIR. Bare numbers in weekly cells are retained as instructions rather than interpreted as rep targets, because they may be weights. Excel date-formatted rep cells are flagged and never emitted as serial-number rep targets.
+
+`set_count_range_policy: "upper"` selects the upper end of an exact base set-count range such as `2–3` or `3 to 4 sets`. The preview labels that choice `coach_range_upper_by_policy`; Notes retain the original range and selected total when notes are enabled. Exact weekly set counts still undergo conflict checking, and the total must fit the verified template's set capacity. Malformed ranges and prose remain blocked. The default policy is `"block"`.
+
+`unitless_rest_policy: "seconds"` explicitly interprets positive integers in the **base Rest column** as seconds. The default remains `"block"`. Unitless ranges additionally require `rest_range_policy: "upper"`. Preview preserves the source cell/raw value, emits a policy warning, and uses distinct `coach_unitless_seconds_by_policy` or `coach_unitless_seconds_range_upper_by_policy` provenance. Explicit minute/second units take precedence; weekly bare numbers never inherit this policy. Repeated-unit ranges such as `75 sec to 105 sec` and exact ceilings such as `120 sec max` are supported; mixed units, reversed ranges and arbitrary prose remain blocked. Ceiling and `(timed)` cues survive concise exercise notes.
+
+Literal unilateral set counts such as `2 each leg` mean two sets per side, not four. They retain coach-source provenance and a per-side note. A configured native superset gives **each movement** the full resolved count; combined text alone does not choose exercise identities or establish membership/order. Previously reviewed sequential `program_expansion` rules remain sequential.
+
+The standard-set default is explicit and visible. Myo/drop/superset instructions override the default and stay subject to verified template support; explicit configured superset membership supplies the group and order. Unresolved exercise identities and conflicting exact values remain blockers. These settings do not change Part 1 or weaken the strict parser configuration used by existing workflows. Part 1's `+` formatting for completed myo-rep results is not a native program set-type encoding.
+
+A second direct export verifies the literal `Myo Set` value alongside `Standard Set`. An exact exercise rule can now specify the ordered types and an explicit blank rep-target policy:
+
+```json
+{
+  "canonical": "Exact MacroFactor exercise name",
+  "coach_aliases": ["Exact coach exercise alias"],
+  "program_set_types": ["standard", "myo", "myo"],
+  "program_blank_rep_targets": true
+}
+```
+
+The sequence must match the resolved total set count; there is no automatic padding or truncation. Preview reports each set type with `config_set_sequence` provenance. Blank rep overrides require `program.preserve_coach_notes: true` so original targets and instructions remain in exercise Notes. The generator uses actual `Myo Set` cells, not `+` text or standard-set placeholders. Without an explicit sequence, ambiguous myo instructions remain blocked. Drop-set encoding and combining mixed set types with supersets remain unsupported.
+
+Part 2 reuses each exercise rule's exact `coach_aliases` and `canonical` MacroFactor name. These optional fields add review behavior without changing Part 1:
+
+```json
+{
+  "program_excluded": true,
+  "program_exclusion_reason": "Handled outside the strength program import",
+  "macrofactor_custom": false,
+  "macrofactor_available": true
+}
+```
+
+`superset_group` and contiguous `superset_order` values starting at 1 define explicit Part 2 membership. A shared coach alias expands only when every exact match forms one complete ordered superset, and each selected day must contain every configured, non-excluded group member exactly once; otherwise preview blocks instead of guessing.
+
+Generate only after a template-aware preview reports no blocking items:
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-generate \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config config/exercises.local.json \
+  --template local-data/reference/macrofactor-program/template.xlsx \
+  --sheet "Selected worksheet" \
+  --block block-1 \
+  --week "Week 1" \
+  --week "Week 2" \
+  --output local-data/generated/workbooks/macrofactor-program.xlsx \
+  --report local-data/generated/reports/program-generation.json
+```
+
+The generator writes only to a new `.xlsx` path. It rechecks both inputs after preview, preserves their bytes, retains the template worksheet layout and formatting, rebuilds shared strings so replaced template content is not carried forward, and verifies every unrelated OOXML package member byte-for-byte.
+
+The verified export proves one repeated cycle layout, including active sets with blank rep, RIR, and rest targets. Generation requires all selected coach weeks or explicitly configured base cycles to resolve to identical set count, ordered types, rep range, RIR, rest, and notes for each exercise. The included day count must fit the guarded template-resize policy and sets must fit its discovered capacity. Provided RIR values must be integers from 0 through 6; blank targets require explicit policy provenance. Standard sets, explicitly configured standard/myo sequences, and separately grouped standard supersets are writable. A program with different cycle prescriptions or drop-set encoding needs a direct export demonstrating that structure before support can be implemented.
+
+The small mixed-set reference omits rep-range columns when all targets are blank. It proves the type values but is not a full-layout generation template: the current generator still requires Type, Rep Range, RIR and Rest columns for each set and merged workout groups. Keep using a verified full-layout template for the candidate. Compatibility remains unverified until the user manually imports the generated file into MacroFactor.
+
+By default, per-day exercise counts must also match the template. Opt-in `resize_template_workouts` can resize existing contiguous workout row groups and remove unused **trailing** workout groups while preserving headers, set columns, row styles, and workout-label merges. It cannot add days, remove a middle group, add/remove set columns, or reorder template groups, and requires at least two source and target exercises per retained day. Templates with formulas, defined names, trailing rows, non-workout body merges, or unsupported worksheet features are refused. Resized outputs undergo the same structural round-trip, semantic output audit and unrelated-member integrity checks.
+
+The generated workbook remains unverified for MacroFactor compatibility until it imports successfully through **New Program → Import From File**. Keep the pull request draft and do not treat structural validation as import confirmation.
+
+### Batch-check remaining program blocks
+
+`program-batch` is a one-shot, local CLI workflow for repeated **base** programs. It visits worksheets in the configured order, continues past blocked blocks and writes one private review instead of requiring an import attempt for each block. Worksheet order is chronology only when configured that way; dates are not inferred.
+
+```sh
+PYTHONPATH=src python3 -m macrofactor_bridge program-batch \
+  --workbook "/path/to/Coach_Program.xlsx" \
+  --config reports/shared-program-mappings.local.json \
+  --template "/path/to/Direct_Program_Export.xlsx" \
+  --manifest reports/program-batch.local.json \
+  --output-dir outputs/coach-batch-001 \
+  --generate
+```
+
+Omit `--generate` to preview/audit only. The output directory must be new, including for preview-only runs. Each run contains `summary.json`, `review.md`, per-block JSON and, only for passing blocks, generic `block-NNN.xlsx` candidates. These files contain private information and must stay ignored. Exit codes are **0** for all selected items ready/generated/explicitly skipped, **1** for a partial or input-invalidated run, and **2** for fatal setup/configuration failures. A blocked or unrecognized sheet remains visible; it is never silently treated as completed.
+
+The shared configuration must use `program.prescription_source: "base"` and contain only reusable exact mappings and general policies. Reviewed corrections, residual notes, expansions, special-set sequences, exclusions, warmup inclusions and supersets belong in separate block-scoped configurations. Copying an older block's complete configuration into the shared file is refused. New aliases are never guessed or written automatically.
+
+During human review, a known exercise can represent a tempo, pause or speed variation while `program_notes` retains those residual coaching cues. Save the decision as an exact variation/context rule in a new private block profile; the runtime still does no fuzzy matching. Review materially different equipment, body position or injury substitutions separately. The verified export has **exercise Notes**; do not invent program/session-note fields or include completed results and unapplied weekly updates in base-program notes.
+
+The optional private manifest has a strict schema. Paths inside it are relative to the manifest. Block identifiers are local to a worksheet, so every selection uses both exact strings:
+
+```json
+{
+  "schema_version": 1,
+  "start_after": {"sheet": "Previously reviewed worksheet", "block": "block-1"},
+  "block_configs": [
+    {"sheet": "Selected worksheet", "block": "block-1", "config": "selected-program.local.json"}
+  ],
+  "reference_boundaries": [
+    {"sheet": "Selected worksheet", "block": "block-1", "marker_text": "Reviewed reference heading"}
+  ],
+  "skip_sheets": [
+    {"sheet": "Reference only", "reason": "Explicitly reviewed as not a program"}
+  ]
+}
+```
+
+All fields except `schema_version` are optional. Scoped configs are complete configurations, not patches, and must retain the shared discovery settings. Unknown keys, unknown selections, duplicate overrides and implicit skips are rejected. Missing/invalid scoped configuration blocks its item while later items continue. Every safely discovered week determines one repeated cycle; the batch does not interpret weekly prose as updated prescriptions.
+
+Because a batch requests the whole block, the independent audit requires complete week coverage across days, not just their shared intersection. Inconsistent week headers or omitted cycles block that item instead of silently shortening the program. Use the existing single-block preview for an intentionally limited week selection.
+
+For repeated base tables with omitted week labels, `program.week_header_coverage_policy: "aligned_union_base_only"` opts into guarded alignment. It requires base mode, explicit plan/result direction, a complete literal anchor day within the same block, and consistent non-overlapping column pairs. It fills missing layout metadata only; it never changes the workbook or uses completed results as prescriptions. Conflicting labels, shifted pairs, formulas or unproved geometry remain blocked. The independent audit checks the aligned full week set and raw planned cells. The default `"intersection"` behavior is unchanged; all scoped batch configs must share this discovery setting.
+
+Planned cycles and performed activity are different facts. A blank coach result cell does not prove inactivity. An empty historical week may be reviewed as not worked only with established calendar alignment and exercise-log coverage for that interval; a log ending before the interval cannot prove absence. Missing repeated headers must not be used to shorten duration. This workflow does not automatically infer vacation dates or remove cycles based on absent activity.
+
+Set capacity comes from the supplied direct template, not a hard-coded maximum. A verified five-set full-layout reference is supported without adding columns; all five Type/Rep Range/RIR/Rest headers are required even when values are blank. Smaller prescriptions clear unused slots, while prescriptions exceeding that template's capacity remain blocked. A larger reference does not establish manual import success for any new candidate.
+
+`reference_boundaries` is an opt-in **reviewed** auxiliary-section boundary, not a guessed end row. Its exact literal must occur once after the final day heading in that block, in a single-row merge spanning style and variation/exercise columns, with blank prescription fields and a preceding blank base row. Formula, stale, duplicate or malformed markers block. The source audit still scans across every earlier blank gap; this cannot hide an omitted exercise before the marker. Leave it absent until that reference section has actually been inspected. No private heading is built into the application.
+
+Two separately implemented checks supplement the existing service validations:
+
+- The **source audit** checks day/row coverage, exact mappings, literal numeric prescriptions, raw provenance, configured policies, notes and planned/result separation. It looks past blank gaps to detect omitted rows. Unclassified trailing reference sections, formulas or unsupported audit cases remain technical blockers; it does not independently understand free-form coaching intent.
+- The **output audit** reads the unpublished workbook and compares every prescribed cell, note, exercise, cycle/day count, native superset, metadata value and cleared inactive set against the reviewed model. The existing writer also checks unrelated OOXML parts and source/template integrity. A failed audit never creates a deliverable.
+
+Candidates stay temporary until all blocks finish and protected source/template/config/manifest/evidence hashes still match. Input drift stops remaining work and invalidates the run; no candidate from that invalidated run is offered. Existing runs, inputs and prior outputs are never overwritten. The JSON retains all diagnostics; the Markdown consolidates duplicate missing-mapping diagnostics and distinguishes decisions from technical findings. Different prescriptions or resolved custom identities are not silently combined into one approval.
+
+The manual-import plan selects representatives for uncovered structural families/features, custom or block-only identities, and always the newest selected program. Families distinguish workbook layout, per-day exercise counts and cycle duration. A blocked newest block is reported, not replaced with an older one. Distinct structures may still require multiple imports; sampling is not proof that untested files will import.
+
+After an actual successful manual import, an optional `manual_import_evidence` list can contain objects with `output` (the exact tested file), `sha256` (its full lowercase SHA-256) and `confirmed: true`. The file hash must match before the run starts. Never add this declaration for an untested candidate. Evidence can reduce redundant structural/identity samples, but **every new output still has `manual_import_verified: false`**. No API, phone automation, scheduled monitor or production spreadsheet runtime is involved. Desktop integration remains a separate slice.
+
 ### Configure exercise mappings
 
 Copy the synthetic example and edit the ignored local file:
@@ -373,7 +610,7 @@ QT_QPA_PLATFORM=offscreen \
 
 GitHub-hosted CI runs the complete Python and offscreen desktop test suite for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. A newer update to the same pull request cancels superseded work, and merging does not repeat the same suite on `main`. Use the Actions tab's manual **CI Verify** dispatch when a hosted rerun is needed.
 
-The suite uses small anonymized workbooks and verifies parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
+The suite uses small anonymized workbooks and verifies Part 1 parsing, formatting, exact matching, reports, desktop defaults and controls, dynamic worksheet/week discovery, empty-cell enforcement, source immutability, style/formula/merge preservation, and byte-identical unrelated workbook parts. It also generates synthetic Part 2 fixtures to verify dynamic program discovery, planned/result separation, conservative prescription parsing, raw-text retention, mappings, defaults, exclusions, custom exercises, supersets, template-schema inspection, generation gates, source/template immutability, shared-string cleanup, and structural round trips. Direct source-only runs skip the GUI test when PySide6 is unavailable; the canonical runner provisions it and executes the test.
 
 ## Known limitations
 
@@ -388,7 +625,8 @@ The suite uses small anonymized workbooks and verifies parsing, formatting, exac
 - Unsupported duration- or distance-only sets without reps are reported and skipped.
 - The application does not calculate formulas or change cached formula results.
 - The `.app` build targets Apple silicon and is locally signed but not Apple-notarized.
-- Fuzzy exercise matching and reverse coach-program import are intentionally outside the current scope.
+- Fuzzy exercise matching remains outside the project scope. Part 2 can generate only the verified single-layout subset and guarded workout-row resizing described above. Periodized cycle layouts remain blocked, and compatibility cannot be claimed until a generated file is manually imported successfully.
+- The desktop app remains Part 1-only until the Part 2 parser, generator, and manual import validation are complete.
 
 ## Contributing
 
