@@ -493,6 +493,12 @@ The marker is proposed only when the selected dates contain usable workout data,
 
 There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule.
 
+Per-side weight and per-side repetitions are independent. For an exercise confirmed to export combined weight, use `weight_multiplier: 0.5` and `weight_suffix: "s"` to display the load per side. Keep exported repetitions unchanged: equal repetitions on each side do not mean doubling or halving the logged count. A different exercise on similar equipment still needs its own confirmed rule.
+
+Part 1 aliases must match the configured workbook exercise column. If that column is `Style`, map its labels and use `coach_context_aliases` for exact variation disambiguation when needed. A Part 2 configuration using variation descriptions is not automatically a Part 1 transfer mapping. Register a performed substitution by its exact export name without changing the intended future program.
+
+Machine names requested for a particular week remain manual annotations, not permanent result prefixes. Existing annotated result cells remain protected as occupied. The transfer uses the logged weight and does not add machine base weight.
+
 ### Discover worksheets and weeks
 
 ```sh
