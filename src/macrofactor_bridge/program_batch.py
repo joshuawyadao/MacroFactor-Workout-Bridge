@@ -375,9 +375,11 @@ def run_program_batch(
                     item["issues"] = [asdict(_issue("block_config_invalid", str(exc), sheet))]
                 else:
                     try:
-                        preview = build_program_preview(source, selected, sheet, block.identifier, block.week_labels, template)
                         marker = manifest["reference_boundaries"].get((sheet, block.identifier))
                         item["reference_boundary_marker"] = marker
+                        preview = build_program_preview(source, selected, sheet, block.identifier,
+                                                        block.week_labels, template,
+                                                        reference_boundary_marker=marker)
                         audit = audit_coach_program(source, selected, block, preview,
                             reference_boundary_marker=marker, require_complete_week_coverage=True)
                         item["source_audit"] = audit.to_dict()

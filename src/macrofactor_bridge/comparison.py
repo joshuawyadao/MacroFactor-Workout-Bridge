@@ -7,7 +7,7 @@ from itertools import zip_longest
 
 from .history import (
     BlockAnnotation, BlockSummary, DashboardAnnotations, HistoryDashboard,
-    WeekAnnotation, WeeklyExerciseTrend,
+    WeekAnnotation, WeeklyExerciseTrend, block_mapping_issues,
 )
 
 
@@ -63,13 +63,17 @@ def _validated_block(dashboard: HistoryDashboard, name: str) -> BlockSummary:
     block = next((item for item in dashboard.blocks if item.name == name), None)
     if block is None:
         raise ComparisonError("Choose a block from the loaded workbook.")
-    if block.start_date is None:
+    issues = block_mapping_issues(
+        block.start_date, block.week_labels,
+        overlapping=name in dashboard.overlapping_blocks,
+    )
+    if "missing_start" in issues:
         raise ComparisonError(f"{name}: confirm its start date in Private block and week context.")
-    if block.start_date.weekday() != 0:
+    if "non_monday_start" in issues:
         raise ComparisonError(f"{name}: comparison requires a confirmed Monday start; dates were not shifted.")
-    if name in dashboard.overlapping_blocks:
+    if "overlap" in issues:
         raise ComparisonError(f"{name}: its dates overlap another block. Correct the saved dates first.")
-    if not block.week_labels or len({label.casefold() for label in block.week_labels}) != len(block.week_labels):
+    if "invalid_weeks" in issues:
         raise ComparisonError(f"{name}: select distinct weeks using a private week layout first.")
     return block
 

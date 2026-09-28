@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import unicodedata
@@ -224,9 +225,15 @@ def load_config(path: str | Path) -> BridgeConfig:
     except (OSError, json.JSONDecodeError) as exc:
         raise ConfigError(f"Could not read configuration {config_path}: {exc}") from exc
 
+    if not isinstance(payload, dict):
+        raise ConfigError("Configuration must be an object")
     workbook = payload.get("workbook", {})
+    if not isinstance(workbook, dict):
+        raise ConfigError("workbook must be an object")
     header_labels = workbook.get("exercise_header_labels", ["Variation", "Exercise"])
     pattern = workbook.get("week_header_pattern", r"^week\s*\d+(?:\s*\([^)]*\))?$")
+    if not isinstance(pattern, str):
+        raise ConfigError("workbook.week_header_pattern must be a string")
     if not isinstance(header_labels, list) or not all(isinstance(item, str) for item in header_labels):
         raise ConfigError("workbook.exercise_header_labels must be a list of strings")
     try:
@@ -294,8 +301,8 @@ def load_config(path: str | Path) -> BridgeConfig:
             multiplier = Decimal(str(raw.get("weight_multiplier", 1)))
         except InvalidOperation as exc:
             raise ConfigError(f"Exercise rule {canonical!r} has an invalid weight_multiplier") from exc
-        if multiplier <= 0:
-            raise ConfigError(f"Exercise rule {canonical!r} weight_multiplier must be positive")
+        if not multiplier.is_finite() or multiplier <= 0:
+            raise ConfigError(f"Exercise rule {canonical!r} weight_multiplier must be finite and positive")
         suffix = raw.get("weight_suffix", "")
         if not isinstance(suffix, str):
             raise ConfigError(f"Exercise rule {canonical!r} weight_suffix must be a string")
@@ -409,7 +416,32 @@ def load_config(path: str | Path) -> BridgeConfig:
         rules=tuple(rules),
         empty_day_marker=empty_day_marker,
         program=program_config,
+        source_path=str(Path(path).absolute()),
     )
+
+
+def part_one_config_fingerprint(config: BridgeConfig) -> str:
+    """Fingerprint only policies that affect completed-result transfers."""
+    marker = config.empty_day_marker
+    payload = {
+        "exercise_header_labels": config.exercise_header_labels,
+        "week_header_pattern": config.week_header_pattern,
+        "empty_day_marker": (marker.text, marker.fill_color) if marker else None,
+        "rules": [
+            {
+                "canonical": rule.canonical,
+                "source_aliases": rule.source_aliases,
+                "coach_aliases": rule.coach_aliases,
+                "coach_context_aliases": rule.coach_context_aliases,
+                "weight_multiplier": str(rule.weight_multiplier),
+                "weight_suffix": rule.weight_suffix,
+                "superset_group": rule.superset_group,
+                "superset_order": rule.superset_order,
+            }
+            for rule in config.rules
+        ],
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def source_rule_index(config: BridgeConfig) -> dict[str, ExerciseRule]:

@@ -16,6 +16,7 @@ HAS_QT = importlib.util.find_spec("PySide6") is not None
 if HAS_QT:
     from tests.gui_support import dispose_widget
     from PySide6.QtWidgets import QApplication, QMessageBox
+    from macrofactor_bridge.comparison_view import BlockComparisonPanel
     from macrofactor_bridge.desktop import BridgeWindow
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,6 +105,17 @@ class ComparisonGuiTests(unittest.TestCase):
         self.assertEqual(panel.second_block.currentText(), "Archive")
         self.assertTrue(all(any(week.trend for week in series.weeks)
                             for series in (panel.chart.comparison.first, panel.chart.comparison.second)))
+
+    def test_default_block_skips_invalid_week_labels(self):
+        dashboard = self.window._history_dashboard
+        blocks = tuple(replace(block, week_labels=("Week 10", "week 10", "Week 12"))
+                       if block.name == "Training Block" else block for block in dashboard.blocks)
+        panel = BlockComparisonPanel()
+        self.addCleanup(dispose_widget, panel)
+        panel.set_history(replace(dashboard, blocks=blocks), self.window._history_annotations)
+        self.assertEqual(panel.first_block.currentText(), "Archive")
+        self.assertGreaterEqual(panel.first_block.findText("Training Block"), 0,
+                                "Invalid blocks remain available for correction and explanation")
 
     def test_explicit_exercise_without_both_block_values_survives_reload(self):
         self.export.write_text(

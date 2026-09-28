@@ -43,6 +43,7 @@ class BridgeConfig:
     rules: tuple[ExerciseRule, ...]
     empty_day_marker: EmptyDayMarker | None = None
     program: ProgramConfig = field(default_factory=ProgramConfig)
+    source_path: str | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -135,6 +136,10 @@ class BridgeReport:
     occupied_cells: list[dict[str, Any]] = field(default_factory=list)
     exercise_notes: list[dict[str, Any]] = field(default_factory=list)
     empty_day_markers: list[dict[str, Any]] = field(default_factory=list)
+    preview_source_hash: str | None = None
+    preview_export_hash: str | None = None
+    preview_config_fingerprint: str | None = None
+    preview_config_path: str | None = None
     source_hash_before: str | None = None
     source_hash_after: str | None = None
     export_hash_before: str | None = None

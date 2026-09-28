@@ -15,7 +15,7 @@ from .desktop_theme import SERIES_COLORS
 from .trend_chart import TrendChart
 from .history import (
     BLOCK_TYPE_OPTIONS, WEEK_REASON_OPTIONS, WEEK_STATUS_OPTIONS,
-    DashboardAnnotations, HistoryDashboard, decimal_text, option_label,
+    DashboardAnnotations, HistoryDashboard, block_mapping_issues, decimal_text, option_label,
 )
 
 
@@ -140,8 +140,10 @@ class BlockComparisonPanel(QWidget):
             self.first_block.addItems(names)
             self.second_block.addItems(names)
             eligible = [block.name for block in dashboard.blocks
-                        if block.start_date and block.start_date.weekday() == 0
-                        and block.name not in dashboard.overlapping_blocks]
+                        if not block_mapping_issues(
+                            block.start_date, block.week_labels,
+                            overlapping=block.name in dashboard.overlapping_blocks,
+                        )]
             logged = [block.name for block in dashboard.blocks if block.mapped_set_count and block.name in eligible]
             preferred = logged + [name for name in eligible if name not in logged]
             block_defaults = (

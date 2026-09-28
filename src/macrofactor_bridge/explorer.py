@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-from .history import HistoryDashboard, WeeklyExerciseTrend
+from .history import HistoryDashboard, WeeklyExerciseTrend, block_mapping_issues
 
 
 # Navigation families only: never combine these movements into one strength series.
@@ -66,6 +66,12 @@ def exercise_timeline(dashboard: HistoryDashboard, exercise: str, recent_weeks: 
 
 
 def best_estimate(dashboard: HistoryDashboard, exercise: str, block: str) -> Decimal | None:
+    summary = next((item for item in dashboard.blocks if item.name == block), None)
+    if summary is None or block_mapping_issues(
+        summary.start_date, summary.week_labels,
+        overlapping=summary.name in dashboard.overlapping_blocks,
+    ):
+        return None
     estimates = [t.estimated_1rm for t in dashboard.trends_for(exercise)
                  if t.block_name == block and t.estimated_1rm is not None]
     return max(estimates) if estimates else None
@@ -74,10 +80,10 @@ def best_estimate(dashboard: HistoryDashboard, exercise: str, block: str) -> Dec
 def week_location(dashboard: HistoryDashboard, week: ExplorerWeek) -> tuple[str, str]:
     valid_blocks = {
         block.name: block for block in dashboard.blocks
-        if block.start_date is not None and block.start_date.weekday() == 0
-        and block.name not in dashboard.overlapping_blocks
-        and block.week_labels
-        and len({label.casefold() for label in block.week_labels}) == len(block.week_labels)
+        if not block_mapping_issues(
+            block.start_date, block.week_labels,
+            overlapping=block.name in dashboard.overlapping_blocks,
+        )
     }
     if week.trend:
         if week.trend.block_name not in valid_blocks:
