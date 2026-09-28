@@ -34,3 +34,13 @@ Harden the existing local workbook workflows against the six confirmed checkup f
 - `46aa645`: resolved plan before implementation.
 - `d9a9249`: reviewed-input binding, staged output publication, program source coverage and protected report saving.
 - Final numeric/block validation checkpoint completes this plan on `codex/safety-checkup`; save the complete branch to `origin` without creating or merging a pull request.
+
+## PR #22 publication compatibility follow-up
+
+Codex review identified that hard-link-only publication prevents valid Part 1 transfers to filesystems such as exFAT or network mounts. Add an exclusive-create fallback for unsupported hard-link operations after candidate validation. Track the identity of the created output so partial-copy, input-drift and validation failures remove only this attempt's file; preserve late competing files and keep input snapshots authoritative. Existing hard-link publication remains the preferred atomic path.
+
+- [ ] Reproduce unsupported-hard-link failure and add successful fallback, late-collision, partial-copy and protected-input-drift regressions.
+- [ ] Implement the bounded Part 1 fallback and document its publication behavior.
+- [ ] Run focused transfer tests, the complete suite and CI Verify; save/push the fix and acknowledge Codex comment 4125399517 after the push succeeds.
+
+Open questions: none. This narrow compatibility fix is authorized by the requested PR review cycle; no source files, overwrite policy or program-generation behavior are changed.
