@@ -6,6 +6,7 @@ import tempfile
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import date
+from decimal import DecimalException
 from pathlib import Path
 
 from .config import load_config, normalize_name, part_one_config_fingerprint, source_rule_index
@@ -159,12 +160,24 @@ def build_preview(
     )
     report.skipped_rows.extend(imported_log.skipped_rows)
     valid: list[SetRecord] = []
+    invalid_numeric: list[SetRecord] = []
     for record in records:
         if not from_date <= record.workout_date <= to_date:
             continue
         report.rows_in_range += 1
         if not record.exercise:
             report.skipped_rows.append({"row": record.source_row, "reason": "missing exercise"})
+            continue
+        invalid_fields = [field for field in ("weight", "reps")
+                          if (value := getattr(record, field)) is not None and not value.is_finite()]
+        if invalid_fields:
+            invalid_numeric.append(record)
+            for field in invalid_fields:
+                report.skipped_rows.append({
+                    "row": record.source_row, "exercise": record.exercise,
+                    "field": field, "value": str(getattr(record, field)),
+                    "reason": f"nonfinite {field}; affected result cell withheld for review",
+                })
             continue
         if record.reps is None:
             report.skipped_rows.append(
@@ -188,6 +201,12 @@ def build_preview(
     coach_index: dict[str, list] = defaultdict(list)
     for row in coach_rows:
         coach_index[normalize_name(row.exercise_name)].append(row)
+    invalid_cells: set[str] = set()
+    for record in invalid_numeric:
+        name, _ = _source_name_and_superset(record.exercise)
+        rule = source_index.get(normalize_name(name))
+        if rule is not None:
+            invalid_cells.update(row.result_cell for row in _matching_coach_rows(rule, coach_index).values())
 
     grouped: OrderedDict[str, list[SetRecord]] = OrderedDict()
     source_names: dict[str, str] = {}
@@ -270,7 +289,15 @@ def build_preview(
                 }
             )
             continue
-        formatted = format_sets(exercise_records, rule)
+        try:
+            formatted = format_sets(exercise_records, rule)
+        except (ValueError, DecimalException) as exc:
+            invalid_cells.add(target.result_cell)
+            report.ambiguous_matches.append({
+                "exercise": source_name, "cell": target.result_cell,
+                "reason": f"Result cannot be formatted safely: {exc}",
+            })
+            continue
         if not formatted:
             report.skipped_rows.append(
                 {"exercise": source_name, "reason": "no completed sets remained after filtering"}
@@ -294,6 +321,12 @@ def build_preview(
         by_target[target.target_cell].append(target)
     snapshot = package.sheet_snapshot(sheet)
     for cell_reference, pieces in sorted(by_target.items(), key=lambda item: split_cell_reference(item[0])):
+        if cell_reference in invalid_cells:
+            report.ambiguous_matches.append({
+                "cell": cell_reference,
+                "reason": "Result withheld because a mapped set or conversion has invalid numeric values",
+            })
+            continue
         cell = snapshot.cells[cell_reference]
         if not cell.is_empty:
             report.occupied_cells.append(
@@ -323,7 +356,7 @@ def build_preview(
                 combined = format_superset(
                     [(list(piece.records), piece.rule) for piece in pieces]
                 )
-            except ValueError as exc:
+            except (ValueError, DecimalException) as exc:
                 report.ambiguous_matches.append(
                     {
                         "cell": cell_reference,

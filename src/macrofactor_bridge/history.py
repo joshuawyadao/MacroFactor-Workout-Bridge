@@ -92,6 +92,26 @@ class BlockSummary:
     mapped_training_days: int
 
 
+def block_mapping_issues(
+    start_date: date | None,
+    week_labels: tuple[str, ...],
+    *,
+    overlapping: bool,
+) -> tuple[str, ...]:
+    """Reasons a dated coach block cannot authoritatively own logged sets."""
+    issues: list[str] = []
+    if start_date is None:
+        issues.append("missing_start")
+    elif start_date.weekday() != 0:
+        issues.append("non_monday_start")
+    labels = tuple(label.strip().casefold() for label in week_labels)
+    if not labels or any(not label for label in labels) or len(set(labels)) != len(labels):
+        issues.append("invalid_weeks")
+    if overlapping:
+        issues.append("overlap")
+    return tuple(issues)
+
+
 @dataclass(frozen=True)
 class WeeklyExerciseTrend:
     exercise: str
@@ -552,13 +572,18 @@ def _dated_block_intervals(
     annotations: DashboardAnnotations,
     warnings: list[str],
 ) -> tuple[tuple[_BlockInterval, ...], frozenset[str]]:
-    intervals: list[_BlockInterval] = []
+    # Detect collisions across all dated ranges, even when one date is not a
+    # Monday. Otherwise that invalid range could make a neighbor look safe.
+    candidates: list[_BlockInterval] = []
     for block in blocks:
         annotation = annotations.blocks.get(block.name, BlockAnnotation())
         if annotation.start_date is None:
             continue
         labels = tuple(week.label for week in block.weeks)
-        intervals.append(
+        if not labels:
+            warnings.append(f"{block.name}: no coach week labels; block dates cannot be mapped.")
+            continue
+        candidates.append(
             _BlockInterval(
                 name=block.name,
                 start=annotation.start_date,
@@ -567,8 +592,8 @@ def _dated_block_intervals(
             )
         )
     overlapping: set[str] = set()
-    for index, first in enumerate(intervals):
-        for second in intervals[index + 1 :]:
+    for index, first in enumerate(candidates):
+        for second in candidates[index + 1 :]:
             if first.start <= second.end and second.start <= first.end:
                 overlapping.update((first.name, second.name))
     if overlapping:
@@ -577,6 +602,19 @@ def _dated_block_intervals(
             + ", ".join(sorted(overlapping))
             + "."
         )
+    intervals: list[_BlockInterval] = []
+    for candidate in candidates:
+        issues = block_mapping_issues(
+            candidate.start, candidate.week_labels,
+            overlapping=candidate.name in overlapping,
+        )
+        if not issues:
+            intervals.append(candidate)
+        elif "non_monday_start" in issues or "invalid_weeks" in issues:
+            warnings.append(
+                f"{candidate.name}: invalid start date or coach week labels; "
+                "logged sets remain visible by calendar week but are not assigned to this block."
+            )
     return tuple(intervals), frozenset(overlapping)
 
 

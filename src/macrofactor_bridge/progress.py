@@ -11,7 +11,7 @@ from decimal import Decimal
 from .explorer import ExplorerWeek, week_location
 from .history import (
     BlockSummary, DashboardAnnotations, HistoryDashboard, WEEK_REASON_OPTIONS,
-    WEEK_STATUS_OPTIONS, option_label,
+    WEEK_STATUS_OPTIONS, block_mapping_issues, option_label,
 )
 
 
@@ -26,13 +26,17 @@ def calendar_weeks(dashboard: HistoryDashboard, recent_weeks: int = 0) -> tuple[
 
 
 def block_issue(dashboard: HistoryDashboard, block: BlockSummary) -> str:
-    if block.start_date is None:
+    issues = block_mapping_issues(
+        block.start_date, block.week_labels,
+        overlapping=block.name in dashboard.overlapping_blocks,
+    )
+    if "missing_start" in issues:
         return "Needs a start date"
-    if block.start_date.weekday() != 0:
+    if "non_monday_start" in issues:
         return "Needs a Monday start"
-    if not block.week_labels or len({label.casefold() for label in block.week_labels}) != len(block.week_labels):
+    if "invalid_weeks" in issues:
         return "Needs unique coach weeks"
-    if block.name in dashboard.overlapping_blocks:
+    if "overlap" in issues:
         return "Overlapping block dates"
     return ""
 

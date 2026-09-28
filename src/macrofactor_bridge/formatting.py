@@ -6,6 +6,8 @@ from .models import ExerciseRule, SetRecord
 
 
 def _number(value: Decimal) -> str:
+    if not value.is_finite():
+        raise ValueError("Result numbers must be finite")
     normalized = value.normalize()
     if normalized == normalized.to_integral():
         return str(int(normalized))
@@ -25,8 +27,19 @@ def _reps(record: SetRecord) -> str:
     return _number(record.reps)
 
 
+def _validate_numbers(records: list[SetRecord], rule: ExerciseRule) -> None:
+    if not rule.weight_multiplier.is_finite() or rule.weight_multiplier <= 0:
+        raise ValueError("Weight multiplier must be finite and positive")
+    for record in records:
+        for field in ("weight", "reps"):
+            value = getattr(record, field)
+            if value is not None and not value.is_finite():
+                raise ValueError(f"Set {field} must be finite (source row {record.source_row})")
+
+
 def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
     """Format one exercise's ordered, non-zero completed sets."""
+    _validate_numbers(records, rule)
     output: list[str] = []
     current_weight: str | None = None
     current_index: int | None = None
@@ -75,6 +88,8 @@ def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
 
 def format_superset(exercises: list[tuple[list[SetRecord], ExerciseRule]]) -> str:
     """Pair standard superset sets by position in configured exercise order."""
+    for records, rule in exercises:
+        _validate_numbers(records, rule)
     completed = [
         ([record for record in records if record.reps is not None and record.reps > 0], rule)
         for records, rule in exercises

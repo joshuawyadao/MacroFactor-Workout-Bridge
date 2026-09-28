@@ -301,8 +301,8 @@ def load_config(path: str | Path) -> BridgeConfig:
             multiplier = Decimal(str(raw.get("weight_multiplier", 1)))
         except InvalidOperation as exc:
             raise ConfigError(f"Exercise rule {canonical!r} has an invalid weight_multiplier") from exc
-        if multiplier <= 0:
-            raise ConfigError(f"Exercise rule {canonical!r} weight_multiplier must be positive")
+        if not multiplier.is_finite() or multiplier <= 0:
+            raise ConfigError(f"Exercise rule {canonical!r} weight_multiplier must be finite and positive")
         suffix = raw.get("weight_suffix", "")
         if not isinstance(suffix, str):
             raise ConfigError(f"Exercise rule {canonical!r} weight_suffix must be a string")
