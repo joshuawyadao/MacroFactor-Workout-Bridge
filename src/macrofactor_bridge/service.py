@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from .config import normalize_name, source_rule_index
+from .config import load_config, normalize_name, part_one_config_fingerprint, source_rule_index
 from .formatting import format_sets, format_superset
 from .importers import load_exercise_log_with_diagnostics, load_exercise_notes
 from .models import (
@@ -132,6 +134,10 @@ def build_preview(
 ) -> BridgeReport:
     if to_date < from_date:
         raise ValueError("to-date must be on or after from-date")
+    source_hash = file_sha256(workbook_path)
+    export_hash = file_sha256(export_path)
+    config_fingerprint = part_one_config_fingerprint(config)
+    _check_mapping(config, config.source_path, config_fingerprint)
     imported_log = load_exercise_log_with_diagnostics(export_path)
     records = imported_log.records
     exercise_notes = load_exercise_notes(export_path)
@@ -146,6 +152,10 @@ def build_preview(
         from_date=from_date.isoformat(),
         to_date=to_date.isoformat(),
         rows_read=len(records) + len(imported_log.skipped_rows),
+        preview_source_hash=source_hash,
+        preview_export_hash=export_hash,
+        preview_config_fingerprint=config_fingerprint,
+        preview_config_path=config.source_path,
     )
     report.skipped_rows.extend(imported_log.skipped_rows)
     valid: list[SetRecord] = []
@@ -347,7 +357,36 @@ def build_preview(
             program_days(package, sheet, options, week),
             set(by_target),
         )
+    _check_preview_inputs(report, config)
     return report
+
+
+def _check_mapping(config: BridgeConfig, path: str | None, expected: str) -> None:
+    if part_one_config_fingerprint(config) != expected:
+        raise WorkbookError("Mapping changed since preview; create a new preview")
+    if path:
+        try:
+            current = part_one_config_fingerprint(load_config(path))
+        except (OSError, ValueError) as exc:
+            raise WorkbookError("Cannot verify reviewed mapping; create a new preview") from exc
+        if current != expected:
+            raise WorkbookError("Mapping changed since preview; create a new preview")
+
+
+def _check_preview_inputs(report: BridgeReport, config: BridgeConfig) -> None:
+    if not all((report.preview_source_hash, report.preview_export_hash, report.preview_config_fingerprint)):
+        raise WorkbookError("Reviewed input fingerprints are missing; create a new preview")
+    for path, expected, label in (
+        (report.input_workbook, report.preview_source_hash, "Source workbook"),
+        (report.input_export, report.preview_export_hash, "MacroFactor export"),
+    ):
+        try:
+            current = file_sha256(path)
+        except OSError as exc:
+            raise WorkbookError(f"Cannot verify {label.lower()}; create a new preview") from exc
+        if current != expected:
+            raise WorkbookError(f"{label} changed since preview; create a new preview")
+    _check_mapping(config, report.preview_config_path, report.preview_config_fingerprint)
 
 
 def apply_changes(
@@ -357,38 +396,56 @@ def apply_changes(
 ) -> BridgeReport:
     if not report.proposed_writes:
         raise WorkbookError("There are no proposed writes; output workbook was not created")
+    _check_preview_inputs(report, config)
+    output = Path(output_path)
+    if output.suffix.lower() != ".xlsx":
+        raise WorkbookError("Output path must end in .xlsx")
+    for path in (report.input_workbook, report.input_export, report.preview_config_path, config.source_path):
+        if path and output.resolve() == Path(path).resolve():
+            raise WorkbookError("Output path must be different from the source workbook, export and mapping")
+    if output.exists() or output.is_symlink():
+        raise WorkbookError(f"Output already exists; choose a new path: {output}")
     package, sheet, _, _ = select_sheet_options(
         report.input_workbook, config, report.sheet, report.week
     )
-    source_hash = file_sha256(report.input_workbook)
-    export_hash = file_sha256(report.input_export)
     changes = {proposal.cell: proposal.value for proposal in report.proposed_writes}
     highlight_fills = {
         proposal.cell: proposal.fill_color
         for proposal in report.proposed_writes
         if proposal.fill_color is not None
     }
-    package.write_copy(output_path, sheet, changes, highlight_fills)
-    after_hash = file_sha256(report.input_workbook)
-    export_after_hash = file_sha256(report.input_export)
-    if after_hash != source_hash:
-        raise WorkbookError("Source workbook changed during apply; stop and restore from backup")
-    if export_after_hash != export_hash:
-        raise WorkbookError("MacroFactor export changed during apply; stop and restore from backup")
-    report.source_hash_before = source_hash
-    report.source_hash_after = after_hash
-    report.export_hash_before = export_hash
-    report.export_hash_after = export_after_hash
-    report.output_file = str(Path(output_path))
-    report.output_hash = file_sha256(output_path)
     changed_members = {sheet.path}
     if highlight_fills:
         changed_members.add("xl/styles.xml")
-    report.validation = validate_copy_integrity(
-        report.input_workbook, output_path, changed_members
-    )
-    if report.validation["unrelated_members_changed"]:
-        raise WorkbookError("Workbook integrity check found unrelated changed ZIP members")
-    if not report.validation["zip_members_identical"]:
-        raise WorkbookError("Workbook integrity check found a changed ZIP member list")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".bridge-", dir=output.parent) as staging:
+        candidate = Path(staging) / "candidate.xlsx"
+        package.write_copy(candidate, sheet, changes, highlight_fills)
+        validation = validate_copy_integrity(report.input_workbook, candidate, changed_members)
+        if validation["unrelated_members_changed"]:
+            raise WorkbookError("Workbook integrity check found unrelated changed ZIP members")
+        if not validation["zip_members_identical"]:
+            raise WorkbookError("Workbook integrity check found a changed ZIP member list")
+        _check_preview_inputs(report, config)
+        output_hash = file_sha256(candidate)
+        try:
+            os.link(candidate, output)
+        except FileExistsError as exc:
+            raise WorkbookError(f"Output already exists; choose a new path: {output}") from exc
+        try:
+            _check_preview_inputs(report, config)
+            if output.is_symlink() or not output.samefile(candidate) or file_sha256(output) != output_hash:
+                raise WorkbookError("Output changed during publication; create a new preview")
+        except BaseException:
+            try:
+                if not output.is_symlink() and output.samefile(candidate):
+                    output.unlink()
+            except OSError:
+                pass
+            raise
+    report.source_hash_before = report.source_hash_after = report.preview_source_hash
+    report.export_hash_before = report.export_hash_after = report.preview_export_hash
+    report.output_file = str(output)
+    report.output_hash = output_hash
+    report.validation = validation
     return report

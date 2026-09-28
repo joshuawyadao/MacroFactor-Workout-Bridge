@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from datetime import date
 from pathlib import Path
@@ -67,6 +66,7 @@ from .history import (
     update_week_annotation,
 )
 from .models import BridgeReport
+from .reporting import write_report
 from .service import apply_changes, build_preview
 
 
@@ -1111,11 +1111,20 @@ class BridgeWindow(QMainWindow):
         if not destination:
             return
         try:
-            Path(destination).write_text(
-                json.dumps(self._report.to_dict(), indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
+            write_report(
+                destination,
+                self._report,
+                reserved=(
+                    self._report.input_export,
+                    self._report.input_workbook,
+                    getattr(self._report, "preview_config_path", None),
+                    self.export_path.text().strip(),
+                    self.workbook_path.text().strip(),
+                    self.config_path.text().strip(),
+                    self._report.output_file,
+                ),
             )
-        except OSError as exc:
+        except (OSError, ValueError, TypeError) as exc:
             self._show_error("Review report could not be saved", exc)
             return
         self._set_status(f"Review report saved: {destination}")

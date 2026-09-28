@@ -5,6 +5,7 @@ from pathlib import Path
 from .coach_program import parse_coach_program
 from .models import BridgeConfig
 from .ooxml import WorkbookError, file_sha256
+from .program_audit import audit_program_source_rows
 from .program_models import ProgramIssue, ProgramPreviewReport
 from .program_template import (
     inspect_program_template,
@@ -21,6 +22,8 @@ def build_program_preview(
     block_identifier: str,
     included_weeks: tuple[str, ...],
     template_path: str | Path | None = None,
+    *,
+    reference_boundary_marker: str | None = None,
 ) -> ProgramPreviewReport:
     source = Path(workbook_path)
     before_hash = file_sha256(source)
@@ -53,6 +56,16 @@ def build_program_preview(
                 sheet=sheet_name,
             )
         )
+    report.issues.extend(audit_program_source_rows(
+        source, config, report, reference_boundary_marker=reference_boundary_marker,
+    ))
+    after_hash = file_sha256(source)
+    report.source_hash_after = after_hash
+    if before_hash != after_hash and not any(issue.code == "source_changed_during_preview" for issue in report.issues):
+        report.issues.append(ProgramIssue(
+            severity="blocking", code="source_changed_during_preview",
+            message="Coach workbook changed during preview; run preview again", sheet=sheet_name,
+        ))
     included_exercises = [
         exercise
         for day in parsed.program.days

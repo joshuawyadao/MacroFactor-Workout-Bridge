@@ -201,6 +201,12 @@ Each manifest records:
 
 This is local version history, not a backup service. Back up `local-data/` separately if protection against disk loss is important.
 
+## Preview, output and report safety
+
+Part 1 previews retain workbook/export hashes and the effective transfer mapping. Apply rechecks the original mapping file as well as the supplied configuration; edits to program-only settings do not change Part 1 validity. A changed workbook, export or transfer mapping requires a new preview. Workbook candidates are staged beside the destination, validated for ZIP integrity and protected-input stability, then published without replacing an existing file. Failed validation removes the staged candidate rather than leaving a deliverable.
+
+Save JSON review reports to distinct new files. Desktop and CLI protect both reviewed and selected input/mapping paths and the generated workbook, reject existing files and symlink aliases, and refuse a destination created by another writer during saving. Reports contain private source paths and should stay in ignored local storage.
+
 ## Part 2 program preview and template gate
 
 Coach-to-MacroFactor work starts with the read-only `program-inspect` and `program-preview` CLI commands documented in the README. Keep preview JSON under `local-data/generated/reports/`; it may contain private paths, coach text, exercise names, and mappings and must never be committed or attached to a public issue.
@@ -209,7 +215,7 @@ The `reference/macrofactor-program/` directory is optional and is not created, a
 
 Pass the direct export to `program-preview --template` before generation. A valid template supplies a hash and schema result; an omitted, malformed, changed, or incompatible template keeps `generation_safe` false. `program-generate` accepts the same coach selection plus `--template` and a new `--output` path under `local-data/generated/workbooks/`. It refuses existing paths, differing periodized prescriptions, template shape/capacity mismatches, unsupported values, and every parser blocker. It preserves both private inputs byte-for-byte and validates that only the program worksheet and shared-string OOXML parts changed.
 
-Coach week pairs require an explicitly verified direction. Use `program.week_pair_layout: "plan_then_result"` only when the left cell is the coach prescription and the right cell is the completed result; use `"result_then_plan"` for the reverse arrangement. The parser preserves the coach `Style` value but treats it as a MacroFactor set type only when the whole value is an exact supported set-type alias. It also stops a day at the first structurally blank separator after exercises begin, excluding later goals, notes, and reference sections from the program table.
+Coach week pairs require an explicitly verified direction. Use `program.week_pair_layout: "plan_then_result"` only when the left cell is the coach prescription and the right cell is the completed result; use `"result_then_plan"` for the reverse arrangement. The parser preserves the coach `Style` value but treats it as a MacroFactor set type only when the whole value is an exact supported set-type alias. The parser stops a day at the first structurally blank separator after exercises begin. An independent preview scan then checks the base table through the next day heading, so exercises or orphan prescriptions after that separator cannot silently disappear. Ambiguous footer content blocks generation until reviewed. The batch manifest or service API can supply a verified final-day reference marker; selected-week subsets remain allowed, and week-column-only notes do not create exercise rows.
 
 For workbooks arranged newest-to-oldest, `program.sheet_order: "right_to_left"` starts the selection list at the last worksheet. Exercise category and detailed variation are read separately; add exact variation aliases or category/context mappings in an ignored private configuration when an older block uses different movements. A modern category-only mapping is not sufficient evidence for a different historical variation.
 

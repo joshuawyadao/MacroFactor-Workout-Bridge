@@ -18,7 +18,7 @@ The Dashboard never changes either source. Part 2 can create a new candidate pro
 ## Engineering highlights
 
 - **Preview before write:** every proposed workbook change is shown before an output can be created.
-- **Immutable inputs:** source hashes are checked around apply, and output must use a distinct path that does not already exist.
+- **Immutable inputs:** previews record workbook/export hashes and effective Part 1 mapping settings. Apply rechecks the reviewed files and mapping, validates a temporary workbook, then publishes exclusively to a distinct new path. Failed validation leaves no output workbook.
 - **Surgical OOXML edits:** only the selected worksheet XML and, for highlighted review markers, `xl/styles.xml` may change; every other workbook part must remain byte-identical.
 - **Conservative matching:** exercise names use exact normalized aliases, with no fuzzy or inferred matches.
 - **Reviewable ambiguity:** duplicates, occupied cells, zero-rep rows, unsupported data, and unmatched exercises are reported instead of guessed.
@@ -154,7 +154,9 @@ The second top-level tab, **Update coach workbook**, guides the optional workboo
 5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that an absent workout was skipped.
 6. Click **Preview workbook changes** and inspect the proposed-change table and **Review needed** panel. Yellow `Skip` rows call out programmed days with no matched session and must be confirmed before sharing.
 7. Click **Save updated workbook copy…** and choose a new `.xlsx` filename. The logged sets go into the selected week in this new copy; the original workbook stays unchanged.
-8. Optionally save the full review and validation report as JSON.
+8. Optionally save the full review and validation report as JSON at a new path. Desktop and CLI refuse existing files, source/mapping paths, and generated-workbook paths, including symlink aliases.
+
+If the workbook, export, or Part 1 mapping settings change after preview, create a new preview before applying. Program-only mapping settings do not invalidate a Part 1 review.
 
 The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file outside the repository, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
 
@@ -246,11 +248,13 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
   --report local-data/generated/reports/program-preview.json
 ```
 
-Report paths must be new files and cannot reuse an input or generated workbook path; the CLI refuses to overwrite an existing report.
+Report paths must be new files and cannot reuse an input, mapping or generated workbook path; both desktop and CLI refuse to overwrite an existing report.
 
 The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
 
 Parsing is deliberately allow-listed. Base sets must be positive integers. Reps can be a single value, a range such as `8-12`, `8 to 12 reps`, `8 to 12 range`, or `8 to 12 rep range`, or a comma-separated positive per-set list whose length matches the set count. Single numbers become equal minimum/maximum targets. Explicit `ea`/`each` suffixes (optionally `leg`/`side`) mean per-side reps; a trailing `again` or `here` preserves the preceding exact target. Those suffixes must be terminal: additional prose remains uninterpreted. `N+ reps` has a minimum but no maximum: native generation remains blocked until a direct export verifies minimum-only encoding, unless the user explicitly enables the notes-only fallback below. Rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. `Read week`, `your choice`, RPE, AMRAP, weights, substitutions and progression prose remain raw and blocking unless an explicit notes/blank policy applies.
+
+An independent source-row scan checks each selected day through the next day heading, including rows after blank separators. Unaccounted exercise rows, orphan base prescriptions and base formulas block standalone generation in both base and selected-week modes. Intentional week subsets remain supported. Reviewed reference boundaries may be supplied through the batch manifest or service API; standalone CLI generation blocks ambiguous footer content pending review.
 
 The coach `Style` column is preserved as raw classification text. The separate `Variation` column is retained and used for exact exercise matching and context. A specific variation must match an exact alias/canonical name or a category alias with matching configured context; an unqualified category mapping from another block cannot replace it. A single block-wide week header may serve later days with matching base columns and proven plan/result pairs. Header inheritance stops when day numbers reset or the base layout changes.
 
