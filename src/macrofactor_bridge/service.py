@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import errno
 import os
 import re
+import shutil
 import tempfile
 from collections import OrderedDict, defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from decimal import DecimalException
@@ -422,6 +425,44 @@ def _check_preview_inputs(report: BridgeReport, config: BridgeConfig) -> None:
     _check_mapping(config, report.preview_config_path, report.preview_config_fingerprint)
 
 
+def _is_published_file(output: Path, created: os.stat_result) -> bool:
+    try:
+        return os.path.samestat(output.stat(follow_symlinks=False), created)
+    except OSError:
+        return False
+
+
+@contextmanager
+def _publish_candidate(candidate: Path, output: Path):
+    """Publish exclusively and remove only our output if copying or verification fails."""
+    created = None
+    try:
+        candidate_identity = candidate.stat()
+        try:
+            os.link(candidate, output)
+        except OSError as exc:
+            if exc.errno not in {errno.EPERM, errno.EACCES, errno.ENOTSUP,
+                                 errno.EOPNOTSUPP, errno.ENOSYS, errno.EXDEV}:
+                raise
+            # Some external/network filesystems cannot link files. The candidate
+            # is already validated; exclusive creation still protects collisions.
+            with candidate.open("rb") as source, output.open("xb") as destination:
+                created = os.fstat(destination.fileno())
+                shutil.copyfileobj(source, destination)
+        else:
+            created = candidate_identity
+        yield created
+    except BaseException as exc:
+        if created is not None and _is_published_file(output, created):
+            try:
+                output.unlink()
+            except OSError:
+                pass
+        if isinstance(exc, FileExistsError):
+            raise WorkbookError(f"Output already exists; choose a new path: {output}") from exc
+        raise
+
+
 def apply_changes(
     report: BridgeReport,
     config: BridgeConfig,
@@ -461,21 +502,10 @@ def apply_changes(
             raise WorkbookError("Workbook integrity check found a changed ZIP member list")
         _check_preview_inputs(report, config)
         output_hash = file_sha256(candidate)
-        try:
-            os.link(candidate, output)
-        except FileExistsError as exc:
-            raise WorkbookError(f"Output already exists; choose a new path: {output}") from exc
-        try:
+        with _publish_candidate(candidate, output) as created:
             _check_preview_inputs(report, config)
-            if output.is_symlink() or not output.samefile(candidate) or file_sha256(output) != output_hash:
+            if not _is_published_file(output, created) or file_sha256(output) != output_hash:
                 raise WorkbookError("Output changed during publication; create a new preview")
-        except BaseException:
-            try:
-                if not output.is_symlink() and output.samefile(candidate):
-                    output.unlink()
-            except OSError:
-                pass
-            raise
     report.source_hash_before = report.source_hash_after = report.preview_source_hash
     report.export_hash_before = report.export_hash_after = report.preview_export_hash
     report.output_file = str(output)

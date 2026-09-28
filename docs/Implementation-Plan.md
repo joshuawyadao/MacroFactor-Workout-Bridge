@@ -39,8 +39,12 @@ Harden the existing local workbook workflows against the six confirmed checkup f
 
 Codex review identified that hard-link-only publication prevents valid Part 1 transfers to filesystems such as exFAT or network mounts. Add an exclusive-create fallback for unsupported hard-link operations after candidate validation. Track the identity of the created output so partial-copy, input-drift and validation failures remove only this attempt's file; preserve late competing files and keep input snapshots authoritative. Existing hard-link publication remains the preferred atomic path.
 
-- [ ] Reproduce unsupported-hard-link failure and add successful fallback, late-collision, partial-copy and protected-input-drift regressions.
-- [ ] Implement the bounded Part 1 fallback and document its publication behavior.
-- [ ] Run focused transfer tests, the complete suite and CI Verify; save/push the fix and acknowledge Codex comment 4125399517 after the push succeeds.
+- [x] Reproduce unsupported-hard-link failure and add successful fallback, late-collision, partial-copy and protected-input-drift regressions.
+- [x] Implement the bounded Part 1 fallback and document its publication behavior.
+- [x] Run focused transfer tests and the complete suite; prepare the fix for save/push. Hosted CI Verify and the post-push acknowledgment of Codex comment 4125399517 are tracked in PR #22.
 
 Open questions: none. This narrow compatibility fix is authorized by the requested PR review cycle; no source files, overwrite policy or program-generation behavior are changed.
+
+Follow-up focused validation: all 40 transfer/numeric/integration tests passed, including five new fallback cases. The unsupported-link cases failed before the fix. Full-suite and hosted verification follow.
+
+Follow-up final local validation: all 490 tests passed with no skips in 59.760 seconds; compilation and diff checks passed. Review also confirmed candidate identity is captured before linking. The existing portable check/unlink cleanup race and fallback copy visibility are documented in Local-File-Workflow.md; no platform-specific coordination was introduced.

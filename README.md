@@ -18,7 +18,7 @@ The Dashboard never changes either source. Part 2 can create a new candidate pro
 ## Engineering highlights
 
 - **Preview before write:** every proposed workbook change is shown before an output can be created.
-- **Immutable inputs:** previews record workbook/export hashes and effective Part 1 mapping settings. Apply rechecks the reviewed files and mapping, validates a temporary workbook, then publishes exclusively to a distinct new path. Failed validation leaves no output workbook.
+- **Immutable inputs:** previews record workbook/export hashes and effective Part 1 mapping settings. Apply rechecks the reviewed files and mapping, validates a temporary workbook, then publishes exclusively to a distinct new path. Failed validation leaves no output workbook. Filesystems without hard-link support use an exclusive-create copy fallback with identity/hash verification and cleanup on failure.
 - **Surgical OOXML edits:** only the selected worksheet XML and, for highlighted review markers, `xl/styles.xml` may change; every other workbook part must remain byte-identical.
 - **Conservative matching:** exercise names use exact normalized aliases, with no fuzzy or inferred matches.
 - **Reviewable ambiguity:** duplicates, occupied cells, zero-rep rows, unsupported data, and unmatched exercises are reported instead of guessed.

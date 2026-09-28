@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import os
 import shutil
@@ -192,3 +193,66 @@ class TransferSafetyTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 package.write_copy(self.output, sheet, {'J5': '200 x 5'})
         self.assertEqual(self.output.read_bytes(), b'other writer')
+
+    def test_unsupported_hard_links_fall_back_to_exclusive_copy(self):
+        report = self.preview()
+        with patch.object(service.os, 'link', side_effect=OSError(errno.EOPNOTSUPP, 'unsupported')):
+            service.apply_changes(report, self.config, self.output)
+        package = XlsxPackage(self.output)
+        cells = package.sheet_snapshot(package.sheet_by_name('Training Block')).cells
+        self.assertEqual(cells['J5'].value, '200 x 5')
+        self.assertEqual(report.output_hash, service.file_sha256(self.output))
+        self.assertTrue(report.validation['zip_members_identical'])
+
+    def test_fallback_refuses_a_late_competing_destination(self):
+        report = self.preview()
+        def cannot_link(source, destination):
+            Path(destination).write_bytes(b'other writer')
+            raise OSError(errno.EOPNOTSUPP, 'unsupported')
+        with patch.object(service.os, 'link', cannot_link):
+            with self.assertRaisesRegex(WorkbookError, 'Output already exists'):
+                service.apply_changes(report, self.config, self.output)
+        self.assertEqual(self.output.read_bytes(), b'other writer')
+        self.assertIsNone(report.output_file)
+
+    def test_fallback_copy_failure_removes_its_partial_output(self):
+        report = self.preview()
+        before = set(self.root.iterdir())
+        def incomplete(source, destination):
+            destination.write(b'partial')
+            raise OSError('copy failed')
+        with patch.object(service.os, 'link', side_effect=OSError(errno.EPERM, 'unsupported')), \
+             patch.object(shutil, 'copyfileobj', incomplete):
+            with self.assertRaisesRegex(OSError, 'copy failed'):
+                service.apply_changes(report, self.config, self.output)
+        self.assertEqual(set(self.root.iterdir()), before)
+        self.assertIsNone(report.output_file)
+
+    def test_fallback_input_drift_removes_only_its_own_output(self):
+        original = shutil.copyfileobj
+        for replace_output in (False, True):
+            with self.subTest(replace_output=replace_output):
+                report = self.preview()
+                def copy_and_mutate(source, destination):
+                    original(source, destination)
+                    self.export.write_text(self.export.read_text() + '\n')
+                    if replace_output:
+                        self.output.unlink()
+                        self.output.write_bytes(b'other writer')
+                with patch.object(service.os, 'link', side_effect=OSError(errno.EOPNOTSUPP, 'unsupported')), \
+                     patch.object(shutil, 'copyfileobj', copy_and_mutate):
+                    with self.assertRaises(WorkbookError):
+                        service.apply_changes(report, self.config, self.output)
+                if replace_output:
+                    self.assertEqual(self.output.read_bytes(), b'other writer')
+                else:
+                    self.assertFalse(self.output.exists())
+                self.assertIsNone(report.output_file)
+
+    def test_fallback_corrupt_copy_is_not_published(self):
+        report = self.preview()
+        def corrupt(source, destination):
+            destination.write(b'corrupt')
+        with patch.object(service.os, 'link', side_effect=OSError(errno.EOPNOTSUPP, 'unsupported')), \
+             patch.object(shutil, 'copyfileobj', corrupt):
+            self.assert_rejected(report)
