@@ -72,3 +72,11 @@ Preserve main’s completed safety-hardening record and this branch’s calibrat
 - [ ] Complete Brooks review, Codex review, hosted CI and final mergeability checks.
 
 Open questions: none.
+
+### Codex review correction
+
+- [x] Correct the restart advice: Part 1 requires explicitly selecting the private mapping after restart; Dashboard mapping auto-loading is separate.
+- [x] Preserve the new documentation layout from main and move per-side details to Configuration.md.
+- Native synthetic preview and workbook save passed, including occupied-cell protection and workbook integrity. Restoring the real workbook was interrupted by an inaccessible app window and the Mac locking; full real-data verification remains incomplete.
+- Pre-documentation-merge full suite: 491 tests passed, no skips. Brooks review found no actionable issues.
+- Hosted CI is blocked by three audit findings against urllib3 2.7.0 inherited from main. Updating the unrelated audit lock to the reported fixed version awaits user approval.
