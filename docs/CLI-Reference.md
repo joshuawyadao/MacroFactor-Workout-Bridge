@@ -86,7 +86,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge apply \
   --report reports/week-1-apply.json
 ```
 
-Apply refuses to create an output when there are no proposed writes.
+Apply refuses to create an output when there are no proposed writes. When some cells are eligible, apply can write them while reporting other unmatched, ambiguous or skipped items; inspect the entire preview before sharing a partial result.
 
 ## Result formatting
 

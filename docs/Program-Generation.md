@@ -63,7 +63,7 @@ The coach `Style` column is preserved as raw classification text. The separate `
 
 Within a discovered day, the exercise table begins at the first exercise and ends when all base columns are blank. Standalone weekly footer notes do not extend the exercise table into later reference sections. Review discovered boundaries before generation; the independent scan described above still checks beyond the first separator.
 
-The optional top-level `program.defaults` object can propose rep, RIR, and rest values. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
+The optional top-level `program.defaults` object can propose `rep_min`/`rep_max`, `rir`, `rest_seconds`, and an explicit standard `set_type`. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
 
 ## Initial base program and workout names
 

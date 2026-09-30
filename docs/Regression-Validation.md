@@ -1,5 +1,7 @@
 # GUI regression validation — September 20, 2026
 
+This is a historical result for the named commits and date, not the current verification status. Use the [development verification guide](Development.md#verification) for today's canonical commands and report new runs in their own change records.
+
 The recent regression scan reviewed main at `7d8a91c64e9210aeae58899f5534ea75fc952263`, but did not collect a terminal result for the complete GUI suite. A command tool returning after 30 seconds is not evidence that the test process timed out. Complete validation requires following the running session through its unittest summary and process exit status.
 
 ## Confirmed test cleanup defect

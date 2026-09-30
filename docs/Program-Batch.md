@@ -62,10 +62,10 @@ Set capacity comes from the supplied direct template, not a hard-coded maximum. 
 
 ## Audits and publication
 
-Two separately implemented checks supplement the existing service validations:
+The preview service already runs an independent source-row coverage scan, including in single-block mode. Batch adds two further checks:
 
-- The **source audit** checks day/row coverage, exact mappings, literal numeric prescriptions, raw provenance, configured policies, notes and planned/result separation. It looks past blank gaps to detect omitted rows. Unclassified trailing reference sections, formulas or unsupported audit cases remain technical blockers; it does not independently understand free-form coaching intent.
-- The **output audit** reads the unpublished workbook and compares every prescribed cell, note, exercise, cycle/day count, native superset, metadata value and cleared inactive set against the reviewed model. The existing writer also checks unrelated OOXML parts and source/template integrity. A failed audit never creates a deliverable.
+- The **full-block source audit** checks day/row coverage, exact mappings, literal numeric prescriptions, raw provenance, configured policies, notes and planned/result separation. It looks past blank gaps to detect omitted rows. Unclassified trailing reference sections, formulas or unsupported audit cases remain technical blockers; it does not independently understand free-form coaching intent.
+- When generating candidates, the **output audit** reads the unpublished workbook and compares every prescribed cell, note, exercise, cycle/day count, native superset, metadata value and cleared inactive set against the reviewed model. The existing writer also checks unrelated OOXML parts and source/template integrity. A failed audit never creates a deliverable.
 
 Candidates stay temporary until all blocks finish and protected source/template/config/manifest/evidence hashes still match. Input drift stops remaining work and invalidates the run; no candidate from that invalidated run is offered. Existing runs, inputs and prior outputs are never overwritten. The JSON retains all diagnostics; the Markdown consolidates duplicate missing-mapping diagnostics and distinguishes decisions from technical findings. Different prescriptions or resolved custom identities are not silently combined into one approval.
 

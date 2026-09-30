@@ -16,7 +16,7 @@ This walkthrough builds the macOS app and prepares a private workspace. If you a
 
 The log needs `Date`, `Workout`, `Exercise`, `Set Type`, `Reps`, and exactly one supported weight column (`Weight (lb)` or `Weight (lbs)`). Duplicate logical columns are rejected. `RIR` and `Workout Duration` are optional. A program export is not an exercise log. Do not rename kilogram headers to pounds; that would mislabel the values.
 
-A usable export contains at least one completed set with a positive finite rep count. Missing/unsupported rows are reported, and archival success does not guarantee a matching writable coach cell.
+A usable export contains at least one completed set with a positive finite rep count. Some incomplete rows are skipped with diagnostics; malformed dates or numeric values can reject an import. Archival success does not guarantee a matching writable coach cell.
 
 ## Get the source
 

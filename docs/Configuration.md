@@ -6,7 +6,7 @@ The app matches **exact names after Unicode, case and whitespace normalization**
 
 ## Create your private configuration
 
-Copy the synthetic example and edit the ignored local file:
+Copy the synthetic example without overwriting an existing mapping, then edit the ignored local file:
 
 ```sh
 cp -n config/exercises.example.json config/exercises.local.json
@@ -42,9 +42,9 @@ The marker is proposed only when the selected dates contain usable workout data,
 - `coach_context_aliases` optionally disambiguate repeated exercise-column labels by requiring an exact match in another text cell on the same row. For example, `Abs` can be paired with the exact variation `hanging leg raises (3ct tempo eccentric)` without selecting a separate GHD sit-up row.
 - `weight_multiplier` defaults to `1`. Set it to `0.5` only for a confirmed per-side exercise.
 - `weight_suffix` defaults to an empty string and is independent of weight conversion.
-- `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in configured order.
+- `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in configured order. Part 1 requires the same number of completed standard sets for each movement, paired by set position; unsupported mixed/special-set combinations remain unresolved.
 
-There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule.
+There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule. A load conversion does not double or halve exported repetitions, and the transfer does not add machine base weight.
 
 ## Workbook discovery settings
 
@@ -70,6 +70,8 @@ Part 2 reuses exact exercise identities but adds policy choices. Keep a separate
 
 | Setting under `program` | Default | Opt-in behavior / requirement |
 | --- | --- | --- |
+| `day_label_pattern`, `week_header_pattern` | Day-number pattern; workbook week pattern when omitted | Customize discovery with explicit regular expressions; these do not infer dates. |
+| `style_header_labels`, `exercise_header_labels`, `variation_header_labels`, `sets_header_labels`, `reps_header_labels`, `rest_header_labels` | See the example and `ProgramConfig` in [program_models.py](../src/macrofactor_bridge/program_models.py) | Exact column-label lists for program discovery. Scoped batch profiles must retain shared discovery settings. |
 | `week_pair_layout` | `null` when omitted | Must explicitly choose `plan_then_result` or `result_then_plan`; the example chooses the former and needs verification. |
 | `prescription_source` | `selected_week` | `base` repeats the base prescription; selected weeks determine duration. |
 | `base_cycle_count` | `null` | 1–52 explicit cycles only for base blocks without literal week headers; not a workaround for partial headers. |
@@ -82,7 +84,7 @@ Part 2 reuses exact exercise identities but adds policy choices. Keep a separate
 | `notes_mode`, `note_text_policy` | `full`, `verbatim` | `concise` trims repetition; `conservative` uses only the explicit text-cleanup allow-list. |
 | `exclude_warmups`, `exclude_cardio`, `exclude_empty_days` | `false` | Opt-in exclusions with preview evidence; populated days cannot masquerade as empty. |
 | `resize_template_workouts`, `use_day_designations` | `false` | Guarded row-group resize and reviewed day subtitles respectively. |
-| `defaults` | Targets unset | Explicit fallback values never override coach values; rep bounds must be supplied together. |
+| `defaults` | Targets unset | `rep_min`, `rep_max`, `rir`, `rest_seconds`, and `set_type` never override coach values; rep bounds must be supplied together. |
 | `color`, `icon` | `null` | Only directly verified values are accepted; see the program guide. |
 
-Advanced per-exercise fields (`program_base_overrides`, `program_expansion`, `program_set_types`, `program_blank_rep_targets`, `program_notes`, inclusion/exclusion and availability flags) are explained with their guards in the [program guide](Program-Generation.md#reviewed-corrections-and-concise-notes). Do not enable every optional policy at once; review each change in preview.
+Advanced per-exercise fields (`program_base_overrides`, `program_expansion`, `program_set_types`, `program_blank_rep_targets`, `program_notes`, inclusion/exclusion and availability flags) are explained with their guards in [reviewed corrections](Program-Generation.md#reviewed-corrections-and-concise-notes), [sequential expansion](Program-Generation.md#reviewed-sequential-exercises-from-one-row), and [import policies](Program-Generation.md#other-import-policies). Do not enable every optional policy at once; review each change in preview.
