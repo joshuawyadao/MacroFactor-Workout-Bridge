@@ -1,50 +1,37 @@
 # Plan
 
-Harden the existing local workbook workflows against the six confirmed checkup findings, starting with reviewed-input validity, safe publication, standalone program coverage and protected report destinations, then numeric validation and consistent block attribution. Preserve current history consolidation, exact mappings, independent audits, source immutability and the manual MacroFactor import requirement.
+Audit the repository documentation against current source, then turn the long README into an approachable entry point with focused guides and accessible workflow graphics. Preserve advanced policies and safety limits, validate the examples, and deliver incremental commits and a reviewed pull request.
 
 ## Scope
-- In: checkup findings MWB-001 through MWB-006; focused synthetic regressions; existing Python/OOXML/Qt workflows; README and local workflow documentation; verified local commit checkpoints and final branch push.
-- Out: broader UI refactoring, CLI EOF cleanup, dependency upgrades, private source/configuration edits, historical-export reselection policy, installed application replacement, live MacroFactor import, issue/PR creation and merge.
+- In: README, documentation navigation, first-run and desktop guidance, CLI/configuration/program references, local-file workflow, architecture, contributor verification, troubleshooting, synthetic diagrams, and PR review.
+- Out: application behavior, dependencies, private data or mappings, app rebuild/install, real MacroFactor import, and merging the PR. The previous per-side mapping branch remains separate; this branch starts at current `origin/main`.
 
 ## Action items
-[x] Confirm clean baseline d4cf5de, review README, CONTRIBUTING, Local-File-Workflow and Regression-Validation, and map existing integration/program/GUI/history tests. The unchanged baseline passed all 444 tests with no skips in 93.267 seconds.
-[x] Obtain explicit approval to create codex/safety-checkup from the current checkout and implement, validate, commit and push this scope; checkpoint the resolved plan before implementation.
-[x] Bind Part 1 previews to workbook/export contents and effective Part 1 mapping semantics, including re-reading the original mapping path, and reject changes before writing; preserve the existing requirement that program-only config edits do not alter Part 1 previews. Cover in-place edits, mapping changes, preview-time drift and unchanged-input success.
-[x] Write Part 1 candidates to temporary sibling files, verify protected inputs and OOXML integrity, then publish without replacing a destination; cover rejected validation, partial writes, input drift and late collisions.
-[x] Add an independent authored-row coverage gate in program_audit, invoked by standalone previews in base and selected-week modes without requiring complete week coverage; pass an optional reviewed reference marker through preview before batch's full audit, preserve intentional week subsets, and rehash the source after the extra read.
-[x] Share exclusive report destination protection across desktop and CLI, reserving source inputs, mapping and generated workbook; test aliases, existing reports and late destination collisions.
-[x] Reject nonfinite transferable Part 1 values with visible diagnostics, preserving raw history inspection; cover NaN, signaling NaN and both infinities in reps/weight and avoid false empty-day markers.
-[x] Centralize block mapping validity in a pure history helper used before interval assignment and by progress/comparison/explorer/default selection. Require a Monday start, nonempty case-insensitively unique week labels and no overlap; detect overlap before filtering so both ranges remain invalidated. Preserve editable annotations, caller-specific diagnostics and raw calendar history.
-[x] Update README and Local-File-Workflow with the strengthened preview/publication/report contracts and consistent mapping behavior; record validation evidence here without claiming private-data or manual-import acceptance.
-[x] Run focused tests per slice, independent workbook-integrity review, the complete ./scripts/test.sh suite, source compilation, configuration parity, source GUI smoke, diff checks and the documented dependency audit if available or safely provisioned; commit coherent checkpoints and push the completed branch using save-branch.
+[x] Inspect existing docs, all source areas, packaging, test runner and CI; delegate independent program and workbook-safety documentation audits.
+[x] Create `codex/documentation-guide-refresh` from `origin/main` and checkpoint this resolved plan.
+[x] Rewrite README and add a documentation index, getting-started and desktop guides, CLI/configuration references, and accessible workflow graphics.
+[x] Preserve and organize detailed program generation/batch policies; streamline Local-File-Workflow and add practical troubleshooting.
+[x] Document module ownership, build/test/dependency maintenance and documentation conventions; update CONTRIBUTING and label historical validation evidence.
+[x] Verify links/anchors, SVG rendering, command help and synthetic CLI examples; run canonical tests, compilation, dependency audit and diff checks. Update existing documentation-contract tests to follow the new canonical development guide; production behavior remains unchanged.
+[x] Review input/output/privacy claims and advanced-policy coverage; commit each coherent documentation slice with validation evidence.
+[x] Push the feature branch, open PR #23 and request review; track Codex feedback, hosted CI and mergeability on the PR through a terminal result without merging.
 
 ## Open questions
-- None. Branch creation and the implementation/save workflow are explicitly approved. Report saving will require a distinct new file, matching the existing CLI policy. Unsupported or unaccounted program rows remain blocked rather than guessed.
+- None. Use source-controlled SVG and Mermaid diagrams with text equivalents, keep private screenshots and exports out of the documentation, and organize around users’ tasks.
 
-## Validation evidence
-- First four fixes: 53 combined transfer/report/GUI/integration/expansion tests passed; all 251 program tests passed. Independent workbook-integrity review confirmed the safety paths and identified malformed mapping JSON shape handling, now covered and corrected. Full-suite verification follows the numeric/block slice.
-- Numeric/block slice: 45 numeric/formatting/transfer/integration tests and 61 history/projection/GUI tests passed. Independent review confirmed numeric withholding and shared attribution, with a follow-up regression removing an invented interval for blocks without weeks and an actual mixed valid/invalid workbook-apply assertion.
-- Initial integrated run: all 484 tests passed, zero skips, in 49.765 seconds. Final run including the zero-week regression: all 485 tests passed, zero skips, in 60.438 seconds (exit 0). Compilation, bundled/example configuration parity and diff checks passed. The documented hash-pinned audit ran in an isolated Python 3.11 temporary environment and found no known vulnerabilities in all three dependency locks.
-- Source GUI smoke passed for version 0.9.1 with offscreen Qt. No installed bundle was rebuilt or replaced; private workbook acceptance and manual MacroFactor import remain outside this validation.
+## Validation and checkpoints
+- User guides: synthetic fixture inspect/preview produced six expected writes with deliberate review cases; all local links/anchors and nine JSON examples parsed successfully. The workflow SVG was rendered and visually checked for clipping and readable contrast.
+- Setup commands use non-overwriting `cp -n`; the private mapping is created before archive commands. CLI apply and program-preview exit semantics are explicit.
+- Independent program and workbook-safety documentation audits are complete. Corrected audit boundaries, discovery/default settings, malformed-import limits, current-note provenance, superset limits and partial-transfer guidance.
 
-## Changed regression coverage
-- Added `tests/test_transfer_safety.py`, `tests/test_report_safety.py`, `tests/test_program_source_coverage.py`, `tests/test_numeric_transfer.py` and `tests/test_block_mapping.py`. Extended `tests/test_program_configured_cycles.py` and `tests/test_comparison_gui.py`.
+- First canonical run: 490 tests in 78.551 seconds, exit 1; four subtest failures were existing documentation contracts looking for commands in README/CONTRIBUTING after their move. Preserve those command assertions in Development.md and add assertions that both entry pages link to that guide, then rerun focused and full checks. All executable-behavior tests passed; no production changes are needed.
+- Dependency audit: all three hash-pinned locks passed with no known vulnerabilities. Compilation passed.
 
-## Save checkpoints
-- `46aa645`: resolved plan before implementation.
-- `d9a9249`: reviewed-input binding, staged output publication, program source coverage and protected report saving.
-- Final numeric/block validation checkpoint completes this plan on `codex/safety-checkup`; save the complete branch to `origin` without creating or merging a pull request.
+- Focused documentation/dependency checks: 16 tests passed in 6.344 seconds, exit 0. The existing runner and Python 3.11 audit assertions now target Development.md; a new test preserves navigation from README and CONTRIBUTING. No production code changed.
+- All seven CLI subcommand help pages and workspace help passed. Temporary synthetic preview/apply/report/no-overwrite/input-hash checks and workspace setup/archive/status passed.
+- Checkpoint `5bb3e28` saved the plan; `bb9e45a` saved the user-guide/graphics slice. The next checkpoint records contributor guidance and the completed source-accuracy review.
 
-## PR #22 publication compatibility follow-up
-
-Codex review identified that hard-link-only publication prevents valid Part 1 transfers to filesystems such as exFAT or network mounts. Add an exclusive-create fallback for unsupported hard-link operations after candidate validation. Track the identity of the created output so partial-copy, input-drift and validation failures remove only this attempt's file; preserve late competing files and keep input snapshots authoritative. Existing hard-link publication remains the preferred atomic path.
-
-- [x] Reproduce unsupported-hard-link failure and add successful fallback, late-collision, partial-copy and protected-input-drift regressions.
-- [x] Implement the bounded Part 1 fallback and document its publication behavior.
-- [x] Run focused transfer tests and the complete suite; prepare the fix for save/push. Hosted CI Verify and the post-push acknowledgment of Codex comment 4125399517 are tracked in PR #22.
-
-Open questions: none. This narrow compatibility fix is authorized by the requested PR review cycle; no source files, overwrite policy or program-generation behavior are changed.
-
-Follow-up focused validation: all 40 transfer/numeric/integration tests passed, including five new fallback cases. The unsupported-link cases failed before the fix. Full-suite and hosted verification follow.
-
-Follow-up final local validation: all 490 tests passed with no skips in 59.760 seconds; compilation and diff checks passed. Review also confirmed candidate identity is captured before linking. The existing portable check/unlink cleanup race and fallback copy visibility are documented in Local-File-Workflow.md; no platform-specific coordination was introduced.
+- Final canonical suite: **491 tests passed in 65.026 seconds**, no skips, exit 0. Compilation, source GUI smoke, 190 local links/anchors, nine JSON examples and diff checks passed. No app rebuild or personal-data acceptance was needed.
+- Checkpoint `0135700` saved contributor guidance and documentation-contract coverage. All application modules are mapped; unchanged SECURITY.md and CODE_OF_CONDUCT.md remain the canonical policies.
+- [PR #23](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/23) contains all checkpoint commits. Codex review was requested. Its live review/check state and final readiness are tracked in the PR and completion report, not as a permanent guarantee in this plan.
+- Brooks PR review: sampled the large documentation relocation and examined all changed test assertions; 100/100, stable, with no actionable findings. The large diff is a cohesive manual split with canonical topic pages, not unrelated code changes. Production dependency and domain structure are unchanged; the quick test-design scan is inapplicable to documentation-only behavior.

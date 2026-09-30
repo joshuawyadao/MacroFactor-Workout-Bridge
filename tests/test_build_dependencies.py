@@ -212,8 +212,7 @@ class BuildDependencyTests(unittest.TestCase):
 
     def test_ci_and_contributor_docs_use_the_canonical_test_runner(self) -> None:
         checked_files = (
-            "README.md",
-            "CONTRIBUTING.md",
+            "docs/Development.md",
             ".github/workflows/ci-verify.yml",
         )
         for relative_path in checked_files:
@@ -222,10 +221,17 @@ class BuildDependencyTests(unittest.TestCase):
                 self.assertIn("./scripts/test.sh", text)
 
     def test_documented_audit_environment_uses_the_locked_python_version(self) -> None:
+        text = (PROJECT_ROOT / "docs/Development.md").read_text()
+        self.assertIn("python3.11 -m venv --clear .venv/audit", text)
+
+    def test_documentation_entry_points_link_to_the_verification_guide(self) -> None:
         for relative_path in ("README.md", "CONTRIBUTING.md"):
             with self.subTest(relative_path=relative_path):
                 text = (PROJECT_ROOT / relative_path).read_text()
-                self.assertIn("python3.11 -m venv --clear .venv/audit", text)
+                self.assertIn(
+                    "docs/Development.md",
+                    re.findall(r"\]\(([^)#]+)(?:#[^)]*)?\)", text),
+                )
 
     def test_test_runner_honors_the_virtualenv_root_override(self) -> None:
         override_root = PROJECT_ROOT / ".test-venv-override"
