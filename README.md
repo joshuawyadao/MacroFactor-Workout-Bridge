@@ -18,7 +18,7 @@ The Dashboard never changes either source. Part 2 can create a new candidate pro
 ## Engineering highlights
 
 - **Preview before write:** every proposed workbook change is shown before an output can be created.
-- **Immutable inputs:** source hashes are checked around apply, and output must use a distinct path that does not already exist.
+- **Immutable inputs:** previews record workbook/export hashes and effective Part 1 mapping settings. Apply rechecks the reviewed files and mapping, validates a temporary workbook, then publishes exclusively to a distinct new path. Failed validation leaves no output workbook. Filesystems without hard-link support use an exclusive-create copy fallback with identity/hash verification and cleanup on failure.
 - **Surgical OOXML edits:** only the selected worksheet XML and, for highlighted review markers, `xl/styles.xml` may change; every other workbook part must remain byte-identical.
 - **Conservative matching:** exercise names use exact normalized aliases, with no fuzzy or inferred matches.
 - **Reviewable ambiguity:** duplicates, occupied cells, zero-rep rows, unsupported data, and unmatched exercises are reported instead of guessed.
@@ -79,7 +79,7 @@ See the [Security Policy](SECURITY.md) to report a vulnerability privately. Neve
 - Normal result updates retain the target cell's style. Highlighted review markers change only the fill while retaining the font, border, alignment, and number format, including formatting inherited from a row or column when the cell has no explicit style. Formulas, merged cells, relationships, drawings, and workbook structure remain intact. Edited XML retains namespace declaration scopes, including prefixes used only by compatibility attributes.
 - Exercise matching is exact after case and whitespace normalization plus configured aliases. There is no fuzzy matching.
 - When enabled in the mapping, a programmed day with no matched session receives a yellow `Skip` review marker. It is a visual prompt to confirm the absence, not proof that MacroFactor recorded a skip.
-- Zero-rep rows are ignored and reported.
+- Zero-rep rows are ignored and reported. Nonfinite weight/reps values (`NaN`, signaling `NaN`, or infinities) retain row/value diagnostics and withhold the affected result cell, including shared superset cells. Unaffected results may still be written; invalid values never become zero or an empty-day marker. Weight multipliers must be finite and positive.
 - Dashboard reads exports and workbooks without changing them. Automatic loading may archive new copies; training notes are written only when explicitly saved to the private annotation JSON file.
 - Missing block dates and RIR values remain missing. The dashboard reports reduced coverage instead of inferring them.
 
@@ -154,7 +154,9 @@ The second top-level tab, **Update coach workbook**, guides the optional workboo
 5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that an absent workout was skipped.
 6. Click **Preview workbook changes** and inspect the proposed-change table and **Review needed** panel. Yellow `Skip` rows call out programmed days with no matched session and must be confirmed before sharing.
 7. Click **Save updated workbook copy…** and choose a new `.xlsx` filename. The logged sets go into the selected week in this new copy; the original workbook stays unchanged.
-8. Optionally save the full review and validation report as JSON.
+8. Optionally save the full review and validation report as JSON at a new path. Desktop and CLI refuse existing files, source/mapping paths, and generated-workbook paths, including symlink aliases.
+
+If the workbook, export, or Part 1 mapping settings change after preview, create a new preview before applying. Program-only mapping settings do not invalidate a Part 1 review.
 
 The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file outside the repository, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
 
@@ -174,7 +176,7 @@ Comparisons align relative week 1 with week 1, even when the coach labels start 
 
 Block comparisons require confirmed Monday starts, distinct week labels, and date ranges that do not overlap any other dated block. The app explains invalid selections without changing dates or source files. It compares the same canonical exercise only, does not combine similar movements, and does not rank blocks of different lengths or infer recovery from reduced training. Block types, notes, and vacation/injury context remain descriptive. Reloading preserves comparison selections when they still exist; changing source paths clears stale results until the next successful load.
 
-Block dates are never inferred from worksheet names or gaps in training. Until a start date is confirmed, dated workouts remain visible by calendar week but are not assigned to that block. When a start is known, consecutive seven-day ranges map to the workbook's discovered week labels. Calendar trends use Monday–Sunday; confirming a Monday start aligns block weeks with those trends. A missing workout never shifts later weeks or becomes an inferred skip.
+Block dates are never inferred from worksheet names or gaps in training. Until a start date is confirmed, dated workouts remain visible by calendar week but are not assigned to that block. Assignment requires a confirmed Monday start, nonempty distinct week labels and no overlap with another dated block. Only then do consecutive seven-day ranges map to the workbook's discovered week labels. Invalid dates or labels stay editable and leave sets visible in calendar history with zero block attribution; comparisons and summaries use the same validity rule. A missing workout never shifts later weeks or becomes an inferred skip.
 
 For irregular worksheets with copied historical columns or date-labelled weeks, an optional private `week_layout` selects the exact headers in chronological order. Counts, date ranges, and the week-note selector then use only those weeks. Source headers are checked on every load, and a changed or missing header stops loading rather than silently remapping history. Week discovery in **Update coach workbook** is unchanged. See [custom history layouts](docs/Local-File-Workflow.md#irregular-coach-week-layouts) for the advanced JSON configuration and version requirements.
 
@@ -246,11 +248,13 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
   --report local-data/generated/reports/program-preview.json
 ```
 
-Report paths must be new files and cannot reuse an input or generated workbook path; the CLI refuses to overwrite an existing report.
+Report paths must be new files and cannot reuse an input, mapping or generated workbook path; both desktop and CLI refuse to overwrite an existing report.
 
 The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
 
 Parsing is deliberately allow-listed. Base sets must be positive integers. Reps can be a single value, a range such as `8-12`, `8 to 12 reps`, `8 to 12 range`, or `8 to 12 rep range`, or a comma-separated positive per-set list whose length matches the set count. Single numbers become equal minimum/maximum targets. Explicit `ea`/`each` suffixes (optionally `leg`/`side`) mean per-side reps; a trailing `again` or `here` preserves the preceding exact target. Those suffixes must be terminal: additional prose remains uninterpreted. `N+ reps` has a minimum but no maximum: native generation remains blocked until a direct export verifies minimum-only encoding, unless the user explicitly enables the notes-only fallback below. Rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. `Read week`, `your choice`, RPE, AMRAP, weights, substitutions and progression prose remain raw and blocking unless an explicit notes/blank policy applies.
+
+An independent source-row scan checks each selected day through the next day heading, including rows after blank separators. Unaccounted exercise rows, orphan base prescriptions and base formulas block standalone generation in both base and selected-week modes. Intentional week subsets remain supported. Reviewed reference boundaries may be supplied through the batch manifest or service API; standalone CLI generation blocks ambiguous footer content pending review.
 
 The coach `Style` column is preserved as raw classification text. The separate `Variation` column is retained and used for exact exercise matching and context. A specific variation must match an exact alias/canonical name or a category alias with matching configured context; an unqualified category mapping from another block cannot replace it. A single block-wide week header may serve later days with matching base columns and proven plan/result pairs. Header inheritance stops when day numbers reset or the base layout changes.
 

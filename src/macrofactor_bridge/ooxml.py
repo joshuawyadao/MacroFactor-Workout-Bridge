@@ -265,7 +265,7 @@ class XlsxPackage:
                     source.read(styles_path), original_xml, highlights
                 )
             changed_xml = self._updated_sheet_xml(original_xml, changes, highlight_styles)
-            with zipfile.ZipFile(output, "w") as destination:
+            with zipfile.ZipFile(output, "x") as destination:
                 destination.comment = source.comment
                 for info in source.infolist():
                     if info.filename == sheet.path:

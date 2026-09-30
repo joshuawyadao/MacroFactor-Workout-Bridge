@@ -108,5 +108,27 @@
       "suggestion": 0
     },
     "scope": "PR #13 vs origin/main; sampled the highest-risk coach parser, OOXML template writer, source/output audits, batch publication path, CLI boundaries, and corresponding synthetic regressions after integrating current main"
+  },
+  {
+    "date": "2026-09-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #22 vs main d4cf5de; sampled high-risk preview/publication, numeric validation, program source coverage, protected reports, block attribution and regression tests"
+  },
+  {
+    "date": "2026-09-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #22 follow-up: exclusive-create fallback for unsupported hard links; regression coverage and documented publication/cleanup concurrency limits after fixes"
   }
 ]

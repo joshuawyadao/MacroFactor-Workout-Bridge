@@ -246,6 +246,94 @@ def _reference_boundary(snapshot, headers, selected, rows, marker: str) -> int:
     return row
 
 
+def audit_program_source_rows(
+    workbook_path: str | Path, config: BridgeConfig, report: ProgramPreviewReport, *,
+    reference_boundary_marker: str | None = None,
+) -> tuple[ProgramIssue, ...]:
+    """Independently compare every authored base-table row with a standalone preview.
+
+    The production parser stops at a blank separator. This scan deliberately runs
+    through the next day heading, or an explicitly reviewed final-day marker.
+    Week-plan cells alone are notes and do not create exercise rows.
+    """
+    issues: list[ProgramIssue] = []
+
+    def fail(code: str, message: str, *, day=None, cell=None, raw=None):
+        issues.append(ProgramIssue("blocking", "source_audit_" + code, message,
+                                   report.sheet, cell=cell, day=day, raw_text=raw))
+
+    if report.program is None:
+        fail("selection", "A parsed program is required for source-row coverage")
+        return tuple(issues)
+    try:
+        package = XlsxPackage(workbook_path)
+        snapshot = package.sheet_snapshot(package.sheet_by_name(report.sheet))
+        headers, rows = _headers(snapshot, config)
+        grouped: list[list[_Header]] = []
+        for header in headers:
+            if (not grouped or header.number <= grouped[-1][-1].number
+                    or any(header.columns[key] != grouped[-1][-1].columns[key]
+                           for key in ("style", "exercise", "sets", "reps", "rest"))):
+                grouped.append([])
+            grouped[-1].append(header)
+        selected = next((group for index, group in enumerate(grouped, 1)
+                         if report.block == f"block-{index}"), None)
+        if selected is None:
+            fail("block_boundary", "Selected block lacks independent literal day/header evidence")
+            return tuple(issues)
+        if reference_boundary_marker is not None:
+            try:
+                boundary = _reference_boundary(snapshot, headers, selected, rows,
+                                               reference_boundary_marker)
+            except ValueError as exc:
+                fail("reference_boundary", str(exc))
+                return tuple(issues)
+        else:
+            boundary = None
+    except (WorkbookError, ValueError, KeyError, ET.ParseError, zipfile.BadZipFile) as exc:
+        fail("unreadable_source", f"Independent source inspection failed: {exc}")
+        return tuple(issues)
+
+    preview_days = iter(report.program.days)
+    preview_day = next(preview_days, None)
+    skipped = [item.get("day") for item in report.skipped_items
+               if item.get("reason") == "No coach-authored exercise rows"]
+    observed_skipped = []
+    for header in selected:
+        next_headers = [item.row for item in headers if item.row > header.row]
+        end = min(next_headers) - 1 if next_headers else max(rows, default=header.row)
+        if boundary is not None and header.row == selected[-1].row:
+            end = boundary - 1
+        source_rows = []
+        for row in range(header.row + 1, end + 1):
+            cells = {role: rows.get(row, {}).get(column) for role, column in header.columns.items()}
+            values = {role: _text(cell) for role, cell in cells.items()}
+            if any(cell is not None and cell.formula is not None for cell in cells.values()):
+                fail("formula", "Base exercise or prescription cell contains a formula",
+                     day=header.label, cell=make_cell_reference(row, header.columns["exercise"]))
+            if values.get("exercise"):
+                source_rows.append(row)
+            elif any(value for role, value in values.items() if role != "exercise"):
+                fail("orphan_prescription", "Base fields occur without an exercise name",
+                     day=header.label, cell=make_cell_reference(row, header.columns["exercise"]))
+        if preview_day is not None and preview_day.label == header.label:
+            actual_rows = list(dict.fromkeys(exercise.source_row for exercise in preview_day.exercises))
+            if actual_rows != source_rows:
+                fail("row_coverage", "Preview source rows differ from the complete base table, including rows after blank gaps",
+                     day=header.label, raw=f"source={source_rows}; preview={actual_rows}")
+            preview_day = next(preview_days, None)
+        elif config.program.exclude_empty_days and not source_rows and not _has_authored_table_content(
+                header, end_row=end, rows=rows):
+            observed_skipped.append(header.label)
+        else:
+            fail("day_coverage", "Preview omits or reorders a source workout day", day=header.label)
+    if preview_day is not None or next(preview_days, None) is not None:
+        fail("day_coverage", "Preview contains a workout day outside the selected source block")
+    if observed_skipped != skipped:
+        fail("empty_day_coverage", "Source-empty day omissions differ from explicit skipped-item provenance")
+    return tuple(issues)
+
+
 def _aligned_source_weeks(snapshot, rows, headers, selected, config):
     """Reconstruct aligned pairs from literal source, independently of discovery."""
     if config.program.prescription_source != "base" or config.program.week_pair_layout not in {

@@ -120,8 +120,7 @@ class ConfiguredBaseCycleTests(unittest.TestCase):
         cells["C21"] = "Unfinished upper day"
         add_day_header(cells, row=25, day="Day 4", week_one="", week_two="")
         cells["C26"] = "Unfinished lower day"
-        # Reference material after a real blank separator must not become Day 4.
-        cells.update({"D30": "Reference", "E30": "Not a coach-authored exercise"})
+        self.cells = cells
         write_program_workbook(self.source, sheet_name="Synthetic", cells=cells, merges=())
         # The verified user template has more workout groups than this temporary
         # two-day program; opt-in resizing may remove only trailing groups.
@@ -180,10 +179,17 @@ class ConfiguredBaseCycleTests(unittest.TestCase):
         serialized = json.dumps(report.to_dict())
         self.assertNotIn("WEEKLY-PLAN-MUST-NOT-BECOME-A-TARGET", serialized)
         self.assertNotIn("COMPLETED-RESULT-SENTINEL", serialized)
-        self.assertNotIn("Not a coach-authored exercise", serialized)
         self.assertTrue(report.generation_safe, report.blocking_issues)
         audit = audit_coach_program(self.source, config, block, report)
         self.assertTrue(audit.passed, audit.issues)
+
+    def test_unreviewed_reference_like_row_after_empty_day_blocks_preview(self) -> None:
+        self.cells.update({"D30": "Reference", "E30": "Not a coach-authored exercise"})
+        write_program_workbook(self.source, sheet_name="Synthetic", cells=self.cells, merges=())
+        _, _, report = self.preview()
+        self.assertFalse(report.generation_safe)
+        self.assertIn("source_audit_day_coverage", {issue.code for issue in report.issues})
+        self.assertNotIn("Not a coach-authored exercise", json.dumps(report.to_dict()))
 
     def test_generation_round_trip_is_two_workouts_four_cycles_and_inputs_are_immutable(self) -> None:
         _, _, report = self.preview()

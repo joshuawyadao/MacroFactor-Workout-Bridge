@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from datetime import date
 from pathlib import Path
@@ -12,6 +11,8 @@ from .importers import ImportError
 from .ooxml import WorkbookError
 from .program_service import build_program_preview, generate_program
 from .program_batch import run_program_batch
+from .reporting import validate_report_path as _validate_report_path
+from .reporting import write_report as _write_report
 from .service import apply_changes, build_preview
 from .workbook import discover_workbook
 
@@ -49,32 +50,6 @@ def _resolve_selection(args, config):
         raise WorkbookError(f"Worksheet is not available for transfer: {sheet_name!r}")
     week_label = args.week or _select("Week", [week.label for week in matches[0].weeks])
     return sheet_name, week_label
-
-
-def _validate_report_path(
-    path: str | None, *, reserved: tuple[str | None, ...]
-) -> Path | None:
-    if not path:
-        return None
-    output = Path(path)
-    resolved = output.resolve(strict=False)
-    for reserved_path in reserved:
-        if reserved_path and resolved == Path(reserved_path).resolve(strict=False):
-            raise FileExistsError(f"Report path is reserved input or output: {output}")
-    if output.exists():
-        raise FileExistsError(f"Report path already exists: {output}")
-    return output
-
-
-def _write_report(
-    path: str | None, report, *, reserved: tuple[str | None, ...] = ()
-) -> None:
-    output = _validate_report_path(path, reserved=reserved)
-    if output is None:
-        return
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("x", encoding="utf-8") as report_file:
-        report_file.write(json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n")
 
 
 def _print_report(report, mode: str) -> None:
