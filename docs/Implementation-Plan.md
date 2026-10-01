@@ -79,14 +79,16 @@ Open questions: none.
 - [x] Preserve the new documentation layout from main and move per-side details to Configuration.md.
 - Native synthetic preview and workbook save passed, including occupied-cell protection and workbook integrity. Restoring the real workbook was interrupted by an inaccessible app window and the Mac locking; full real-data verification remains incomplete.
 - Pre-documentation-merge full suite: 491 tests passed, no skips. Brooks review found no actionable issues.
-- Hosted CI is blocked by three audit findings against urllib3 2.7.0 inherited from main. Updating the unrelated audit lock to the reported fixed version awaits user approval.
+- Hosted CI is blocked by three audit findings against urllib3 2.7.0 inherited from main. The user subsequently approved the audit-lock update recorded below.
 
 ### Approved audit dependency update
 
 The user approved updating the inherited urllib3 audit-tool dependency and confirmed the Mac is unlocked. Update only the audit lock to the reported fixed 2.8.0 release, verify the wheel against PyPI metadata, resolve/install the full hash-pinned closure on Python 3.11, run pip check and audit all three locks, then push and verify hosted CI and review readiness. Application/test dependency locks are unchanged, so an application rebuild would not exercise this audit-only change.
 
-- [ ] Update the approved dependency and verify the complete audit closure and all dependency audits.
+- [x] Update the approved dependency and verify the complete audit closure and all dependency audits.
 - [ ] Validate dependency contract tests and final CI; preserve exact hashes and other pins.
 - [x] Confirm the unlocked native app shows the real labeled coach workbook, private mapping, selected block and Week 1. No September 25 export remains at its supplied path; export selection stays empty.
 
 Open questions: none.
+
+Audit update validation: urllib3 2.8.0 universal-wheel SHA-256 matched official PyPI metadata and the downloaded wheel. The full hash-pinned Python 3.11 audit closure installed on Apple silicon; pip check passed and pip-audit found no known vulnerabilities across audit, build and test locks. The complete Linux x86-64 Python 3.11 wheel closure also downloaded successfully with required hashes. All 17 focused dependency/transfer tests and diff checks passed. Only the urllib3 pin and hash changed; no production or test dependency locks changed. Hosted CI and refreshed Codex review follow the push.
