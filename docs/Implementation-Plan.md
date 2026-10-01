@@ -35,3 +35,60 @@ Audit the repository documentation against current source, then turn the long RE
 - Checkpoint `0135700` saved contributor guidance and documentation-contract coverage. All application modules are mapped; unchanged SECURITY.md and CODE_OF_CONDUCT.md remain the canonical policies.
 - [PR #23](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/23) contains all checkpoint commits. Codex review was requested. Its live review/check state and final readiness are tracked in the PR and completion report, not as a permanent guarantee in this plan.
 - Brooks PR review: sampled the large documentation relocation and examined all changed test assertions; 100/100, stable, with no actionable findings. The large diff is a cohesive manual split with canonical topic pages, not unrelated code changes. Production dependency and domain structure are unchanged; the quick test-design scan is inapplicable to documentation-only behavior.
+
+## Per-side transfer calibration
+
+Calibrate the private Part 1 transfer mapping using existing exact aliases and per-exercise weight conversion. Add anonymized end-to-end regressions and document weight versus repetitions.
+
+### Scope
+- In: active private mapping, six confirmed per-side rules, exact substitutions, synthetic tests, transfer documentation.
+- Out: Part 2 configuration, workbook edits, machine labels, base weight, generic inference, formatter redesign, app rebuild.
+
+### Action items
+[x] Inspect README, local-file workflow, configuration, formatter, matching and tests.
+[x] Checkpoint the plan on the approved branch.
+[x] Back up and update the active private mapping while preserving existing aliases and excluding private data from Git.
+[x] Add synthetic preview/apply regressions for six per-side rules, unchanged reps, substitutions, zero load, total-load exercises and occupied-cell protection.
+[x] Document per-side weights and unchanged repetitions in README and local-file workflow.
+[x] Validate mappings against the labeled workbook without altering it; run targeted and broader tests and diff checks.
+[x] Prepare final branch save; private configuration is backed up and installed separately.
+
+### Open questions
+- None. Branch and six weight conversions are confirmed; repetitions remain unchanged.
+
+### Validation
+- All 18 reviewed exercises match unique intended workbook rows; six half-weight/suffix rules and twelve unchanged-load rules verified.
+- Targeted transfer/formatting/calibration/integration suite: 28 tests passed.
+- Canonical suite (`./scripts/test.sh`): 445 tests passed, no skips.
+- Compilation and `git diff --check`: passed.
+- Private configuration was backed up before installation. No workbook edits, Part 2 configuration edits or app rebuild were needed.
+
+### PR readiness follow-up
+
+Preserve main’s completed safety-hardening record and this branch’s calibration record. Restart the installed app, verify the selected private mapping, run an isolated synthetic transfer preview, and rerun validation against merged main. Keep private files out of the PR.
+
+- [x] Resolve the implementation-plan conflict by retaining both completed work records.
+- [ ] Complete native app and current-head test verification.
+- [ ] Complete Brooks review, Codex review, hosted CI and final mergeability checks.
+
+Open questions: none.
+
+### Codex review correction
+
+- [x] Correct the restart advice: Part 1 requires explicitly selecting the private mapping after restart; Dashboard mapping auto-loading is separate.
+- [x] Preserve the new documentation layout from main and move per-side details to Configuration.md.
+- Native synthetic preview and workbook save passed, including occupied-cell protection and workbook integrity. Restoring the real workbook was interrupted by an inaccessible app window and the Mac locking; full real-data verification remains incomplete.
+- Pre-documentation-merge full suite: 491 tests passed, no skips. Brooks review found no actionable issues.
+- Hosted CI is blocked by three audit findings against urllib3 2.7.0 inherited from main. The user subsequently approved the audit-lock update recorded below.
+
+### Approved audit dependency update
+
+The user approved updating the inherited urllib3 audit-tool dependency and confirmed the Mac is unlocked. Update only the audit lock to the reported fixed 2.8.0 release, verify the wheel against PyPI metadata, resolve/install the full hash-pinned closure on Python 3.11, run pip check and audit all three locks, then push and verify hosted CI and review readiness. Application/test dependency locks are unchanged, so an application rebuild would not exercise this audit-only change.
+
+- [x] Update the approved dependency and verify the complete audit closure and all dependency audits.
+- [ ] Validate dependency contract tests and final CI; preserve exact hashes and other pins.
+- [x] Confirm the unlocked native app shows the real labeled coach workbook, private mapping, selected block and Week 1. No September 25 export remains at its supplied path; export selection stays empty.
+
+Open questions: none.
+
+Audit update validation: urllib3 2.8.0 universal-wheel SHA-256 matched official PyPI metadata and the downloaded wheel. The full hash-pinned Python 3.11 audit closure installed on Apple silicon; pip check passed and pip-audit found no known vulnerabilities across audit, build and test locks. The complete Linux x86-64 Python 3.11 wheel closure also downloaded successfully with required hashes. All 17 focused dependency/transfer tests and diff checks passed. Only the urllib3 pin and hash changed; no production or test dependency locks changed. Hosted CI and refreshed Codex review follow the push.
