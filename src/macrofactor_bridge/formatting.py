@@ -71,8 +71,11 @@ def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
             current_kind = "drop"
             continue
         if "myo" in kind:
-            output.append(f"{weight} x {reps}")
-            current_index = len(output) - 1
+            if current_index is not None and current_kind == "standard" and weight == current_weight:
+                output[current_index] += f", {reps}"
+            else:
+                output.append(f"{weight} x {reps}")
+                current_index = len(output) - 1
             current_weight = weight
             current_kind = "myo"
             continue

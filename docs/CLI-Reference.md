@@ -94,6 +94,7 @@ Apply refuses to create an output when there are no proposed writes. When some c
 - Repeated weight: `200 x 8, 7`
 - Weight changes: `200 x 8, 7; 180 x 10`
 - Myo and mini sets: `160 x 10+3+2`
+- Regular sets followed by myo and mini sets at the same weight: `160 x 12, 11, 9+3+2`
 - Supersets: `50/60 x 10/12, 9/11`
 - Superset weight changes: `50/60 x 10/12; 50/55 x 9/11`
 - Drop sets: `100 x 8→70 x 10`
@@ -101,6 +102,10 @@ Apply refuses to create an output when there are no proposed writes. When some c
 - Configured per-side conversion plus suffix: `45s x 12`
 
 Per-side load conversions are explicit mapping rules; repetitions remain as exported. No general machine or dumbbell conversion is inferred. See [Configuration](Configuration.md).
+
+A myo activation at the same weight joins the preceding regular sets, and its mini-sets keep the `+` notation. Weight changes remain explicit. A regular set after a myo series starts a separate group.
+
+Corrected workout data requires a fresh MacroFactor export and preview. The app uses the exported rep counts and does not infer corrections. Existing coach result cells remain protected from overwriting.
 
 ## Private workspace commands
 

@@ -352,6 +352,35 @@ class IntegrationTests(unittest.TestCase):
                 apply_changes(self.preview(), self.config, output)
             self.assertEqual(output.read_bytes(), b"do not replace")
 
+    def test_preview_and_apply_share_weight_for_regular_sets_then_myo(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            export = Path(directory) / "mixed-sets.csv"
+            export.write_text(
+                "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+                "2026-08-03,Day One,Dumbbell Walking Lunge,Standard Set,120,12\n"
+                "2026-08-03,Day One,Dumbbell Walking Lunge,Standard Set,120,11\n"
+                "2026-08-03,Day One,Dumbbell Walking Lunge,Myo Set,120,9\n"
+                "2026-08-03,Day One,Dumbbell Walking Lunge,Mini-set,120,3\n"
+                "2026-08-03,Day One,Dumbbell Walking Lunge,Mini-set,120,2\n",
+                encoding="utf-8",
+            )
+            export_hash = file_sha256(export)
+            workbook_hash = file_sha256(COACH)
+            report = build_preview(
+                export, COACH, self.config, "Training Block", "Week 1",
+                date(2026, 8, 3), date(2026, 8, 9),
+            )
+            proposals = {proposal.cell: proposal.value for proposal in report.proposed_writes}
+            self.assertEqual(proposals, {"J10": "60s x 12, 11, 9+3+2"})
+
+            output = Path(directory) / "mixed-sets-output.xlsx"
+            applied = apply_changes(report, self.config, output)
+            result = XlsxPackage(output).sheet_snapshot("Training Block")
+            self.assertEqual(result.cells["J10"].value, proposals["J10"])
+            self.assertEqual(file_sha256(export), export_hash)
+            self.assertEqual(file_sha256(COACH), workbook_hash)
+            self.assertEqual(applied.validation["unrelated_members_changed"], [])
+
     def test_accepts_csv_and_xlsx_exports(self) -> None:
         xlsx_records = load_exercise_log(LOG)
         self.assertGreater(len(xlsx_records), 10)

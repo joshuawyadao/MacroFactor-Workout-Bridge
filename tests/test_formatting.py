@@ -72,6 +72,82 @@ class FormattingTests(unittest.TestCase):
             self.rule,
         )
         self.assertEqual(value, "160 x 10+3; 160 x 8")
+        joined_value = format_sets(
+            [
+                record("Standard Set", "160", "12", 1),
+                record("Myo Set", "160", "10", 2),
+                record("Mini-set", "160", "3", 3),
+                record("Standard Set", "160", "8", 4),
+            ],
+            self.rule,
+        )
+        self.assertEqual(joined_value, "160 x 12, 10+3; 160 x 8")
+
+    def test_standard_sets_then_myo_reuse_weight_and_preserve_mini_sets(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "160", "12", 1),
+                record("Standard Set", "160", "11", 2),
+                record("Myo Set", "160", "9", 3),
+                record("Mini-set", "160", "3", 4),
+                record("Mini-set", "160", "2", 5),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "160 x 12, 11, 9+3+2")
+
+    def test_standard_sets_then_myo_keep_per_side_conversion_and_suffix(self) -> None:
+        rule = ExerciseRule(
+            canonical="Exercise",
+            source_aliases=("Exercise",),
+            coach_aliases=("Exercise",),
+            weight_multiplier=Decimal("0.5"),
+            weight_suffix="s",
+        )
+        value = format_sets(
+            [
+                record("Standard Set", "140", "12", 1),
+                record("Standard Set", "140", "11", 2),
+                record("Myo Set", "140", "9", 3),
+                record("Mini-set", "140", "3", 4),
+            ],
+            rule,
+        )
+        self.assertEqual(value, "70s x 12, 11, 9+3")
+
+    def test_myo_weight_change_starts_a_new_weight_group(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "180", "12", 1),
+                record("Myo Set", "160", "10", 2),
+                record("Mini-set", "160", "3", 3),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "180 x 12; 160 x 10+3")
+
+    def test_myo_after_drop_starts_a_new_weight_group(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "180", "8", 1),
+                record("Drop Set", "160", "10", 2),
+                record("Myo Set", "160", "9", 3),
+                record("Mini-set", "160", "3", 4),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "180 x 8→160 x 10; 160 x 9+3")
+
+    def test_mini_weight_change_after_joined_myo_stays_explicit(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "160", "12", 1),
+                record("Myo Set", "160", "10", 2),
+                record("Mini-set", "140", "3", 3),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "160 x 12, 10+140 x 3")
 
     def test_drop_sets_use_arrow(self) -> None:
         value = format_sets(
