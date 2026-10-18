@@ -9,7 +9,7 @@ This walkthrough builds the macOS app and prepares a private workspace. If you a
 | Item | Supported input |
 | --- | --- |
 | Mac | macOS 13+ on Apple silicon for the local `.app` build |
-| Python | 3.11+ for source use; use 3.11 for the reviewed audit/build workflow |
+| Python | 3.11+ for source use; final 3.11.17 or a later 3.11 patch for the reviewed macOS build |
 | Exercise log | MacroFactor `.csv` or `.xlsx` export using pounds |
 | Coach workbook | `.xlsx` with exercise headers, week labels and existing result cells |
 | Program template | Only for Part 2; a separate direct Export Program `.xlsx` |
@@ -51,6 +51,8 @@ local-data/inbox/macrofactor/    ← exercise-log .csv or .xlsx exports
 For history, include an all-time export when available. A weekly export can transfer that week but cannot reveal workouts absent from all supplied files. Keep program templates outside these inboxes.
 
 ## Build and open the app
+
+Check `python3 --version` first. The build requires final Python **3.11.17 or a later 3.11 patch** and rejects older patches, prereleases and other minor versions before clearing its build environment. If your patched interpreter has a different command or path, select it explicitly; for example, use `PYTHON_BIN=python3.11 ./scripts/build_macos_app.sh` after checking `python3.11 --version`. Python 3.11 security releases are source-only from python.org; use a distributor that provides the current security patch. See [Development](Development.md#prerequisites-and-source-entry-points) for runtime selection and verification.
 
 ```sh
 ./scripts/build_macos_app.sh
