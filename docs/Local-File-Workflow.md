@@ -76,6 +76,10 @@ Create and review `config/exercises.local.json` first using [Configuration](Conf
 
 ## Updating the local app after a merge
 
+For mapping-only calibration, update the private `config/exercises.local.json` beside the managed workspace after backing it up under `local-data/`. Keep previously confirmed aliases and exercise-specific conversions. Verify the selected sheet, labeled week and exact target rows in preview. Before the next transfer, explicitly select that private file in **Update coach workbook → Exercise mapping**, then load workbook weeks and create a fresh preview. Repeat this selection after every restart: the transfer tab starts with the bundled example mapping, even when Dashboard has automatically loaded the private workspace mapping. These configuration changes do not require an app rebuild. Keep private mappings and real workout validation reports out of commits. Generic regression fixtures should use invented workouts and loads.
+
+Per-side conversions affect weight only; preserve logged repetitions. Machine labels requested for one week are entered manually, and base weight is not added. A workbook with already filled result cells is suitable for checking row matches but the transfer will correctly refuse to overwrite those results.
+
 Merging a PR updates source code; it does not update an existing `.app`. To install the reviewed changes:
 
 1. Save pending training notes and quit the app. Identify the bundle you normally open, and copy it to a private backup outside `dist/` before building.
