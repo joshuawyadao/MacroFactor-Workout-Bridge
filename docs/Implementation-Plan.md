@@ -36,7 +36,7 @@ The user requested a pull request prepared for merge. Integrate current main, pr
 - [x] Inspect branch/main divergence; main already contains the same urllib3 2.8.0 security fix.
 - [x] Resolve the sole merge conflict in this plan by retaining both implementation records below; preserve all non-conflicting transfer tests and guidance.
 - [x] Validate the integrated branch and prepare the merge of main into the feature branch: 496 canonical offscreen tests passed in 61.303 seconds, no skips, exit 0; all-lock advisory audit, pip check, compilation, diff check and bundled GUI smoke passed.
-- [ ] Publish the PR, complete Brooks/Codex reviews, and address actionable feedback.
+- [x] Publish PR #25 and request Codex review. Brooks PR review: 100/100, stable; no actionable findings. Codex feedback and hosted CI remain tracked in the PR and completion report, not as a permanent guarantee in this implementation record.
 - [ ] Confirm CI Verify passes and GitHub reports the unmerged PR is mergeable.
 
 ## Implementation records retained from main
