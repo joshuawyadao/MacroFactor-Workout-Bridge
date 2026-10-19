@@ -135,3 +135,21 @@ The user approved updating the inherited urllib3 audit-tool dependency and confi
 Open questions: none.
 
 Audit update validation: urllib3 2.8.0 universal-wheel SHA-256 matched official PyPI metadata and the downloaded wheel. The full hash-pinned Python 3.11 audit closure installed on Apple silicon; pip check passed and pip-audit found no known vulnerabilities across audit, build and test locks. The complete Linux x86-64 Python 3.11 wheel closure also downloaded successfully with required hashes. All 17 focused dependency/transfer tests and diff checks passed. Only the urllib3 pin and hash changed; no production or test dependency locks changed. Hosted CI and refreshed Codex review follow the push.
+
+## Codex review follow-up — default verification interpreter
+
+PR #25 review comment `4318560296` identifies a documentation-only failure: the compilation command invokes an empty executable when `PYTHON_BIN` is unset. Preserve the test runner's default `python3` behavior in the documented verification command and verify both default and explicitly selected interpreters.
+
+### Scope
+- In: docs/Development.md compilation-command fallback, focused documentation/dependency checks, command execution with unset/set PYTHON_BIN, commit/push, review acknowledgement and fresh review/CI.
+- Out: application/runtime policy changes, lock updates and review-thread resolution.
+
+### Action items
+- [x] Read the review thread, Development.md and existing dependency/documentation contract tests; classify the fallback report as actionable.
+- [ ] Checkpoint this resolved plan before editing the command.
+- [ ] Use the PYTHON_BIN-or-python3 fallback in the canonical compilation command.
+- [ ] Run the command with PYTHON_BIN unset and set, existing focused dependency/documentation tests and diff checks. No new test file is warranted for this reversible documentation correction; executable behavior is unchanged.
+- [ ] Commit/push the correction, react to the addressed comment, request refreshed Codex review and verify final CI/mergeability.
+
+### Open questions
+- None. The full PR review cycle authorizes this narrow correction.
