@@ -1,4 +1,4 @@
-# Resolved on macOS with Python 3.11.2 for the local macOS application build.
+# Reviewed on macOS with Python 3.11.17 for the local macOS application build.
 # Update this complete closure together after testing the build and offscreen GUI suite.
 --only-binary=:all:
 --require-hashes

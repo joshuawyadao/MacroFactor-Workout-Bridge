@@ -31,7 +31,7 @@ REQUIREMENTS_FINGERPRINT=$(
 )
 PYTHON_KEY=$(
     "$BOOTSTRAP_PYTHON" -c \
-        'import sys; print(f"py{sys.version_info.major}.{sys.version_info.minor}")'
+        'import hashlib, pathlib, sys; identity = hashlib.sha256(str(pathlib.Path(sys.executable).resolve()).encode()).hexdigest()[:12]; print(f"py{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}-{identity}")'
 )
 ENVIRONMENT_KEY="$PYTHON_KEY-$REQUIREMENTS_FINGERPRINT"
 TEST_VENV="$TEST_VENV_ROOT/$ENVIRONMENT_KEY"

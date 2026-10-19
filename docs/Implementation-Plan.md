@@ -1,5 +1,48 @@
 # Plan
 
+Update the reviewed macOS build runtime from Python 3.11.2 to the patched Python 3.11.17 baseline, then audit the exact locked packages before selecting any package changes. Keep the Python minor version and hash-verified dependency closures coherent, rebuild the app, and validate synthetic workbook and desktop behavior.
+
+## Scope
+- In: Python build-runtime selection and preflight, CI runtime pin, dependency advisory checks and any confirmed fixes, dependency/build regression tests, README and canonical setup/development guidance, local app rebuild, commit checkpoints, branch push and the subsequently requested PR review cycle.
+- Out: Python minor-version migration, unrelated package freshness updates, global interpreter replacement, personal workbooks/exports, app installation into Applications, merging.
+
+## Action items
+[x] Inspect README, docs/Development.md, docs/Getting-Started.md, manifests, all three locks, build/test scripts, CI and tests/test_build_dependencies.py; verify Python 3.11.17 upstream security release and an Apple-silicon runtime source.
+[x] Resolve the detached-checkout save branch: the user selected codex/patched-python-runtime; checkpoint this plan before implementation.
+[x] Provision an isolated, checksum-verified Python 3.11.17 runtime for this checkout, leaving the system interpreter available for rollback.
+[x] Audit all exact locked dependencies; update only packages with confirmed security/reliability fixes and preserve closure/hash consistency.
+[x] Require patched Python 3.11 for macOS packaging before environment recreation; pin CI to the reviewed patch, separate test environments by patch and interpreter identity, and update setup/development docs.
+[x] Extend build-dependency tests for rejected old/prerelease/wrong-minor interpreters, accepted patched versions, and failure before build-environment mutation.
+[x] Run focused tests, full offscreen tests, all-lock advisory audit, pip check, compilation, macOS build/signature and bundled-runtime smoke checks using the patched interpreter; use only synthetic data.
+[x] Integrate the independent workbook-safety review, record validation and rollback details, and prepare the validated implementation for final commit and push on the selected branch.
+
+## Open questions
+- None. The user approved codex/patched-python-runtime. PyPI advisory data confirms urllib3 2.7.0 in audit.lock needs the 2.8.0 security fixes (GHSA-8988-9cw3-xx77, GHSA-gh4c-6fx4-qh6g, GHSA-vxq7-64xx-v4gw); no other locked package advisories were returned.
+
+## Validation and rollback
+- Runtime: Astral python-build-standalone release `20261013`, `cpython-3.11.17+20261013-aarch64-apple-darwin-install_only.tar.gz`; SHA-256 `d81d757a9785850393cd695a9a686c765a6370fbdc83738589ef2ecd3e5c44b3` matched GitHub release metadata before extraction into ignored `.venv/python-3.11.17/`. Reports Python 3.11.17 and OpenSSL 3.5.9. The system interpreter remains available.
+- Package closure: PyPI metadata confirms urllib3 2.8.0 is compatible with requests 2.34.2 (`urllib3>=1.26,<3`); its universal wheel SHA-256 is recorded in audit.lock. All three locks passed `pip_audit --disable-pip --require-hashes`; no known vulnerabilities. Audit and build environments passed `pip check`.
+- Focused tests: 20 passed, no skips, exit 0. The first run exposed a test-fixture shebang containing spaces; fixed the fixture without weakening assertions. New coverage checks old/prerelease/other-minor rejection, accepted patched versions, preservation before environment recreation, patch changes and same-version interpreter switches.
+- Initial canonical offscreen suite: 494 tests passed in 64.408 seconds, no skips, exit 0. Independent review then identified same-version interpreter cache reuse; added the interpreter-path fingerprint and a regression test. Final canonical suite: **495 tests passed in 83.380 seconds**, no skips, exit 0. The audit, build and final test environments all passed `pip check`.
+- macOS app rebuild, ad-hoc signature verification and bundled GUI smoke passed. The bundled `libpython3.11.dylib` contains version 3.11.17. The real default 3.11.2 interpreter was rejected before clearing the existing build environment.
+- Compilation, updated documentation file-link checks and diff checks passed. Independent workbook-safety review found no remaining actionable issues after the interpreter identity fix. Workbook production code is unchanged; the full suite covers synthetic transfer, import, history and publication boundaries.
+- Rollback: retain the prior interpreter and app separately; revert this branch's implementation commit to restore the previous build policy and audit lock. Reverting the repository cannot remove the ignored isolated interpreter or replace an installed app. No personal input files or Applications copy were touched.
+- Plan checkpoint: `a2a27fc`. Final commit and push outcome are reported in the completion message; no PR was requested. All task changes are staged explicitly; isolated runtimes, wheels, test caches and rebuilt app remain ignored local artifacts.
+
+## PR readiness follow-up — October 19, 2026
+
+The user requested a pull request prepared for merge. Integrate current main, preserve its transfer-calibration tests and documentation, publish a ready PR, request Codex review, perform Brooks review, address actionable feedback and validate hosted CI/mergeability. Leave the final merge to the user. Open questions: none.
+
+- [x] Inspect branch/main divergence; main already contains the same urllib3 2.8.0 security fix.
+- [x] Resolve the sole merge conflict in this plan by retaining both implementation records below; preserve all non-conflicting transfer tests and guidance.
+- [x] Validate the integrated branch and prepare the merge of main into the feature branch: 496 canonical offscreen tests passed in 61.303 seconds, no skips, exit 0; all-lock advisory audit, pip check, compilation, diff check and bundled GUI smoke passed.
+- [x] Publish PR #25 and request Codex review. Brooks PR review: 100/100, stable; no actionable findings. Codex feedback and hosted CI remain tracked in the PR and completion report, not as a permanent guarantee in this implementation record.
+- [ ] Confirm CI Verify passes and GitHub reports the unmerged PR is mergeable.
+
+## Implementation records retained from main
+
+### Prior documentation plan
+
 Audit the repository documentation against current source, then turn the long README into an approachable entry point with focused guides and accessible workflow graphics. Preserve advanced policies and safety limits, validate the examples, and deliver incremental commits and a reviewed pull request.
 
 ## Scope
@@ -92,3 +135,21 @@ The user approved updating the inherited urllib3 audit-tool dependency and confi
 Open questions: none.
 
 Audit update validation: urllib3 2.8.0 universal-wheel SHA-256 matched official PyPI metadata and the downloaded wheel. The full hash-pinned Python 3.11 audit closure installed on Apple silicon; pip check passed and pip-audit found no known vulnerabilities across audit, build and test locks. The complete Linux x86-64 Python 3.11 wheel closure also downloaded successfully with required hashes. All 17 focused dependency/transfer tests and diff checks passed. Only the urllib3 pin and hash changed; no production or test dependency locks changed. Hosted CI and refreshed Codex review follow the push.
+
+## Codex review follow-up — default verification interpreter
+
+PR #25 review comment `4318560296` identifies a documentation-only failure: the compilation command invokes an empty executable when `PYTHON_BIN` is unset. Preserve the test runner's default `python3` behavior in the documented verification command and verify both default and explicitly selected interpreters.
+
+### Scope
+- In: docs/Development.md compilation-command fallback, focused documentation/dependency checks, command execution with unset/set PYTHON_BIN, commit/push, review acknowledgement and fresh review/CI.
+- Out: application/runtime policy changes, lock updates and review-thread resolution.
+
+### Action items
+- [x] Read the review thread, Development.md and existing dependency/documentation contract tests; classify the fallback report as actionable.
+- [x] Checkpoint this resolved plan before editing the command (`d0d4306`).
+- [x] Use the PYTHON_BIN-or-python3 fallback in the canonical compilation command.
+- [x] Run the command with PYTHON_BIN unset and set: both compilation paths and diff checks passed. All 20 existing dependency/documentation tests passed in 8.000 seconds, no skips. No new test file is warranted for this reversible documentation correction; executable behavior is unchanged.
+- [ ] Commit/push the correction, react to the addressed comment, request refreshed Codex review and verify final CI/mergeability.
+
+### Open questions
+- None. The full PR review cycle authorizes this narrow correction.

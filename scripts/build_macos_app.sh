@@ -15,6 +15,11 @@ ICONSET="$APP_ROOT/build/AppIcon.iconset"
 ICON_FILE="$APP_ROOT/build/MacroFactor Workout Bridge.icns"
 APP_BUNDLE="$APP_ROOT/dist/MacroFactor Workout Bridge.app"
 
+if ! "$BUILD_PYTHON" "$APP_ROOT/scripts/check_build_python.py"; then
+  print -u2 "Select a patched Python 3.11 with PYTHON_BIN before building."
+  exit 1
+fi
+
 "$BUILD_PYTHON" -m venv --clear "$BUILD_VENV"
 
 "$BUILD_VENV/bin/python" -m pip install \

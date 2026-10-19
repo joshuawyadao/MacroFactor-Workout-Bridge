@@ -4,7 +4,7 @@ This guide covers source development and local verification. For project behavio
 
 ## Prerequisites and source entry points
 
-Use Python 3.11 or newer. The macOS app build requires macOS, `zsh`, `iconutil`, and `codesign`. A source-only CLI run needs no third-party runtime package; the desktop app and its tests need PySide6. Run commands from the repository root:
+Source use supports Python 3.11 or newer. The reviewed macOS build requires **final Python 3.11.17 or a later 3.11 patch**, macOS, `zsh`, `iconutil`, and `codesign`. Python 3.11.17 includes standard-library security fixes, including bounded bzip2/LZMA ZIP decompression ([release notes](https://www.python.org/downloads/release/python-31117/)). Python minor-version migrations need a separate review of the wheel closures. A source-only CLI run needs no third-party runtime package; the desktop app and its tests need PySide6. Run commands from the repository root:
 
 ```sh
 PYTHONPATH=src python3 -m macrofactor_bridge --help
@@ -13,17 +13,27 @@ PYTHONPATH=src python3 -m macrofactor_bridge.local_workspace --help
 
 The package also installs `macrofactor-bridge`, `macrofactor-workspace`, and `macrofactor-bridge-gui` entry points from [pyproject.toml](../pyproject.toml). Keep real inputs in ignored `local-data/` or another private location; use only the synthetic/anonymized files in [tests/fixtures](../tests/fixtures) for public examples.
 
+Select the patched interpreter before running the build and verification commands. For example, if `python3.11` is patched:
+
+```sh
+export PYTHON_BIN=python3.11
+"$PYTHON_BIN" --version
+"$PYTHON_BIN" -c 'import ssl; print(ssl.OPENSSL_VERSION)'
+```
+
+Set `PYTHON_BIN` to an absolute interpreter path when needed. Use a maintained distributor for Python 3.11 security releases: python.org no longer supplies 3.11 binary installers. Keep an isolated interpreter under ignored `.venv/` if you want to preserve the system installation. The build preflight rejects unsupported or prerelease interpreters before recreating `.app-build-venv`. CI uses Python 3.11.17. Updating the interpreter does not update an existing app: rebuild and launch the new bundle explicitly.
+
 ## Verification
 
 Run the canonical source and offscreen GUI suite from any linked worktree, and follow the process to its unittest summary and exit status. Then complete the [dependency audit](#dependency-locks-and-audit) below:
 
 ```sh
 ./scripts/test.sh
-python3 -m compileall -q src tests packaging
+"${PYTHON_BIN:-python3}" -m compileall -q src tests packaging scripts
 git diff --check
 ```
 
-The test runner provisions pinned, hash-verified dependencies on first use. It locates the primary checkout through Git's common directory and shares an ignored `.venv/worktree-tests/` environment keyed by Python version and the SHA-256 of `requirements/test.lock`. It always launches against the current worktree's `src/`. Internet access is needed on first provision unless the wheels are cached. Set `PYTHON_BIN` to select a supported interpreter or `MACROFACTOR_TEST_VENV_ROOT` to use another environment directory.
+The test runner provisions pinned, hash-verified dependencies on first use. It locates the primary checkout through Git's common directory and shares an ignored `.venv/worktree-tests/` environment keyed by the full Python major.minor.patch version, a fingerprint of the resolved interpreter path, and the SHA-256 of `requirements/test.lock`. A Python patch upgrade or a switch to another interpreter selects a fresh environment rather than reusing the previous runtime. It always launches against the current worktree's `src/`. Internet access is needed on first provision unless the wheels are cached. Set `PYTHON_BIN` to select a supported interpreter or `MACROFACTOR_TEST_VENV_ROOT` to use another environment directory.
 
 For a focused test, first run the canonical suite once to provision the environment, then locate its interpreter without running tests again:
 
@@ -59,6 +69,8 @@ python3.11 -m venv --clear .venv/audit
   --requirement requirements/test.lock
 ```
 
+Check that `python3.11 --version` is 3.11.17 or a later final 3.11 patch; substitute `"$PYTHON_BIN"` on the first line if it selects the reviewed interpreter instead. The audit closure pins `urllib3==2.8.0` to fix HTTPS proxy TLS-policy handling and two chunked-response denial-of-service issues in 2.7.0 ([TLS advisory](https://github.com/urllib3/urllib3/security/advisories/GHSA-8988-9cw3-xx77), [Deflate advisory](https://github.com/urllib3/urllib3/security/advisories/GHSA-gh4c-6fx4-qh6g), [chunk-size advisory](https://github.com/urllib3/urllib3/security/advisories/GHSA-vxq7-64xx-v4gw)). This package belongs to audit tooling, not the offline app runtime.
+
 This reports known package advisories and does not update packages. For a dependency update, resolve the closure on Python 3.11, record reviewed wheel hashes, run `python -m pip check` in the provisioned environment, audit the locks, rebuild the app and run the complete offscreen suite. A lock change must retain exact versions and reviewed wheel hashes; document any separately reviewed source-build requirement before allowing one.
 
 ## macOS build and smoke check
@@ -70,7 +82,7 @@ QT_QPA_PLATFORM=offscreen \
   --smoke-test
 ```
 
-The build script recreates its isolated `.app-build-venv` on every run, installs `app-build.lock`, builds an icon and PyInstaller bundle, ad-hoc signs the `.app`, and verifies that signature. This is a local build, not Developer ID signing or notarization. The smoke command checks the embedded Qt runtime without loading personal history; it does not verify real-data behavior. A source or repository build does not replace an already installed app; launch the new bundle explicitly for manual macOS inspection. Never use a real workout export for automated smoke tests.
+The build script checks the selected Python runtime, recreates its isolated `.app-build-venv` on every accepted run, installs `app-build.lock`, builds an icon and PyInstaller bundle, ad-hoc signs the `.app`, and verifies that signature. This is a local build, not Developer ID signing or notarization. The smoke command checks the embedded Qt runtime without loading personal history; it does not verify real-data behavior. A source or repository build does not replace an already installed app; launch the new bundle explicitly for manual macOS inspection. Never use a real workout export for automated smoke tests.
 
 ## Pull requests and documentation
 

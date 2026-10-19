@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -165,11 +166,65 @@ class BuildDependencyTests(unittest.TestCase):
 
     def test_macos_builder_recreates_environment_before_locked_install(self) -> None:
         script = (PROJECT_ROOT / "scripts" / "build_macos_app.sh").read_text()
+        preflight = '"$BUILD_PYTHON" "$APP_ROOT/scripts/check_build_python.py"'
         recreation = '"$BUILD_PYTHON" -m venv --clear "$BUILD_VENV"'
         locked_install = '"$BUILD_VENV/bin/python" -m pip install \\\n'
 
         self.assertEqual(script.count(recreation), 1)
+        self.assertLess(script.index(preflight), script.index(recreation))
         self.assertLess(script.index(recreation), script.index(locked_install))
+
+    def test_build_runtime_requires_a_patched_final_python_311(self) -> None:
+        preflight = PROJECT_ROOT / "scripts" / "check_build_python.py"
+        for version, accepted in (
+            ((3, 11, 2, "final", 0), False),
+            ((3, 11, 16, "final", 0), False),
+            ((3, 11, 17, "candidate", 1), False),
+            ((3, 11, 18, "alpha", 1), False),
+            ((3, 12, 15, "final", 0), False),
+            ((3, 11, 17, "final", 0), True),
+            ((3, 11, 18, "final", 0), True),
+        ):
+            with self.subTest(version=version):
+                result = subprocess.run(
+                    [
+                        sys.executable, "-c",
+                        "import collections, runpy, sys; "
+                        "Version = collections.namedtuple('Version', "
+                        "'major minor micro releaselevel serial'); "
+                        f"sys.version_info = Version{version!r}; "
+                        "runpy.run_path(sys.argv[1], run_name='__main__')",
+                        str(preflight),
+                    ],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(result.returncode, 0 if accepted else 1, result.stderr)
+                if not accepted:
+                    self.assertIn("PYTHON_BIN=", result.stderr)
+                    self.assertIn("3.11.17", result.stderr)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS packaging script")
+    def test_rejected_build_runtime_preserves_the_existing_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("build_macos_app.sh", "check_build_python.py"):
+                shutil.copy2(PROJECT_ROOT / "scripts" / name, scripts / name)
+            sentinel = root / ".app-build-venv" / "keep-existing-environment"
+            sentinel.parent.mkdir()
+            sentinel.write_text("existing build")
+            fake_python = root / "unsupported-python"
+            fake_python.write_text("#!/bin/sh\nexit 1\n")
+            fake_python.chmod(0o755)
+            result = subprocess.run(
+                [str(scripts / "build_macos_app.sh")],
+                env={**os.environ, "PYTHON_BIN": str(fake_python)},
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn("PYTHON_BIN", result.stderr)
+            self.assertEqual(sentinel.read_text(), "existing build")
 
     def test_test_runner_uses_a_fingerprinted_shared_virtualenv(self) -> None:
         common_dir = Path(
@@ -191,8 +246,10 @@ class BuildDependencyTests(unittest.TestCase):
         common_dir = common_dir.resolve()
         requirements = PROJECT_ROOT / "requirements" / "test.lock"
         fingerprint = hashlib.sha256(requirements.read_bytes()).hexdigest()
-        python_key = f"py{sys.version_info.major}.{sys.version_info.minor}"
+        interpreter = hashlib.sha256(str(Path(sys.executable).resolve()).encode()).hexdigest()[:12]
+        python_key = f"py{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}-{interpreter}"
         environment = os.environ.copy()
+        environment["PYTHON_BIN"] = sys.executable
         environment.pop("MACROFACTOR_TEST_VENV_ROOT", None)
         result = subprocess.run(
             [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
@@ -248,7 +305,57 @@ class BuildDependencyTests(unittest.TestCase):
 
         selected_environment = Path(result.stdout.strip())
         self.assertEqual(selected_environment.parent, override_root)
-        self.assertRegex(selected_environment.name, r"^py\d+\.\d+-[0-9a-f]{64}$")
+        self.assertRegex(selected_environment.name, r"^py\d+\.\d+\.\d+-[0-9a-f]{12}-[0-9a-f]{64}$")
+
+    def test_python_patch_upgrade_selects_a_new_test_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            selected = []
+            for patch in (2, 17):
+                fake_python = root / f"python-3.11.{patch}"
+                fake_python.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import collections, sys\n"
+                    "Version = collections.namedtuple('Version', "
+                    "'major minor micro releaselevel serial')\n"
+                    f"sys.version_info = Version(3, 11, {patch}, 'final', 0)\n"
+                    "code = sys.argv[2]\n"
+                    "sys.argv = sys.argv[2:]\n"
+                    "exec(code)\n"
+                )
+                fake_python.chmod(0o755)
+                result = subprocess.run(
+                    [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+                    env={**os.environ, "PYTHON_BIN": str(fake_python),
+                         "MACROFACTOR_TEST_VENV_ROOT": str(root / "environments")},
+                    capture_output=True, text=True, check=True,
+                )
+                selected.append(Path(result.stdout.strip()))
+            self.assertNotEqual(selected[0], selected[1])
+
+    def test_same_version_interpreter_switch_selects_a_new_test_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            selected = []
+            for name in ("first-python", "second-python"):
+                fake_python = root / name
+                fake_python.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import sys\n"
+                    "sys.executable = __file__\n"
+                    "code = sys.argv[2]\n"
+                    "sys.argv = sys.argv[2:]\n"
+                    "exec(code)\n"
+                )
+                fake_python.chmod(0o755)
+                result = subprocess.run(
+                    [str(PROJECT_ROOT / "scripts" / "test.sh"), "--print-venv"],
+                    env={**os.environ, "PYTHON_BIN": str(fake_python),
+                         "MACROFACTOR_TEST_VENV_ROOT": str(root / "environments")},
+                    capture_output=True, text=True, check=True,
+                )
+                selected.append(Path(result.stdout.strip()))
+            self.assertNotEqual(selected[0], selected[1])
 
     def test_concurrent_runners_share_one_provisioned_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
