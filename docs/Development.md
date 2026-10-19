@@ -29,7 +29,7 @@ Run the canonical source and offscreen GUI suite from any linked worktree, and f
 
 ```sh
 ./scripts/test.sh
-"$PYTHON_BIN" -m compileall -q src tests packaging scripts
+"${PYTHON_BIN:-python3}" -m compileall -q src tests packaging scripts
 git diff --check
 ```
 

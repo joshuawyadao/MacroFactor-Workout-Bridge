@@ -146,9 +146,9 @@ PR #25 review comment `4318560296` identifies a documentation-only failure: the 
 
 ### Action items
 - [x] Read the review thread, Development.md and existing dependency/documentation contract tests; classify the fallback report as actionable.
-- [ ] Checkpoint this resolved plan before editing the command.
-- [ ] Use the PYTHON_BIN-or-python3 fallback in the canonical compilation command.
-- [ ] Run the command with PYTHON_BIN unset and set, existing focused dependency/documentation tests and diff checks. No new test file is warranted for this reversible documentation correction; executable behavior is unchanged.
+- [x] Checkpoint this resolved plan before editing the command (`d0d4306`).
+- [x] Use the PYTHON_BIN-or-python3 fallback in the canonical compilation command.
+- [x] Run the command with PYTHON_BIN unset and set: both compilation paths and diff checks passed. All 20 existing dependency/documentation tests passed in 8.000 seconds, no skips. No new test file is warranted for this reversible documentation correction; executable behavior is unchanged.
 - [ ] Commit/push the correction, react to the addressed comment, request refreshed Codex review and verify final CI/mergeability.
 
 ### Open questions
