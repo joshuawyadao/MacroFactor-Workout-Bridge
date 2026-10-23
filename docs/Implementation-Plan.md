@@ -9,7 +9,7 @@ Reduce repeated workbook and archive reads and bound unchanged-ZIP-part memory, 
 ## Action items
 - [x] Inspect current `main`, relevant architecture/storage/development guidance, and transfer/history/program safety tests; start `codex/local-efficiency` from `f373920` with a clean worktree.
 - [x] Checkpoint this resolved plan before implementation; keep disjoint implementation ownership and Git operations coordinated by the parent.
-- [ ] Reuse operation-scoped coach snapshots and XLSX log/notes row data in `workbook.py`, `importers.py`, and `service.py`; preserve existing helper contracts and ambiguity diagnostics. Add ordinary/marker preview read-count and report/notes parity regressions.
+- [x] Reuse operation-scoped coach snapshots and XLSX log/notes row data in `workbook.py`, `importers.py`, and `service.py`; preserve existing helper contracts and ambiguity diagnostics. Add ordinary/marker preview read-count and report/notes parity regressions.
 - [ ] Reuse verified archive entries within one managed refresh in `local_workspace.py` and `managed_history.py`; deduplicate repeated manifest references without a persistent cache or manifest schema changes. Retain source post-parse hashes, selected-coach final hash, workspace fingerprint, relocation/tamper handling and stale worker protections. Add read-count and mutation regressions.
 - [ ] Stream unchanged ZIP members in `ooxml.py` and `program_template.py`, compare preserved parts in bounded chunks, and retain ZIP metadata/order/comment, namespace preservation, exact uncompressed contents and exclusive publication. Add generated-large-member, late-difference and allocation guards.
 - [ ] Update `docs/Architecture.md`, `docs/Local-File-Workflow.md`, and `docs/Development.md` with operation scope, unchanged safety gates, and focused resource verification. Record measured results without claiming unmeasured wall-time or monetary savings.
@@ -30,3 +30,4 @@ Reduce repeated workbook and archive reads and bound unchanged-ZIP-part memory, 
 
 ## Change ledger
 - Planning: latest remote `main` matches the reviewed `f373920`; clean detached worktree changed to the requested feature branch. Three measured optimizations plus resource regressions are selected for this PR.
+- Worksheet reuse: ordinary and eligible-marker previews now parse the selected coach worksheet once; XLSX sheets feed both logs and compact notes in one pass. Selection's original four-value contract and standalone notes-only import remain supported. Focused preview/integration/calibration/transfer suite: 44 tests passed. Review removed retained row tables from the import result.

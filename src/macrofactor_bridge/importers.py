@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -20,10 +21,27 @@ class ImportError(ValueError):
     """Raised when a MacroFactor export is missing required data."""
 
 
+_SheetRows = tuple[str, dict[int, dict[int, object]]]
+
+
 @dataclass(frozen=True)
 class ExerciseLogImport:
     records: tuple[SetRecord, ...]
     skipped_rows: tuple[dict[str, object], ...]
+    exercise_notes: tuple[ExerciseNote, ...] = ()
+
+
+def _xlsx_rows(path: Path) -> Iterator[_SheetRows]:
+    try:
+        package = XlsxPackage(path)
+    except WorkbookError as exc:
+        raise ImportError(str(exc)) from exc
+    for sheet in package.sheets:
+        by_row: dict[int, dict[int, object]] = {}
+        for reference, cell in package.sheet_snapshot(sheet).cells.items():
+            row, column = split_cell_reference(reference)
+            by_row.setdefault(row, {})[column] = cell.value
+        yield sheet.name, by_row
 
 
 def _canonical_header(value: object) -> str:
@@ -142,58 +160,51 @@ def load_exercise_log_with_diagnostics(path: str | Path) -> ExerciseLogImport:
     raise ImportError("MacroFactor export must be .csv or .xlsx")
 
 
-def load_exercise_notes(path: str | Path) -> list[ExerciseNote]:
+def load_exercise_notes(
+    path: str | Path, *, _preloaded_notes: tuple[ExerciseNote, ...] | None = None
+) -> list[ExerciseNote]:
     """Read exercise-level notes exposed by MacroFactor's Active Program table."""
     source = Path(path)
     if source.suffix.lower() == ".csv":
         return []
     if source.suffix.lower() != ".xlsx":
         raise ImportError("MacroFactor export must be .csv or .xlsx")
-    try:
-        package = XlsxPackage(source)
-    except WorkbookError as exc:
-        raise ImportError(str(exc)) from exc
+    if _preloaded_notes is not None:
+        return list(_preloaded_notes)
+    return [note for sheet_name, by_row in _xlsx_rows(source)
+            for note in _notes_from_rows(sheet_name, by_row)]
 
+
+def _notes_from_rows(
+    sheet_name: str, by_row: dict[int, dict[int, object]]
+) -> list[ExerciseNote]:
     notes: list[ExerciseNote] = []
-    for sheet in package.sheets:
-        snapshot = package.sheet_snapshot(sheet)
-        by_row: dict[int, dict[int, object]] = {}
-        for reference, cell in snapshot.cells.items():
-            row, column = split_cell_reference(reference)
-            by_row.setdefault(row, {})[column] = cell.value
-        note_tables: list[tuple[int, int, int]] = []
-        for header_row, header_values in sorted(by_row.items()):
-            headers = {
-                str(value).strip(): column
-                for column, value in header_values.items()
-                if isinstance(value, str) and str(value).strip()
-            }
-            if not {"Exercise", "Notes"}.issubset(headers):
-                continue
+    note_tables: list[tuple[int, int, int]] = []
+    for header_row, header_values in sorted(by_row.items()):
+        headers = {
+            str(value).strip(): column
+            for column, value in header_values.items()
+            if isinstance(value, str) and str(value).strip()
+        }
+        if {"Exercise", "Notes"}.issubset(headers):
             note_tables.append((header_row, headers["Exercise"], headers["Notes"]))
-        for table_index, (header_row, exercise_column, notes_column) in enumerate(note_tables):
-            next_header = (
-                note_tables[table_index + 1][0]
-                if table_index + 1 < len(note_tables)
-                else None
-            )
-            for row_number in sorted(
-                row
-                for row in by_row
-                if row > header_row and (next_header is None or row < next_header)
-            ):
-                values = by_row[row_number]
-                exercise = str(values.get(exercise_column) or "").strip()
-                note = str(values.get(notes_column) or "").strip()
-                if exercise and note:
-                    notes.append(
-                        ExerciseNote(
-                            source_row=row_number,
-                            sheet=sheet.name,
-                            exercise=exercise,
-                            note=note,
-                        )
-                    )
+    for table_index, (header_row, exercise_column, notes_column) in enumerate(note_tables):
+        next_header = (
+            note_tables[table_index + 1][0]
+            if table_index + 1 < len(note_tables)
+            else None
+        )
+        for row_number in sorted(
+            row for row in by_row
+            if row > header_row and (next_header is None or row < next_header)
+        ):
+            values = by_row[row_number]
+            exercise = str(values.get(exercise_column) or "").strip()
+            note = str(values.get(notes_column) or "").strip()
+            if exercise and note:
+                notes.append(ExerciseNote(
+                    source_row=row_number, sheet=sheet_name, exercise=exercise, note=note,
+                ))
     return notes
 
 
@@ -214,17 +225,10 @@ def _load_csv(path: Path) -> ExerciseLogImport:
 
 
 def _load_xlsx(path: Path) -> ExerciseLogImport:
-    try:
-        package = XlsxPackage(path)
-    except WorkbookError as exc:
-        raise ImportError(str(exc)) from exc
-    candidate_rows: list[tuple[str, int, dict[int, str], dict[str, object]]] = []
-    for sheet in package.sheets:
-        snapshot = package.sheet_snapshot(sheet)
-        by_row: dict[int, dict[int, object]] = {}
-        for reference, cell in snapshot.cells.items():
-            row, column = split_cell_reference(reference)
-            by_row.setdefault(row, {})[column] = cell.value
+    candidate_rows: list[tuple[str, int, dict[int, str], dict[int, dict[int, object]]]] = []
+    notes: list[ExerciseNote] = []
+    for sheet_name, by_row in _xlsx_rows(path):
+        notes.extend(_notes_from_rows(sheet_name, by_row))
         for row_number, values in by_row.items():
             headers = {
                 column: _canonical_header(value)
@@ -233,14 +237,14 @@ def _load_xlsx(path: Path) -> ExerciseLogImport:
             }
             if REQUIRED_HEADERS.issubset(set(headers.values())):
                 _validate_log_headers(
-                    list(headers.values()), f"XLSX table {sheet.name}!{row_number}"
+                    list(headers.values()), f"XLSX table {sheet_name}!{row_number}"
                 )
                 candidate_rows.append(
                     (
-                        sheet.name,
+                        sheet_name,
                         row_number,
                         headers,
-                        {"snapshot": snapshot, "by_row": by_row},
+                        by_row,
                     )
                 )
     if not candidate_rows:
@@ -249,7 +253,7 @@ def _load_xlsx(path: Path) -> ExerciseLogImport:
         locations = ", ".join(f"{sheet}!{row}" for sheet, row, _, _ in candidate_rows)
         raise ImportError(f"Multiple MacroFactor log tables were found: {locations}")
     _, header_row, header_by_column, context = candidate_rows[0]
-    by_row = context["by_row"]
+    by_row = context
     column_by_header = {header: column for column, header in header_by_column.items()}
     records: list[SetRecord] = []
     skipped_rows: list[dict[str, object]] = []
@@ -269,4 +273,6 @@ def _load_xlsx(path: Path) -> ExerciseLogImport:
             skipped_rows.append(diagnostic)
             continue
         records.append(_record_from_mapping(row_number, row))
-    return ExerciseLogImport(records=tuple(records), skipped_rows=tuple(skipped_rows))
+    return ExerciseLogImport(
+        records=tuple(records), skipped_rows=tuple(skipped_rows), exercise_notes=tuple(notes)
+    )

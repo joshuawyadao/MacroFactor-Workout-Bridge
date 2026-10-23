@@ -24,7 +24,14 @@ from .models import (
     SetRecord,
 )
 from .ooxml import WorkbookError, file_sha256, split_cell_reference, validate_copy_integrity
-from .workbook import ProgramDay, TargetRow, program_days, select_sheet_options, target_rows
+from .workbook import (
+    ProgramDay,
+    TargetRow,
+    program_days,
+    select_sheet_options,
+    select_sheet_with_snapshot,
+    target_rows,
+)
 
 
 SUPERSET_MARKER = re.compile(r"\s*∈\s*(SS\d+)\s*$", re.IGNORECASE)
@@ -144,8 +151,15 @@ def build_preview(
     _check_mapping(config, config.source_path, config_fingerprint)
     imported_log = load_exercise_log_with_diagnostics(export_path)
     records = imported_log.records
-    exercise_notes = load_exercise_notes(export_path)
-    package, sheet, options, week = select_sheet_options(
+    exercise_notes = load_exercise_notes(
+        export_path,
+        _preloaded_notes=(
+            imported_log.exercise_notes
+            if Path(export_path).suffix.lower() == ".xlsx"
+            else None
+        ),
+    )
+    package, sheet, options, week, snapshot = select_sheet_with_snapshot(
         workbook_path, config, sheet_name, week_label
     )
     report = BridgeReport(
@@ -200,7 +214,7 @@ def build_preview(
         valid.append(record)
 
     source_index = source_rule_index(config)
-    coach_rows = target_rows(package, sheet, options, week)
+    coach_rows = target_rows(package, sheet, options, week, snapshot=snapshot)
     coach_index: dict[str, list] = defaultdict(list)
     for row in coach_rows:
         coach_index[normalize_name(row.exercise_name)].append(row)
@@ -322,7 +336,6 @@ def build_preview(
     by_target: dict[str, list[_FormattedTarget]] = defaultdict(list)
     for target in formatted_targets:
         by_target[target.target_cell].append(target)
-    snapshot = package.sheet_snapshot(sheet)
     for cell_reference, pieces in sorted(by_target.items(), key=lambda item: split_cell_reference(item[0])):
         if cell_reference in invalid_cells:
             report.ambiguous_matches.append({
@@ -390,7 +403,10 @@ def build_preview(
         _append_empty_day_markers(
             report,
             marker,
-            program_days(package, sheet, options, week),
+            program_days(
+                package, sheet, options, week,
+                snapshot=snapshot, discovered_rows=coach_rows,
+            ),
             set(by_target),
         )
     _check_preview_inputs(report, config)
