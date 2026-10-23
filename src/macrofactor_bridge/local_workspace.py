@@ -297,6 +297,15 @@ def _update_current_files(
                     f"{managed}"
                 )
 
+    # Entries verified earlier in this operation may have changed since then.
+    # Check selected targets immediately before touching any current links.
+    for kind, entry, _, _ in planned:
+        archive = Path(entry["archive"])
+        if _history_archive_path(workspace, kind, str(archive)) != archive:
+            raise LocalWorkspaceError(f"Selected archive path changed during current-link update: {archive}")
+        if file_sha256(archive) != entry["sha256"]:
+            raise LocalWorkspaceError(f"Selected archive changed during current-link update: {archive}")
+
     for kind, entry, current, managed_paths in planned:
         archive = Path(entry["archive"])
         if kind == "macrofactor":
@@ -350,6 +359,7 @@ def _history_archive_path(workspace: Path, kind: str, archive_value: str) -> Pat
 
 def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
+    hashes: dict[Path, str] = {}
     manifests = workspace / "manifests"
     if not manifests.is_dir():
         return entries
@@ -390,9 +400,14 @@ def _archived_history_entries(workspace: Path) -> list[dict[str, Any]]:
             if archive is None:
                 continue
             try:
-                if not archive.is_file() or file_sha256(archive) != digest:
+                if not archive.is_file():
                     continue
-            except OSError:
+                canonical = archive.resolve()
+                if canonical not in hashes:
+                    hashes[canonical] = file_sha256(archive)
+                if hashes[canonical] != digest:
+                    continue
+            except (OSError, RuntimeError, ValueError):
                 continue
             entries.append({**entry, "archive": str(archive), "source_modified_at": modified_at})
     return entries
@@ -409,12 +424,13 @@ def archive_inbox(
     *,
     now: datetime | None = None,
     new_only: bool = False,
+    _verified_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     workspace = Path(root).resolve()
     setup_workspace(workspace)
     config = Path(config_path).resolve() if config_path else default_config_path().resolve()
     timestamp = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    history = _archived_history_entries(workspace) if new_only else []
+    history = _verified_history if _verified_history is not None else _archived_history_entries(workspace)
     known = {(entry["kind"], entry["sha256"]) for entry in history}
     date_label = timestamp.date().isoformat()
     manifest: dict[str, Any] = {
@@ -489,10 +505,7 @@ def archive_inbox(
                 }
             )
     try:
-        selection_entries = [
-            *_archived_history_entries(workspace),
-            *manifest["entries"],
-        ]
+        selection_entries = [*history, *manifest["entries"]]
         manifest["current"] = _update_current_files(workspace, selection_entries)
     except (OSError, ValueError) as exc:
         manifest["errors"].append(
