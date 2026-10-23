@@ -12,6 +12,7 @@ from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 from macrofactor_bridge.config import load_config
+from macrofactor_bridge import importers
 from macrofactor_bridge.importers import (
     ImportError,
     load_exercise_log_with_diagnostics,
@@ -164,11 +165,30 @@ class PreviewReadReuseTests(unittest.TestCase):
             self.assertEqual(report.exercise_notes[0]["sheet"], "Active Program")
             self.assertEqual(report.exercise_notes[0]["note"], "Separate sheet note")
 
-            imported = load_exercise_log_with_diagnostics(export)
+            default = load_exercise_log_with_diagnostics(export)
+            self.assertEqual(default.exercise_notes, ())
+            imported = load_exercise_log_with_diagnostics(export, include_notes=True)
+            self.assertEqual(default.records, imported.records)
+            self.assertEqual(default.skipped_rows, imported.skipped_rows)
             self.assertEqual(len(imported.exercise_notes), 1)
             self.assertEqual(imported.exercise_notes[0].note, "Separate sheet note")
             self.assertEqual(imported.exercise_notes, tuple(load_exercise_notes(export)))
             self.assertEqual(set(vars(imported)), {"records", "skipped_rows", "exercise_notes"})
+
+    def test_default_xlsx_import_skips_note_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            export = Path(directory) / "two-sheets.xlsx"
+            write_export_with_notes_sheet(LOG, export)
+            original_notes = importers._notes_from_rows
+            with patch.object(importers, "_notes_from_rows", wraps=original_notes) as scan:
+                default = load_exercise_log_with_diagnostics(export)
+                self.assertEqual(scan.call_count, 0)
+                self.assertEqual(default.exercise_notes, ())
+                opted_in = load_exercise_log_with_diagnostics(export, include_notes=True)
+                self.assertEqual(scan.call_count, 2)
+            self.assertEqual(default.records, opted_in.records)
+            self.assertEqual(default.skipped_rows, opted_in.skipped_rows)
+            self.assertEqual(len(opted_in.exercise_notes), 1)
 
     def test_public_selection_keeps_four_value_contract(self) -> None:
         selection = select_sheet_options(COACH, load_config(CONFIG), "Training Block", "Week 1")

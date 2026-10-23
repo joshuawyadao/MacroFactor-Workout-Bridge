@@ -149,15 +149,17 @@ def build_preview(
     export_hash = file_sha256(export_path)
     config_fingerprint = part_one_config_fingerprint(config)
     _check_mapping(config, config.source_path, config_fingerprint)
-    imported_log = load_exercise_log_with_diagnostics(export_path)
+    export_is_xlsx = Path(export_path).suffix.lower() == ".xlsx"
+    # CSV has no notes and keeps the ordinary single-argument import path.
+    imported_log = (
+        load_exercise_log_with_diagnostics(export_path, include_notes=True)
+        if export_is_xlsx
+        else load_exercise_log_with_diagnostics(export_path)
+    )
     records = imported_log.records
     exercise_notes = load_exercise_notes(
         export_path,
-        _preloaded_notes=(
-            imported_log.exercise_notes
-            if Path(export_path).suffix.lower() == ".xlsx"
-            else None
-        ),
+        _preloaded_notes=imported_log.exercise_notes if export_is_xlsx else None,
     )
     package, sheet, options, week, snapshot = select_sheet_with_snapshot(
         workbook_path, config, sheet_name, week_label

@@ -150,13 +150,15 @@ def load_exercise_log(path: str | Path) -> list[SetRecord]:
     return list(load_exercise_log_with_diagnostics(path).records)
 
 
-def load_exercise_log_with_diagnostics(path: str | Path) -> ExerciseLogImport:
+def load_exercise_log_with_diagnostics(
+    path: str | Path, *, include_notes: bool = False
+) -> ExerciseLogImport:
     source = Path(path)
     suffix = source.suffix.lower()
     if suffix == ".csv":
         return _load_csv(source)
     if suffix == ".xlsx":
-        return _load_xlsx(source)
+        return _load_xlsx(source, include_notes=include_notes)
     raise ImportError("MacroFactor export must be .csv or .xlsx")
 
 
@@ -224,11 +226,12 @@ def _load_csv(path: Path) -> ExerciseLogImport:
         raise ImportError(f"Could not read MacroFactor CSV {path}: {exc}") from exc
 
 
-def _load_xlsx(path: Path) -> ExerciseLogImport:
+def _load_xlsx(path: Path, *, include_notes: bool = False) -> ExerciseLogImport:
     candidate_rows: list[tuple[str, int, dict[int, str], dict[int, dict[int, object]]]] = []
     notes: list[ExerciseNote] = []
     for sheet_name, by_row in _xlsx_rows(path):
-        notes.extend(_notes_from_rows(sheet_name, by_row))
+        if include_notes:
+            notes.extend(_notes_from_rows(sheet_name, by_row))
         for row_number, values in by_row.items():
             headers = {
                 column: _canonical_header(value)
