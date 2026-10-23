@@ -20,6 +20,7 @@ from .ooxml import (
     REL_NS,
     WorkbookError,
     XlsxPackage,
+    copy_zip_member,
     make_cell_reference,
     qn,
     split_cell_reference,
@@ -979,7 +980,8 @@ def write_program_from_template(
                 elif info.filename == "xl/sharedStrings.xml":
                     data = updated_strings
                 else:
-                    data = source.read(info.filename)
+                    copy_zip_member(source, target, info)
+                    continue
                 target.writestr(copy(info), data)
         validation = _validate_generated_copy(template, temporary, schema, changes)
         os.link(temporary, output)

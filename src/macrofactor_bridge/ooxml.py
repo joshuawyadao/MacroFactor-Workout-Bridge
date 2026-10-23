@@ -18,6 +18,7 @@ MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 XML_NS = "http://www.w3.org/XML/1998/namespace"
+_ZIP_CHUNK_SIZE = 1024 * 1024
 
 ET.register_namespace("", MAIN_NS)
 ET.register_namespace("r", REL_NS)
@@ -68,6 +69,25 @@ def file_sha256(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def copy_zip_member(
+    source: zipfile.ZipFile, destination: zipfile.ZipFile, member: zipfile.ZipInfo
+) -> None:
+    """Preserve an unmodified member's metadata and contents with bounded buffers."""
+    with source.open(member) as original, destination.open(copy(member), "w") as output:
+        while chunk := original.read(_ZIP_CHUNK_SIZE):
+            output.write(chunk)
+
+
+def _zip_member_matches(before: zipfile.ZipFile, after: zipfile.ZipFile, name: str) -> bool:
+    with before.open(name) as original, after.open(name) as candidate:
+        while True:
+            chunk = original.read(_ZIP_CHUNK_SIZE)
+            if chunk != candidate.read(_ZIP_CHUNK_SIZE):
+                return False
+            if not chunk:
+                return True
 
 
 def column_to_number(column: str) -> int:
@@ -273,7 +293,8 @@ class XlsxPackage:
                     elif changed_styles is not None and info.filename == "xl/styles.xml":
                         data = changed_styles
                     else:
-                        data = source.read(info.filename)
+                        copy_zip_member(source, destination, info)
+                        continue
                     destination.writestr(copy(info), data)
 
     @staticmethod
@@ -398,7 +419,7 @@ def validate_copy_integrity(
         unchanged_differences = [
             name
             for name in before_names
-            if name not in allowed and before.read(name) != after.read(name)
+            if name not in allowed and not _zip_member_matches(before, after, name)
         ]
         return {
             "zip_members_identical": before_names == after_names,
