@@ -10,11 +10,11 @@ Display confirmed full and partial rep counts separately in coach-workbook impor
 - [x] Inspect Architecture.md, CLI-Reference.md, Local-File-Workflow.md, Desktop-Guide.md, Development.md, importer/model/formatter paths, and existing integration, numeric, and desktop tests.
 - [x] Verify the supplied export's schema and official MacroFactor full/partial logging and data-export documentation. The supplied Workout Log has only a combined Reps column; separate counts cannot be uniquely recovered.
 - [x] Resolve the confirmation workflow and detached-branch questions below, then checkpoint this plan on the selected branch. The user approved the preview editor and codex/separate-full-partial-reps branch, including commit and push.
-- [ ] Add a narrowly scoped full/partial confirmation contract keyed to the export hash and original set identity, retaining raw Reps for history and refusing stale or invalid confirmations.
-- [ ] Integrate confirmed counts with coach-result formatting, including repeated loads, converted weights, special sets, and paired supersets. Preserve legacy integer-only formatting and make unresolved fractional sets visible for review.
+- [x] Add a narrowly scoped full/partial confirmation contract keyed to the export hash and original set identity, retaining raw Reps for history and refusing stale or invalid confirmations.
+- [x] Integrate confirmed counts with coach-result formatting, including repeated loads, converted weights, special sets, and paired supersets. Preserve legacy integer-only formatting and make unresolved fractional sets visible for review.
 - [ ] Expose set confirmation in the desktop transfer preview and a corresponding explicit CLI input, saving confirmation data only in private workspace storage without modifying exports.
 - [ ] Add synthetic regression tests for import/preview/apply, full-only and partial-only counts, ambiguous decimals, malformed or stale confirmations, unchanged numeric history, special-set formatting, and desktop review behavior.
-- [ ] Update CLI-Reference.md, Desktop-Guide.md, Local-File-Workflow.md, and Architecture.md to describe the supported data, confirmation step, display, and preservation boundaries.
+- [ ] Update CLI-Reference.md, Desktop-Guide.md, Local-File-Workflow.md, Configuration.md, and Architecture.md to describe the supported data, confirmation step, display, and preservation boundaries.
 - [ ] Run targeted formatter/integration/numeric/desktop tests, the complete offscreen suite via scripts/test.sh, compilation, and git diff --check; review the final diff and privacy boundaries.
 - [ ] Record validation and checkpoint commits, then save and push the implementation branch using save-branch.
 

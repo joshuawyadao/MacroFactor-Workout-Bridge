@@ -58,6 +58,8 @@ class SetRecord:
     rir: Decimal | None = None
     workout_duration_seconds: Decimal | None = None
     source_file: str = ""
+    full_reps: int | None = None
+    partial_reps: int | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +138,9 @@ class BridgeReport:
     occupied_cells: list[dict[str, Any]] = field(default_factory=list)
     exercise_notes: list[dict[str, Any]] = field(default_factory=list)
     empty_day_markers: list[dict[str, Any]] = field(default_factory=list)
+    rep_count_sets: list[dict[str, Any]] = field(default_factory=list)
+    rep_counts_path: str | None = None
+    preview_rep_counts_hash: str | None = None
     preview_source_hash: str | None = None
     preview_export_hash: str | None = None
     preview_config_fingerprint: str | None = None
