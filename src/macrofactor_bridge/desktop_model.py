@@ -5,6 +5,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from importlib import resources
 from pathlib import Path
 
@@ -119,6 +120,28 @@ def review_text(report: BridgeReport) -> str:
         f"{report.rows_in_range} of {report.rows_read} export row(s) in the selected dates",
         "",
     ]
+    if report.rep_count_sets:
+        confirmed = sum(
+            entry.get("full_reps") is not None and entry.get("partial_reps") is not None
+            for entry in report.rep_count_sets
+        )
+        pending = 0
+        for entry in report.rep_count_sets:
+            if entry.get("full_reps") is not None:
+                continue
+            try:
+                reps = Decimal(str(entry.get("exported_reps")))
+            except (InvalidOperation, ValueError):
+                continue
+            if reps != reps.to_integral_value():
+                pending += 1
+        lines.extend(
+            (
+                f"Full/partial rep counts: {confirmed} confirmed, {pending} fractional set(s) awaiting confirmation",
+                "Use Review full/partial reps to enter actual counts for any set, including integer exports.",
+                "",
+            )
+        )
     for section in review_sections(report):
         lines.append(f"{section.title}: {section.count}")
         lines.extend(f"  • {detail}" for detail in section.details)

@@ -5,7 +5,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from PySide6.QtCore import QDate, Qt, QUrl
+from PySide6.QtCore import QDate, QStandardPaths, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication,
@@ -66,6 +66,9 @@ from .history import (
     update_week_annotation,
 )
 from .models import BridgeReport
+from .ooxml import file_sha256
+from .rep_counts import save_rep_counts
+from .rep_counts_view import RepCountsDialog
 from .reporting import write_report
 from .service import apply_changes, build_preview
 
@@ -186,6 +189,9 @@ class BridgeWindow(QMainWindow):
         self.preview_button = QPushButton("Preview workbook changes")
         self.preview_button.setObjectName("primaryButton")
         self.preview_button.clicked.connect(self._preview)
+        self.rep_counts_button = QPushButton("Review full/partial reps…")
+        self.rep_counts_button.setEnabled(False)
+        self.rep_counts_button.clicked.connect(self._open_rep_counts_editor)
         self.create_button = QPushButton("Save updated workbook copy…")
         self.create_button.setToolTip("Save previewed results to a new file, leaving the original coach workbook unchanged.")
         self.create_button.clicked.connect(self._create_output)
@@ -194,6 +200,7 @@ class BridgeWindow(QMainWindow):
         self.save_report_button.clicked.connect(self._save_report)
         self.save_report_button.setEnabled(False)
         action_row.addWidget(self.preview_button)
+        action_row.addWidget(self.rep_counts_button)
         action_row.addWidget(self.create_button)
         action_row.addWidget(self.save_report_button)
         action_row.addStretch()
@@ -1004,6 +1011,7 @@ class BridgeWindow(QMainWindow):
         self._invalidate_preview()
 
     def _invalidate_preview(self, *_args: object) -> None:
+        self.rep_counts_button.setEnabled(False)
         if self._report is None:
             return
         self._report = None
@@ -1014,9 +1022,11 @@ class BridgeWindow(QMainWindow):
         self._set_status("Inputs changed. Preview again before creating a workbook.")
 
     def _preview(self) -> None:
+        self._invalidate_preview()
         try:
             self._require_selections()
             config = load_config(self.config_path.text().strip())
+            rep_counts_path = self._rep_counts_path(self.export_path.text().strip())
             report = build_preview(
                 self.export_path.text().strip(),
                 self.workbook_path.text().strip(),
@@ -1025,6 +1035,7 @@ class BridgeWindow(QMainWindow):
                 self.week_combo.currentText(),
                 _from_qdate(self.from_date.date()),
                 _from_qdate(self.to_date.date()),
+                rep_counts_path=rep_counts_path,
             )
         except Exception as exc:
             self._show_error("Preview could not be created", exc)
@@ -1033,6 +1044,7 @@ class BridgeWindow(QMainWindow):
         self._display_report(report)
         self.create_button.setEnabled(bool(report.proposed_writes))
         self.save_report_button.setEnabled(True)
+        self.rep_counts_button.setEnabled(bool(report.rep_count_sets))
         reported = sum(
             len(items)
             for items in (
@@ -1049,6 +1061,54 @@ class BridgeWindow(QMainWindow):
             f"Preview ready: {len(report.proposed_writes)} proposed change(s), "
             f"{reported} item(s) to review. No source file was changed."
         )
+
+    def _rep_counts_path(self, export_path: str) -> Path:
+        """Keep confirmations private and keyed to the exact export bytes."""
+        export_hash = file_sha256(export_path)
+        root = self.managed.root if self.managed and self.managed.root else None
+        if root is not None:
+            base = Path(root) / "annotations" / "rep-counts"
+        else:
+            location = QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.AppLocalDataLocation
+            )
+            if not location:
+                raise ValueError("Choose a managed workspace to store full/partial rep confirmations.")
+            base = Path(location) / "rep-counts"
+        return base / f"{export_hash}.json"
+
+    def _open_rep_counts_editor(self) -> None:
+        report = self._report
+        if report is None or not report.rep_count_sets:
+            return
+        dialog = None
+        try:
+            dialog = RepCountsDialog(report.rep_count_sets, self)
+            if dialog.exec() != dialog.DialogCode.Accepted:
+                return
+            entries = dialog.entries()
+            path = report.rep_counts_path
+            if not path:
+                raise ValueError("Preview again to locate the rep-count confirmation file.")
+            save_rep_counts(
+                path,
+                report.input_export,
+                entries,
+                expected_hash=report.preview_rep_counts_hash,
+                expected_export_hash=report.preview_export_hash,
+                reserved=tuple(
+                    source for source in (report.input_workbook, report.preview_config_path)
+                    if source
+                ),
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            self._invalidate_preview()
+            self._show_error("Rep counts could not be saved", exc)
+            return
+        finally:
+            if dialog is not None:
+                dialog.deleteLater()
+        self._preview()
 
     def _display_report(self, report: BridgeReport) -> None:
         self.preview_table.setRowCount(len(report.proposed_writes))
@@ -1122,6 +1182,7 @@ class BridgeWindow(QMainWindow):
                     self.workbook_path.text().strip(),
                     self.config_path.text().strip(),
                     self._report.output_file,
+                    self._report.rep_counts_path,
                 ),
             )
         except (OSError, ValueError, TypeError) as exc:
