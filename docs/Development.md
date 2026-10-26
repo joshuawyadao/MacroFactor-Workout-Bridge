@@ -97,6 +97,8 @@ Check that `python3.11 --version` is 3.11.17 or a later final 3.11 patch; substi
 
 This reports known package advisories and does not update packages. For a dependency update, resolve the closure on Python 3.11, record reviewed wheel hashes, run `python -m pip check` in the provisioned environment, audit the locks, rebuild the app and run the complete offscreen suite. A lock change must retain exact versions and reviewed wheel hashes; document any separately reviewed source-build requirement before allowing one.
 
+The October 26 audit follow-up updates only affected tooling pins: `certifi==2026.10.23` and `filelock==4.2.4` in the audit closure, and `setuptools==84.1.0` in the app-build closure. Filelock 4 requires Python 3.11, matching the reviewed audit baseline; CacheControl's file-cache dependency accepts it. The reviewed releases provide universal wheels with no new default dependencies. Their hashes were verified against downloaded PyPI artifacts. This clears the reported certifi/filelock advisories and the [setuptools wheel-installation advisory](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w); these packages remain audit/build tooling rather than added application runtime dependencies.
+
 ## macOS build and smoke check
 
 ```sh
