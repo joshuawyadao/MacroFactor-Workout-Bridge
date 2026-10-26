@@ -3,8 +3,8 @@
 Reduce repeated workbook and archive reads and bound unchanged-ZIP-part memory, preserving the bridge's local operation, reviewed outputs, and source-integrity checks.
 
 ## Scope
-- In: the efficiency review's three measured priorities (E1 worksheet reuse, E2 refresh verification reuse, E3 ZIP streaming), their deterministic resource regressions (E8), documentation, and a reviewed PR into `main`.
-- Out: UI threading changes, persistent caches/databases, warm build policy, archive deletion/retention, speculative analysis indexes, dependency changes, and merging the PR. Those recommendations remain conditional on separate workload evidence or product decisions.
+- In: the efficiency review's three measured priorities (E1 worksheet reuse, E2 refresh verification reuse, E3 ZIP streaming), their deterministic resource regressions (E8), documentation, a reviewed PR into `main`, and the user-approved updates to the dependency locks that block its hosted audit.
+- Out: UI threading changes, persistent caches/databases, warm build policy, archive deletion/retention, speculative analysis indexes, unrelated dependency upgrades, and merging the PR. Those recommendations remain conditional on separate workload evidence or product decisions.
 
 ## Action items
 - [x] Inspect current `main`, relevant architecture/storage/development guidance, and transfer/history/program safety tests; start `codex/local-efficiency` from `f373920` with a clean worktree.
@@ -16,6 +16,7 @@ Reduce repeated workbook and archive reads and bound unchanged-ZIP-part memory, 
 - [x] Update `docs/Architecture.md`, `docs/Local-File-Workflow.md`, and `docs/Development.md` with operation scope, unchanged safety gates, and focused resource verification. Record measured results without claiming unmeasured wall-time or monetary savings.
 - [x] Run focused preview/import, archive/history, OOXML/program-output and transfer-safety tests; then the complete canonical offscreen suite, compilation and diff checks. Record interpreter and dependency-audit/build limits; use synthetic inputs only.
 - [x] Commit each validated coherent slice, inspect the complete branch diff, and push the feature branch with `save-branch`.
+- [ ] Update the affected certifi/filelock/setuptools lock entries to audited fixed versions after reviewing dependency constraints and platform wheel hashes; verify closure consistency, the dependency audit, and relevant build-dependency/source checks without weakening the audit gate.
 - [ ] Open and attach a PR to `main`, request Codex review, run Brooks review, address actionable feedback and CI failures, and check mergeability until merge-ready or a concrete reported blocker. Leave the PR unmerged.
 
 ## Open questions
@@ -41,3 +42,4 @@ Reduce repeated workbook and archive reads and bound unchanged-ZIP-part memory, 
 - Publication verification, October 26: canonical suite completed again on the unchanged source with 513 tests passed in 91.018 seconds, no skips, exit status 0; this refreshed the terminal execution evidence after the prior shell session expired. Remote `main` remains `f373920` and is an ancestor of this branch.
 - PR #26 is open from `codex/local-efficiency` into `main`, attached to the chat and marked ready for review. Codex review was requested; local Brooks review found no remaining actionable concerns (100/100), with the large diff explicitly sampled around the highest-risk paths. The prior independent note-scan concern was fixed in `1a1c559`.
 - Hosted CI run `40402618806` failed before tests in the unchanged dependency audit: certifi 2026.7.22, filelock 3.32.6 and setuptools 84.0.0 have reported advisories. The user was asked whether to expand scope to update the affected locks; no dependency changes are authorized yet. Codex review and passing hosted CI remain readiness gates. No merge conflicts were reported at `69699de`.
+- Scope decision, October 26: the user explicitly authorized updating and validating the affected locks. Investigate fixed certifi/filelock/setuptools releases and required constraints, then update the complete affected closures/hashes and re-run audit/CI. Codex completed review of `69699de` with no findings; subsequent changes through `b11b177` only record review/plan status. Request review again after the dependency update.
