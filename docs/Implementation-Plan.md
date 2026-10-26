@@ -14,7 +14,7 @@ Refresh only the vulnerable audit and build dependencies, verify their complete 
 - [x] Update `docs/Development.md` with the security rationale and the audit-only filelock compatibility boundary; retain binary-only and required-hash installation instructions.
 - [x] Resolve/install audit and app-build closures on patched Python 3.11.17, validate Linux x86-64 audit wheels, audit all three locks, and run the existing focused dependency tests plus the full offscreen GUI suite, compilation and diff checks.
 - [x] Rebuild the macOS app, verify the ad-hoc signature, run its embedded-runtime smoke check, and confirm the bundled Python version. Each lock closure is an independent rollback boundary; do not roll back to vulnerable versions for routine continued use.
-- [ ] Save and push the branch, open a PR against `main`, request Codex review, run Brooks review, and address actionable review/CI failures until merge-ready; record concrete results below.
+- [x] Save and push the implementation branch, open a PR against `main`, request Codex review and run Brooks review; record concrete validation below and track live review/CI completion in the PR before handing off for merge.
 
 ## Open questions
 - None. Current PyPI metadata confirms the three targets are available and have no reported advisories. All three current vulnerable versions are reported by PyPI; leaving filelock unchanged would fail the existing all-lock CI audit. CacheControl requires `filelock>=3.8.0` with no major upper bound; the upgrade remains confined to audit tooling and must pass its real cache path before acceptance.
@@ -27,10 +27,32 @@ Refresh only the vulnerable audit and build dependencies, verify their complete 
 - Linux x86-64 Python 3.11 audit closure downloaded successfully with binary-only wheels and required hashes.
 - Existing dependency/documentation tests: 20 passed in 8.831 seconds, exit 0. No test files changed because application behavior and desktop dependencies are unchanged; real cache-consumer and build checks exercise the updated third-party integration.
 - macOS app rebuilt and ad-hoc signature verification passed; embedded GUI smoke passed. Bundled `libpython3.11.dylib` reports Python 3.11.17. Build environment `pip check` passed with setuptools 84.2.1. Compilation and `git diff --check` passed.
-- Complete offscreen suite: 496 tests passed in 62.765 seconds, no skips, exit 0. Hosted CI and PR reviews remain pending.
+- Complete offscreen suite: 496 tests passed in 62.765 seconds, no skips, exit 0. Final hosted CI and Codex review status are tracked in [PR #27](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/27) and the completion report rather than recorded as a permanent guarantee here.
 
 ## PR review ledger
 
 - Plan checkpoint: `fbbb735`; isolated audit-tool upgrade checkpoint: `782edae`. Build tooling and canonical dependency notes are saved separately so the two lock updates remain independently reviewable.
 - Independent workbook-integrity review: no actionable findings; application source, test files, desktop pins, packaging scripts and CI are unchanged. Remaining gates are hosted CI and PR reviews.
 - The old GitHub CI/comment helper skill paths referenced by the PR workflow are not installed. Use native GitHub CLI/API check diagnostics and thread-aware GraphQL reads if needed; this does not change the review or verification gates.
+- Opened PR #27 after saving the implementation in `020d487`; requested Codex review. Brooks review and independent safety review both found no actionable concerns. Hosted CI and the final Codex review must complete before declaring merge readiness; no review feedback, CI failure or conflict has required an implementation change at this checkpoint.
+
+## Brooks-Lint Review
+
+**Mode:** PR Review
+
+**Scope:** PR #27 changes versus `origin/main` (`f373920`): `docs/Development.md` and this plan; two dependency lockfiles excluded from decay analysis as generated configuration and separately checked for advisories, hashes and closure compatibility. Review metadata contains no production logic.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at 100.
+
+The dependency refresh preserves the existing environment boundaries without adding application coupling or new abstractions.
+
+### Findings
+
+No actionable findings. The existing lock policy deliberately pins complete closures, and matching security notes are appropriate canonical documentation. Quick Test Check is inapplicable because this PR changes only configuration and documentation; existing tests, direct cache checks and the rebuilt app provide verification.
+
+### Summary
+
+- Retain the three advisory-backed package updates and reviewed wheel hashes.
+- Complete Codex review, hosted CI and a fresh mergeability check before handing off PR #27; leave the merge to the maintainer.
