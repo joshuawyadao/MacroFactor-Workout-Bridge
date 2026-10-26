@@ -29,3 +29,10 @@ Display confirmed full and partial rep counts separately in coach-workbook impor
 - Independent workbook-integrity review found one editor validation issue: invalid Save closed the dialog and discarded edits. Validation now runs inside the editor; real button-click coverage verifies values survive invalid Save. Re-review found no remaining actionable issues.
 - Confirmations remain private and tied to export bytes and original set identity; raw history calculations, exports and existing workbooks are unchanged. Save checks preserve unrelated-date confirmations and detect observed external changes, without promising filesystem-wide locking.
 - The installed app bundle is intentionally unchanged. Rebuild it from the completed branch to use the feature in a packaged application; source execution already includes the editor. No dependency or packaging changes were required.
+
+## PR review cycle
+
+- PR #28: Display confirmed full and partial reps in workbook imports; branch codex/separate-full-partial-reps.
+- Brooks PR review on 2026-10-26: 100/100, stable against the preceding PR Review record; no actionable findings. Sampled the 18-file diff across all production confirmation, transfer and UI paths plus corresponding tests. The large diff is cohesive and includes substantial test/documentation coverage. No generated files were excluded.
+- Codex review was requested; hosted review and CI readiness are checked after this record is saved. No review-driven source changes or additional tests were required by the Brooks pass.
+- GitHub reports the branch mergeable without conflicts. Leave the PR unmerged; the final chat report records the latest Codex and CI states.
