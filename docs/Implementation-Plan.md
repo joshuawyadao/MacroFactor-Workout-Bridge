@@ -12,8 +12,8 @@ Refresh only the vulnerable audit and build dependencies, verify their complete 
 - [x] Verify target wheel SHA-256 values against PyPI and refresh only the affected exact pins/hashes, keeping the rest of each complete closure fixed.
 - [x] Validate the filelock major upgrade against CacheControl's actual file-cache API and Python 3.11 requirements; use an isolated audit environment, dependency resolution, `pip check`, and repeated cached audits. Existing dependency tests and real consumer checks cover this configuration-only change, so no new test files are planned.
 - [x] Update `docs/Development.md` with the security rationale and the audit-only filelock compatibility boundary; retain binary-only and required-hash installation instructions.
-- [ ] Resolve/install audit and app-build closures on patched Python 3.11.17, validate Linux x86-64 audit wheels, audit all three locks, and run the existing focused dependency tests plus the full offscreen GUI suite, compilation and diff checks.
-- [ ] Rebuild the macOS app, verify the ad-hoc signature, run its embedded-runtime smoke check, and confirm the bundled Python version. Each lock closure is an independent rollback boundary; do not roll back to vulnerable versions for routine continued use.
+- [x] Resolve/install audit and app-build closures on patched Python 3.11.17, validate Linux x86-64 audit wheels, audit all three locks, and run the existing focused dependency tests plus the full offscreen GUI suite, compilation and diff checks.
+- [x] Rebuild the macOS app, verify the ad-hoc signature, run its embedded-runtime smoke check, and confirm the bundled Python version. Each lock closure is an independent rollback boundary; do not roll back to vulnerable versions for routine continued use.
 - [ ] Save and push the branch, open a PR against `main`, request Codex review, run Brooks review, and address actionable review/CI failures until merge-ready; record concrete results below.
 
 ## Open questions
@@ -27,4 +27,10 @@ Refresh only the vulnerable audit and build dependencies, verify their complete 
 - Linux x86-64 Python 3.11 audit closure downloaded successfully with binary-only wheels and required hashes.
 - Existing dependency/documentation tests: 20 passed in 8.831 seconds, exit 0. No test files changed because application behavior and desktop dependencies are unchanged; real cache-consumer and build checks exercise the updated third-party integration.
 - macOS app rebuilt and ad-hoc signature verification passed; embedded GUI smoke passed. Bundled `libpython3.11.dylib` reports Python 3.11.17. Build environment `pip check` passed with setuptools 84.2.1. Compilation and `git diff --check` passed.
-- Complete offscreen suite, hosted CI and PR reviews remain pending.
+- Complete offscreen suite: 496 tests passed in 62.765 seconds, no skips, exit 0. Hosted CI and PR reviews remain pending.
+
+## PR review ledger
+
+- Plan checkpoint: `fbbb735`; isolated audit-tool upgrade checkpoint: `782edae`. Build tooling and canonical dependency notes are saved separately so the two lock updates remain independently reviewable.
+- Independent workbook-integrity review: no actionable findings; application source, test files, desktop pins, packaging scripts and CI are unchanged. Remaining gates are hosted CI and PR reviews.
+- The old GitHub CI/comment helper skill paths referenced by the PR workflow are not installed. Use native GitHub CLI/API check diagnostics and thread-aware GraphQL reads if needed; this does not change the review or verification gates.
