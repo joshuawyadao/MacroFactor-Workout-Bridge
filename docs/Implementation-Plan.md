@@ -58,13 +58,36 @@ Local integration validation on 2026-10-28: `./scripts/test.sh` completed with 5
 The updated CI run cleared the six previous advisories but stopped before tests at msgpack 1.2.2 (CVE-2026-114613). The user approved the upstream-fixed 1.2.3 patch for audit tooling only.
 
 - [x] Inspect the failed audit log and verify the upstream advisory and 1.2.3 release. Confirm this package is confined to requirements/audit.lock.
-- [ ] Checkpoint this resolved follow-up plan, then change only the msgpack version and its reviewed Python 3.11 macOS/Linux wheel hashes; preserve every other pin/hash and the binary-only policy.
-- [ ] Verify the selected wheel bytes against PyPI SHA-256 metadata and validate the complete locked audit closure on macOS arm64 and Linux x86-64; run pip check.
-- [ ] Run all-lock audits with a shared explicit cache twice to exercise the actual CacheControl/msgpack serialization consumer, plus existing dependency regression tests, compilation and diff checks. No new tests are planned for this audit-tool-only patch unless a new application defect appears.
+- [x] Checkpoint this resolved follow-up plan (5d13143), then change only the msgpack version and its reviewed Python 3.11 macOS/Linux wheel hashes; preserve every other pin/hash and the binary-only policy.
+- [x] Verify the selected wheel bytes against PyPI SHA-256 metadata and validate the complete locked audit closure on macOS arm64 and Linux x86-64; run pip check.
+- [x] Run all-lock audits with a shared explicit cache twice to exercise the actual CacheControl/msgpack serialization consumer, plus existing dependency regression tests, compilation and diff checks. No new tests are planned for this audit-tool-only patch unless a new application defect appears.
 - [ ] Update the canonical Development guide and this ledger, save and push the narrow CI fix, and request fresh Codex review.
 - [ ] Watch CI and review to terminal states, then report PR #28 readiness without merging it. Application/test/build pins and installed bundles remain unchanged.
 
 Open questions: none. The user explicitly approved the msgpack 1.2.3 patch and wheel/closure verification.
+
+Local patch verification on 2026-10-28: independently downloaded both selected msgpack 1.2.3 wheels from PyPI and matched their bytes to published SHA-256 metadata and the lock. On a checksum-verified isolated Python 3.11.17 runtime, macOS arm64 resolved and installed the complete audit closure with binary-only artifacts and required hashes; `pip check` passed. Linux x86-64 resolved all 29 audit wheels under the same policy. Two all-lock audits using one explicit cache directory both reported no known vulnerabilities; the first populated 37 cache entries. Existing dependency regressions passed (20 tests in 8.204 seconds), compilation and diff checks passed. The canonical 523-test integration run above remains applicable because no application or test logic changed; CI will rerun the full suite after publication. No tests were added for this configuration-only patch.
+
+### Brooks-Lint patch follow-up
+
+**Mode:** PR Review
+
+**Scope:** Approved msgpack patch since 5d13143: canonical dependency guidance and this plan. The lockfile is excluded from decay analysis and separately verified against downloaded artifacts and complete platform closures. Application and test code are unchanged.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at 100.
+
+The patch keeps the audit dependency inside its existing tooling boundary and documents its actual cache consumer.
+
+#### Findings
+
+No actionable concerns. Quick Test Check is inapplicable to this configuration/documentation patch; existing dependency tests and repeated real cached audits provide verification.
+
+#### Summary
+
+- Publish the approved pin and wheel hashes, preserving every other lock entry.
+- Track final hosted CI and Codex review in PR #28 and the completion report, so recording terminal hosted status does not itself restart checks. The remaining publication and hosted-verification checklist items above are completed through that live record; leave the PR unmerged.
 
 ## Merged dependency refresh record (PR #27)
 
