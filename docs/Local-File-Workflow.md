@@ -101,9 +101,17 @@ The smoke test creates a window without loading history; it does not verify real
 
 The weekly `current/` export is selected separately from the Dashboard's broad-history baseline. New narrower exports can supplement history without erasing earlier coverage; conflicting day snapshots are flagged rather than concatenated. Read [automatic loading](Desktop-Guide.md#automatic-inbox-loading) and **Source status…** for selection details.
 
-Normal training notes live in `annotations/workout-history.json`. The app saves them only on explicit request, pauses refresh for unsaved edits, and refuses to overwrite external changes. Prefer **Training notes** for ordinary edits. The following section is for advanced layouts only.
+## Full and partial rep confirmations
+
+The workbook-transfer editor saves explicitly confirmed counts in `annotations/rep-counts/<export-sha256>.json` within the selected managed workspace. Without a managed workspace, the desktop uses a `rep-counts/` folder within its OS-provided local application-data directory. If no application-data location is available, choose a managed workspace. Include these private files in workspace/application-data backups if you want to retain confirmations. They may contain exercise names, dates, loads and workout names; keep them out of Git and public reports.
+
+Confirmations belong to the exact file contents and original set identities. Copies of the same export can reuse the saved counts within the same storage location. A different export, even for the same workout dates, requires new confirmations. Saving a selected date range preserves saved counts for other dates in that export. Clearing a set's **Confirm** checkbox removes its confirmation; cancelling the editor makes no changes.
+
+Saving uses a staged replacement with an export and confirmation-file hash check. External changes detected since preview stop the save; refresh and review again. These checks do not provide filesystem-wide locking against another writer between the final check and replacement. The transfer also checks saved counts before and during output publication. Source exports, existing coach workbooks, and Dashboard history calculations are never rewritten. See the [CLI reference](CLI-Reference.md#full-and-partial-rep-counts) for the optional `--rep-counts` input and JSON contract.
 
 ## Irregular coach week layouts
+
+Normal training notes live in `annotations/workout-history.json`. The app saves them only on explicit request, pauses refresh for unsaved edits, and refuses to overwrite external changes. Prefer **Training notes** for ordinary edits. The following section is for advanced layouts only.
 
 App version 0.4.1 supports an optional `week_layout` in each block's private annotation. Use it only after checking which source columns belong to that block. It is configured in JSON, not through a layout editor in the desktop app. Ordinary sheets still use automatically discovered numbered weeks in numeric order; **Update coach workbook** keeps its existing discovery behavior.
 

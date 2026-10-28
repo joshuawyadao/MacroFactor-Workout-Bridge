@@ -24,6 +24,7 @@ from .models import (
     SetRecord,
 )
 from .ooxml import WorkbookError, file_sha256, split_cell_reference, validate_copy_integrity
+from .rep_counts import apply_rep_counts, rep_count_entry
 from .workbook import (
     ProgramDay,
     TargetRow,
@@ -142,6 +143,8 @@ def build_preview(
     week_label: str,
     from_date: date,
     to_date: date,
+    *,
+    rep_counts_path: str | Path | None = None,
 ) -> BridgeReport:
     if to_date < from_date:
         raise ValueError("to-date must be on or after from-date")
@@ -156,7 +159,9 @@ def build_preview(
         if export_is_xlsx
         else load_exercise_log_with_diagnostics(export_path)
     )
-    records = imported_log.records
+    counts_path = Path(rep_counts_path) if rep_counts_path is not None else None
+    counts_hash = file_sha256(counts_path) if counts_path is not None and counts_path.exists() else None
+    records = apply_rep_counts(imported_log.records, counts_path, export_hash)
     exercise_notes = load_exercise_notes(
         export_path,
         _preloaded_notes=imported_log.exercise_notes if export_is_xlsx else None,
@@ -176,6 +181,8 @@ def build_preview(
         preview_export_hash=export_hash,
         preview_config_fingerprint=config_fingerprint,
         preview_config_path=config.source_path,
+        rep_counts_path=str(counts_path) if counts_path is not None else None,
+        preview_rep_counts_hash=counts_hash,
     )
     report.skipped_rows.extend(imported_log.skipped_rows)
     valid: list[SetRecord] = []
@@ -215,6 +222,7 @@ def build_preview(
             continue
         valid.append(record)
 
+    report.rep_count_sets = [rep_count_entry(record) for record in valid]
     source_index = source_rule_index(config)
     coach_rows = target_rows(package, sheet, options, week, snapshot=snapshot)
     coach_index: dict[str, list] = defaultdict(list)
@@ -441,6 +449,16 @@ def _check_preview_inputs(report: BridgeReport, config: BridgeConfig) -> None:
         if current != expected:
             raise WorkbookError(f"{label} changed since preview; create a new preview")
     _check_mapping(config, report.preview_config_path, report.preview_config_fingerprint)
+    if report.rep_counts_path:
+        path = Path(report.rep_counts_path)
+        try:
+            if path.is_symlink():
+                raise OSError("Symlinked rep confirmations are unsupported")
+            current = file_sha256(path) if path.exists() else None
+        except OSError as exc:
+            raise WorkbookError("Cannot verify full/partial rep confirmations; create a new preview") from exc
+        if current != report.preview_rep_counts_hash:
+            raise WorkbookError("Full/partial rep confirmations changed since preview; create a new preview")
 
 
 def _is_published_file(output: Path, created: os.stat_result) -> bool:
@@ -492,7 +510,7 @@ def apply_changes(
     output = Path(output_path)
     if output.suffix.lower() != ".xlsx":
         raise WorkbookError("Output path must end in .xlsx")
-    for path in (report.input_workbook, report.input_export, report.preview_config_path, config.source_path):
+    for path in (report.input_workbook, report.input_export, report.preview_config_path, config.source_path, report.rep_counts_path):
         if path and output.resolve() == Path(path).resolve():
             raise WorkbookError("Output path must be different from the source workbook, export and mapping")
     if output.exists() or output.is_symlink():

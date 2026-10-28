@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
@@ -150,6 +151,39 @@ class FormattingTests(unittest.TestCase):
                     ),
                 ]
             )
+
+    def test_confirmed_partials_are_explicit_in_standard_and_special_sets(self) -> None:
+        confirmed = replace(record("Standard Set", "25", "9.33", 1), full_reps=8, partial_reps=4)
+        single = replace(record("Standard Set", "25", "7.33", 2), full_reps=7, partial_reps=1)
+        self.assertEqual(format_sets([confirmed, single], self.rule),
+                         "25 x 8 full + 4 partials, 7 full + 1 partial")
+        drop = replace(record("Drop Set", "20", "11.67", 3), full_reps=10, partial_reps=5)
+        self.assertEqual(format_sets([confirmed, drop], self.rule),
+                         "25 x 8 full + 4 partials→20 x 10 full + 5 partials")
+        myo = replace(record("Myo Set", "40", "4.33", 4), full_reps=3, partial_reps=4)
+        mini = replace(record("Mini-set", "40", "2.33", 5), full_reps=2, partial_reps=1)
+        self.assertEqual(format_sets([myo, mini], self.rule),
+                         "40 x 3 full + 4 partials+2 full + 1 partial")
+
+    def test_confirmed_zero_partials_and_partial_only(self) -> None:
+        whole = replace(record("Standard Set", "25", "9", 1), full_reps=9, partial_reps=0)
+        partial_only = replace(record("Standard Set", "25", "0.33", 2), full_reps=0, partial_reps=4)
+        self.assertEqual(format_sets([whole, partial_only], self.rule),
+                         "25 x 9, 0 full + 4 partials")
+
+    def test_fractional_without_confirmation_and_invalid_pair_raise(self) -> None:
+        with self.assertRaisesRegex(ValueError, "confirmation"):
+            format_sets([record("Standard Set", "25", "9.33", 1)], self.rule)
+        for pair in ((True, 2), (8, None), (-1, 4), (0, 0)):
+            with self.subTest(pair=pair), self.assertRaisesRegex(ValueError, "Invalid full/partial"):
+                format_sets([replace(record("Standard Set", "25", "9", 1),
+                                     full_reps=pair[0], partial_reps=pair[1])], self.rule)
+
+    def test_superset_shows_confirmed_counts_on_each_side(self) -> None:
+        first = replace(record("Standard Set", "55", "9.33", 1), full_reps=8, partial_reps=4)
+        second = replace(record("Standard Set", "65", "10", 2), full_reps=10, partial_reps=0)
+        self.assertEqual(format_superset([([first], self.rule), ([second], self.rule)]),
+                         "55/65 x 8 full + 4 partials/10")
 
 
 if __name__ == "__main__":

@@ -95,10 +95,15 @@ The second top-level tab, **Update coach workbook**, guides the optional workboo
 4. Click **Load workbook weeks**, then select the worksheet and coach week.
 5. Confirm the inclusive workout dates. **Use latest export week** selects Monday through Sunday around the export's latest workout row; it does not infer that an absent workout was skipped.
 6. Click **Preview workbook changes** and inspect the proposed-change table and **Review needed** panel. Yellow `Skip` rows call out programmed days with no matched session and must be confirmed before sharing.
+   If the export contains decimal reps, use **Review full/partial reps…** to enter the actual full and partial counts for each affected set, check **Confirm**, and choose **Save counts and preview**. The editor lists every completed set in the selected dates, including whole-number totals that may hide partials. No counts are inferred from decimals. Previously saved counts are filled in; uncheck **Confirm** to remove a saved split. Cancel leaves the saved counts and current preview unchanged.
 7. Click **Save updated workbook copy…** and choose a new `.xlsx` filename. The logged sets go into the selected week in this new copy; the original workbook stays unchanged.
 8. Optionally save the full review and validation report as JSON at a new path. Desktop and CLI refuse existing files, source/mapping paths, and generated-workbook paths, including symlink aliases.
 
-If the workbook, export, or Part 1 mapping settings change after preview, create a new preview before applying. Program-only mapping settings do not invalidate a Part 1 review.
+Fractional sets without confirmation withhold the whole exercise result and appear in **Review needed**; unrelated eligible cells remain writable. Confirmed sets display as, for example, `45s x 10, 8 full + 4 partials`. Review the full preview before saving a partial workbook.
+
+Counts are remembered for the exact export under the workspace's `annotations/rep-counts/` directory. Manual selection without a managed workspace uses the operating system's local application-data directory instead. Saving counts refreshes the preview; it does not create a workbook. Original exports and numeric Dashboard history remain unchanged. See [confirmation storage](Local-File-Workflow.md#full-and-partial-rep-confirmations) for reuse and backup details.
+
+If the workbook, export, Part 1 mapping settings, or saved full/partial counts change after preview, create a new preview before applying. Program-only mapping settings do not invalidate a Part 1 review.
 
 The bundled mapping is an example, not a promise that every personal exercise name is configured. Use **Save editable copy…** to create a normal JSON file outside the repository, add exact aliases and confirmed conversions, then preview again. The app never edits the mapping stored inside its bundle.
 

@@ -24,6 +24,18 @@ def _weight(record: SetRecord, rule: ExerciseRule) -> str:
 def _reps(record: SetRecord) -> str:
     if record.reps is None:
         raise ValueError("Cannot format a set without reps")
+    full, partial = record.full_reps, record.partial_reps
+    if full is not None or partial is not None:
+        if (
+            type(full) is not int or type(partial) is not int
+            or full < 0 or partial < 0 or full + partial == 0
+        ):
+            raise ValueError(f"Invalid full/partial rep counts (source row {record.source_row})")
+        if partial:
+            return f"{full} full + {partial} {'partial' if partial == 1 else 'partials'}"
+        return str(full)
+    if record.reps != record.reps.to_integral_value():
+        raise ValueError(f"Fractional reps require confirmation (source row {record.source_row})")
     return _number(record.reps)
 
 

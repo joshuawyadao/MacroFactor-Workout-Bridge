@@ -230,6 +230,10 @@ def build_parser() -> argparse.ArgumentParser:
         command_parser.add_argument("--from-date", required=True, type=_date)
         command_parser.add_argument("--to-date", required=True, type=_date)
         command_parser.add_argument("--report", help="Optional JSON report path")
+        command_parser.add_argument(
+            "--rep-counts",
+            help="Private JSON with confirmed full/partial counts for this exact export",
+        )
         if command == "apply":
             command_parser.add_argument("--output", required=True)
 
@@ -318,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.workbook,
                 args.config,
                 getattr(args, "output", None),
+                args.rep_counts,
             )
         _validate_report_path(
             getattr(args, "report", None),
@@ -370,6 +375,8 @@ def main(argv: list[str] | None = None) -> int:
             _print_program_report(report)
             return 0
         sheet_name, week_label = _resolve_selection(args, config)
+        if args.rep_counts and not Path(args.rep_counts).is_file():
+            raise WorkbookError("Full/partial rep confirmations file does not exist")
         report = build_preview(
             args.export,
             args.workbook,
@@ -378,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
             week_label,
             args.from_date,
             args.to_date,
+            rep_counts_path=args.rep_counts,
         )
         if args.command == "apply":
             report = apply_changes(report, config, args.output)

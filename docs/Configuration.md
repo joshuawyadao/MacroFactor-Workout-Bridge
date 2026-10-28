@@ -44,7 +44,7 @@ The marker is proposed only when the selected dates contain usable workout data,
 - `weight_suffix` defaults to an empty string and is independent of weight conversion.
 - `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in configured order. Part 1 requires the same number of completed standard sets for each movement, paired by set position; unsupported mixed/special-set combinations remain unresolved.
 
-There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule. A load conversion does not double or halve exported repetitions, and the transfer does not add machine base weight.
+There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule. A load conversion does not double or halve exported repetitions, and the transfer does not add machine base weight. Separately confirmed full/partial counts change workbook display only; they are stored outside the exercise mapping and do not change numeric history. See [full and partial counts](CLI-Reference.md#full-and-partial-rep-counts).
 
 Per-side weight and per-side repetitions are independent. For an exercise confirmed to export combined weight, use `weight_multiplier: 0.5` and `weight_suffix: "s"` to display the load per side. Equal repetitions on each side do not mean doubling or halving the logged count. A different exercise on similar equipment still needs its own confirmed rule.
 
