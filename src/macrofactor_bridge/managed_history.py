@@ -19,7 +19,7 @@ from .history import (
     build_history_dashboard, load_dashboard_annotations,
 )
 from .importers import ExerciseLogImport, load_exercise_log_with_diagnostics
-from .local_workspace import DIRECTORIES, archive_inbox, verified_archives
+from .local_workspace import DIRECTORIES, _history_archive_path, archive_inbox, verified_archives
 from .models import SetRecord
 from .ooxml import file_sha256
 from .workbook import discover_workbook
@@ -137,11 +137,15 @@ def workspace_fingerprint(root: Path) -> tuple:
     return tuple(result)
 
 
-def _sources(root: Path, issues: list[str]):
+def _sources(root: Path, issues: list[str], entries: list[dict] | None = None):
     candidates = {}
-    entries = verified_archives(root)
+    if entries is None:
+        entries = verified_archives(root)
     for entry in entries:
         path = Path(entry["archive"])
+        if _history_archive_path(root, entry["kind"], str(path)) != path:
+            issues.append(f"Skipped archive whose path changed during loading: {path.name}")
+            continue
         key = entry["kind"], entry["sha256"]
         modified = datetime.fromisoformat(entry["source_modified_at"]).timestamp()
         if key not in candidates or modified > candidates[key][2]:
@@ -225,13 +229,15 @@ def load_managed_history(root: str | Path, *, archive: bool = True) -> ManagedSn
     config = load_config(config_path)
     annotations = load_dashboard_annotations(annotation_path)
     issues: list[str] = []
+    verified = verified_archives(root)
     if archive:
-        manifest = archive_inbox(root, config_path, new_only=True)
+        manifest = archive_inbox(root, config_path, new_only=True, _verified_history=verified)
         issues.extend(f"{Path(error['source']).name}: {error['error']}" for error in manifest["errors"])
+        verified = [*verified, *manifest["entries"]]
     fingerprint = workspace_fingerprint(root)
     config = load_config(config_path)
     annotations = load_dashboard_annotations(annotation_path)
-    candidates = _sources(root, issues)
+    candidates = _sources(root, issues, verified)
     exports = []
     coaches = []
     index = source_rule_index(config)

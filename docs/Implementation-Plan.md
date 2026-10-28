@@ -46,8 +46,8 @@ Update PR #28 from current main after the user merged PR #27, retaining the full
 - [x] Checkpoint this resolved plan (6ef6a26), then merge origin/main into codex/separate-full-partial-reps without rewriting branch history.
 - [x] Resolve overlapping implementation-plan and Brooks-history edits by preserving both feature and dependency-review evidence; retain main's exact reviewed pins and hashes.
 - [x] Run the canonical offscreen suite, source compilation, and diff checks. Existing regressions cover this integration; add tests only if a new defect requires a behavioral fix.
-- [ ] Record local verification, commit and push the completed merge, and request fresh Codex review on the updated PR.
-- [ ] Watch the new CI Verify run through completion, inspect any observed failure, and confirm fresh review and mergeability state. Leave PR #28 unmerged.
+- [x] Record local verification, commit and push the completed merge (0d24afc), and request fresh Codex review on the updated PR; review completed clean.
+- [x] Watch the new CI Verify run through completion and inspect its msgpack audit failure, addressed below. Leave PR #28 unmerged.
 
 Open questions: none. The user explicitly requested this branch update and CI rerun after merging PR #27.
 
@@ -61,8 +61,8 @@ The updated CI run cleared the six previous advisories but stopped before tests 
 - [x] Checkpoint this resolved follow-up plan (5d13143), then change only the msgpack version and its reviewed Python 3.11 macOS/Linux wheel hashes; preserve every other pin/hash and the binary-only policy.
 - [x] Verify the selected wheel bytes against PyPI SHA-256 metadata and validate the complete locked audit closure on macOS arm64 and Linux x86-64; run pip check.
 - [x] Run all-lock audits with a shared explicit cache twice to exercise the actual CacheControl/msgpack serialization consumer, plus existing dependency regression tests, compilation and diff checks. No new tests are planned for this audit-tool-only patch unless a new application defect appears.
-- [ ] Update the canonical Development guide and this ledger, save and push the narrow CI fix, and request fresh Codex review.
-- [ ] Watch CI and review to terminal states, then report PR #28 readiness without merging it. Application/test/build pins and installed bundles remain unchanged.
+- [x] Update the canonical Development guide and this ledger, save and push the narrow CI fix (e51812f), and request fresh Codex review; review completed clean.
+- [x] Inspect hosted readiness: CI was withheld because main advanced through PR #26, requiring the follow-up integration below. The msgpack patch itself changes no application/test/build pins or installed bundles.
 
 Open questions: none. The user explicitly approved the msgpack 1.2.3 patch and wheel/closure verification.
 
@@ -94,12 +94,35 @@ No actionable concerns. Quick Test Check is inapplicable to this configuration/d
 Main advanced to 62db9dc while the approved msgpack patch was being verified. PR #26 contains operation-scoped workbook/archive optimizations and the identical msgpack pin/hashes. Integrate that main state so GitHub can run PR #28's checks.
 
 - [x] Inspect the new main commit, affected source/tests/docs and exact audit-lock parity.
-- [ ] Checkpoint this resolved addition, then merge origin/main without rewriting branch history.
-- [ ] Preserve the partial-rep confirmation behavior and main's resource/safety improvements in any source overlap; combine canonical documentation and retain all plan/review records.
-- [ ] Run the canonical offscreen suite, compilation and diff checks, and independently review the integration. Add tests only if conflict resolution introduces behavior not covered by the existing feature and resource regressions.
+- [x] Checkpoint this resolved addition (0ac0655), then merge origin/main without rewriting branch history.
+- [x] Preserve the partial-rep confirmation behavior and main's resource/safety improvements in any source overlap; combine canonical documentation and retain all plan/review records.
+- [x] Run the canonical offscreen suite, compilation and diff checks, and independently review the integration. Add tests only if conflict resolution introduces behavior not covered by the existing feature and resource regressions.
 - [ ] Save and push the completed integration, request Codex review of its final head, then watch CI and review to terminal states. Record hosted status in PR #28 and leave it unmerged.
 
 Open questions: none. Updating PR #28 against current main and resolving conflicts are within the user's requested PR update.
+
+Integration validation: `./scripts/test.sh` passed all 540 tests in 50.455 seconds with no skips and exit 0, including both confirmation and new resource regressions. Compilation and diff checks passed. No new tests were authored for the merge because the combined existing suites cover the resolution. Independent workbook-integrity review found no actionable concerns. The only source conflict was in `service.py`: retain export-bound confirmations and their hashes/report fields while adopting main's single XLSX import with preloaded notes and shared coach-sheet snapshot. All other main source/resource-test files, all dependency locks, and Development.md match 62db9dc exactly. Keep both feature and main implementation/review records.
+
+### Brooks-Lint integration follow-up
+
+**Mode:** PR Review
+
+**Scope:** Incremental conflict resolutions for integration of main 62db9dc: service preview composition, canonical dependency guidance, this plan and review history. Already reviewed resource changes from PR #26 and full/partial feature changes from PR #28 are checked for preservation rather than rescored as new design.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at 100.
+
+The resolved preview composes confirmation handling with operation-scoped reads without new coupling or duplicated parsing.
+
+#### Findings
+
+No actionable findings. Quick Test Check is clean: existing confirmation, preview/resource and mutation/publication tests passed together in the full suite. No test assertions were weakened or removed.
+
+#### Summary
+
+- Publish the merge and request review of its final head; prior clean reviews covered 0d24afc and e51812f.
+- Complete hosted CI and final review in the live PR record before reporting readiness. Leave PR #28 unmerged.
 
 ## Merged dependency refresh record (PR #27)
 
@@ -161,3 +184,67 @@ No actionable findings. The existing lock policy deliberately pins complete clos
 
 - Retain the three advisory-backed package updates and reviewed wheel hashes.
 - Complete Codex review, hosted CI and a fresh mergeability check before handing off PR #27; leave the merge to the maintainer.
+
+## Merged efficiency integration record (PR #26)
+
+Historical main record retained for provenance. Its separate merge authorization applied only to PR #26; the current PR #28 remains unmerged.
+
+Integrate the current main branch into PR #26, preserve the reviewed efficiency work and newer security pins, then complete the user-authorized merge and feature-branch cleanup.
+
+### Scope
+- In: conflict resolution against main at `37b5b50`, integration validation, the newly reported msgpack audit-tool patch, refreshed PR review/CI, squash merge into main and deletion of `codex/local-efficiency` locally and remotely.
+- Out: new application behavior, unrelated dependency upgrades, changes to other branches, private workout data and rebuilding or installing the app.
+
+### Action items
+- [x] Inspect live PR #26, merged PR #27, current refs, Development guidance and existing dependency checks; verify a clean feature worktree.
+- [x] Checkpoint this resolved plan before merging main into the feature branch.
+- [x] Merge main; retain setuptools 84.2.1 and the matching lock hash/security guidance from PR #27, retain both Brooks history records, and keep the efficiency documentation and this current plan.
+- [x] Verify all three locks match main exactly, inspect every conflict resolution, and run the canonical 513-test offscreen suite, compilation and diff checks. Existing tests cover this integration; no executable behavior or test files need changing.
+- [x] Patch only audit-tool msgpack 1.2.2 to the advisory-fixed release, review macOS arm64/Linux x86-64 CPython 3.11 wheel hashes, install the full hash-pinned audit closure, exercise CacheControl serialization, audit all locks and run existing dependency tests. No application or test edits are needed.
+- [ ] Commit and push the integration; refresh Codex review, Brooks review and CI Verify on the final feature head, checking for new comments or changes to main.
+- [ ] Squash-merge PR #26 with an expected-head guard, fetch the resulting main commit, verify the efficiency implementation is present, and delete the feature branch locally and remotely.
+
+### Open questions
+- None. The user explicitly authorized merging PR #26 and deleting its feature branch. Keep main's newer dependency versions without downgrading them.
+
+### Validation and risk
+- Conflicts arise from parallel security-tooling updates and documentation/history edits; preserve both intents without changing production code.
+- Main contains the same certifi 2026.10.23 and filelock 4.2.4 updates, plus newer setuptools 84.2.1. Reuse those already reviewed pins and hashes exactly.
+- Prior PR #26 validation: 513 local tests passed; CI Verify and final-head Codex review passed at `3fafddb` with no findings. Recheck the integrated head before merging.
+- The PR review skill readies the branch; the user's separate merge instruction authorizes the subsequent merge and cleanup.
+
+### Change ledger
+- October 28: main advanced through merged PR #27 (`37b5b50`). Read-only merge analysis found overlapping review history, Development guidance, implementation plan and app-build lock changes. Source and test files do not overlap.
+- Conflict resolution: retain the current integration plan; keep main's setuptools 84.2.1 lock and canonical security guidance; retain the efficiency resource guidance and both distinct Brooks review records. The historical PR #27 plan remains in Git and its PR body. No application or test changes are introduced.
+
+### Brooks-Lint Review
+
+**Mode:** PR Review
+
+**Scope:** Incremental integration changes since reviewed PR #26 head `3fafddb`: four conflict resolutions in Development guidance, this plan, review history and the app-build lock. All three resulting dependency locks match main `37b5b50` exactly; application source, tests, scripts, packaging and CI remain byte-identical to the reviewed feature head.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at 100.
+
+The integration preserves current security pins and the efficiency implementation without adding coupling or new behavior.
+
+#### Findings
+
+No actionable findings across R1–R6. Generated lock configuration is excluded from code-decay scoring and verified separately for exact equality to current main. The Quick Test Check is inapplicable to this incremental configuration/documentation change; the previously reviewed regression suite remains unchanged and is being rerun.
+
+#### Summary
+
+- Preserve both feature and security review history records and canonical Development guidance.
+- Keep final hosted CI, refreshed Codex review and live mergeability as gates before the separately authorized merge and cleanup.
+- Integration validation: canonical suite completed with exit 0; test count and timing recorded in the PR before final merge. Compilation and diff checks passed; all three locks exactly match main 37b5b50. No test files changed because no new executable behavior was introduced. The first sandboxed run could not provision PyPI packages; the authorized network-enabled run completed successfully.
+
+### CI follow-up
+
+- Run `40737692224` at `6f52c01` failed in dependency auditing before tests: audit-tool msgpack 1.2.2 is affected by CVE-2026-114613; CI reports 1.2.3 as fixed. This advisory entered the database after the original review. Current main has the same affected pin.
+- The user's earlier authorization to update and validate affected locks remains applicable. Limit this follow-up to the msgpack patch and its two existing platform-wheel hashes, keeping main's other pins and source unchanged. Checkpoint this updated plan before changing the lock.
+- Refreshed Codex review is running on `6f52c01`; request final-head review after the audit patch. Canonical local integration validation already passed all 513 tests in 61.112 seconds with zero skips and exit 0.
+
+- Audit fix validation: msgpack 1.2.3 requires Python >=3.10 and adds no dependencies. Downloaded CPython 3.11 macOS arm64 and Linux x86-64 wheels matched official PyPI SHA-256 metadata; all other audit pins and both other locks are unchanged. Full hash-enforced audit-closure installation and pip check passed. CacheControl response serialization and FileCache set/get/delete passed. All-lock pip-audit reports no known vulnerabilities; 20 existing dependency tests passed in 7.821 seconds. No application or test files changed; the 513-test integration run remains valid and hosted CI will rerun the suite on the final head.
+- Codex review completed on integration commit `6f52c01` with no findings. Request review again after saving this narrow audit patch. Incremental Brooks review of the patch and matching Development guidance found no actionable findings (100/100, stable); generated lock hashes were separately verified and the Quick Test Check remains inapplicable to this configuration/docs delta.
+- Final hosted CI/review/merge/cleanup results are tracked in PR #26 to avoid introducing a documentation-only commit after the reviewed final head.

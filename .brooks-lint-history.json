@@ -176,6 +176,17 @@
     "scope": "PR #28 vs origin/main f373920; sampled 18 cohesive feature files across confirmation storage, transfer, desktop/CLI, docs and corresponding failure-path tests; no actionable findings"
   },
   {
+    "date": "2026-10-26",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #26 vs origin/main f373920; sampled highest-risk preview read reuse, archive verification freshness, ZIP streaming and resource regressions after the log-only note-scan fix; unchanged dependency locks excluded"
+  },
+  {
     "date": "2026-10-28",
     "mode": "PR Review",
     "score": 100,
@@ -196,5 +207,38 @@
       "suggestion": 0
     },
     "scope": "PR #28 approved msgpack 1.2.3 audit-only follow-up since 5d13143; reviewed canonical guidance and plan, separately verified both wheel hashes and full platform closures; application and test logic unchanged"
+  },
+  {
+    "date": "2026-10-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #26 integration of main 37b5b50; incremental review of four conflict resolutions: keep current security locks/guidance, preserve both review history records, and update integration plan; application source and tests byte-identical to reviewed 3fafddb"
+  },
+  {
+    "date": "2026-10-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #26 audit-only msgpack 1.2.2 to 1.2.3 patch after integration; reviewed canonical Development guidance and plan, separately verified both CPython 3.11 platform-wheel hashes and complete audit closure; application source and tests unchanged"
+  },
+  {
+    "date": "2026-10-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #28 incremental integration of main 62db9dc (PR #26): reviewed service confirmation/snapshot composition and plan/history/doc conflict resolution; canonical 540-test suite and independent workbook-safety review clean"
   }
 ]

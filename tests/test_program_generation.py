@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import tracemalloc
 import unittest
 import zipfile
 from contextlib import redirect_stdout
@@ -20,6 +21,7 @@ from tests.xlsx_factory import (
     write_macrofactor_program_template,
     write_program_workbook,
 )
+from tests.test_zip_streaming import LARGE_PART, add_large_part
 
 
 MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -133,6 +135,29 @@ class ProgramGenerationTests(unittest.TestCase):
         self.assertEqual([len(day.rows) for day in schema.days], [2])
         self.assertEqual(len(schema.sets), 4)
         self.assertEqual(schema.sets[0].number, 1)
+
+    def test_generated_program_streams_large_unrelated_template_part(self) -> None:
+        add_large_part(self.template)
+        coach = self.write_coach()
+        preview = self.preview(coach)
+        self.assertTrue(preview.generation_safe)
+        template_hash = file_sha256(self.template)
+        output = self.root / "large-program.xlsx"
+
+        tracemalloc.start()
+        try:
+            result = generate_program(preview, self.template, output)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+
+        self.assertLess(peak, 8 * 1024 * 1024, "Program copies must stream unrelated parts")
+        self.assertEqual(result.validation["unrelated_members_changed"], [])
+        self.assertEqual(file_sha256(self.template), template_hash)
+        with zipfile.ZipFile(self.template) as before, zipfile.ZipFile(output) as after:
+            self.assertEqual(before.comment, after.comment)
+            self.assertEqual(before.getinfo(LARGE_PART).CRC, after.getinfo(LARGE_PART).CRC)
+            self.assertEqual(after.getinfo(LARGE_PART).file_size, 16 * 1024 * 1024)
 
     def test_rejects_ambiguous_headers_and_unpreservable_package_features(self) -> None:
         duplicate_header = self.root / "duplicate-header.xlsx"
