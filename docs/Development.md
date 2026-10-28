@@ -73,6 +73,10 @@ Check that `python3.11 --version` is 3.11.17 or a later final 3.11 patch; substi
 
 This reports known package advisories and does not update packages. For a dependency update, resolve the closure on Python 3.11, record reviewed wheel hashes, run `python -m pip check` in the provisioned environment, audit the locks, rebuild the app and run the complete offscreen suite. A lock change must retain exact versions and reviewed wheel hashes; document any separately reviewed source-build requirement before allowing one.
 
+The audit closure also pins `certifi==2026.10.23` to remove the compromised emSign certificate chain ([advisory](https://github.com/certifi/python-certifi/security/advisories/GHSA-6q48-6c7w-9gw2)) and `filelock==4.2.4` to address local lock-file vulnerabilities ([POSIX advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-v4x8-3wr5-3wq8), [Windows database advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-9vhv-jxww-xfm5), [Windows timeout advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-567q-5qvw-pf92)). Filelock 4 requires Python 3.11 or newer; its use here is confined to CacheControl's `FileLock` context manager in the audit cache. When changing its major version, verify the actual cache read/write/delete path and repeat the all-lock audit using the same cache directory.
+
+The app-build closure pins `setuptools==84.2.1`, which includes the fix for Windows legacy wheel-install path traversal ([advisory](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w)). Setuptools is build tooling; this update does not change the reviewed PySide6/Shiboken or PyInstaller versions. Audit and app-build lock changes can be reviewed and reverted independently, but restoring a vulnerable pin is not a safe long-term rollback.
+
 ## macOS build and smoke check
 
 ```sh

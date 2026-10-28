@@ -162,6 +162,28 @@
       "warning": 0,
       "suggestion": 0
     },
+    "scope": "PR #27 vs origin/main f373920; reviewed dependency guidance and implementation plan; skipped two dependency lock files in decay analysis, separately verified their advisories, hashes and complete closures; no application or test logic changes"
+  },
+  {
+    "date": "2026-10-26",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
     "scope": "PR #28 vs origin/main f373920; sampled 18 cohesive feature files across confirmation storage, transfer, desktop/CLI, docs and corresponding failure-path tests; no actionable findings"
+  },
+  {
+    "date": "2026-10-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #28 integration of merged PR #27 (main 37b5b50); reviewed shared plan/history conflict resolution, confirmed exact upstream dependency lock and Development guide preservation, and verified feature source and tests unchanged"
   }
 ]
