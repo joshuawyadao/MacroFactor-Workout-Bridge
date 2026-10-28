@@ -4,6 +4,7 @@ Display confirmed full and partial rep counts separately in coach-workbook impor
 
 ## Scope
 - In: explicit per-set full/partial counts, coach-result formatting, transfer preview and CLI input, private confirmation persistence, regression tests, and affected user documentation.
+- Follow-up in: integrate the merged PR #27 dependency fixes from main, preserve both documentation/review records, and rerun local and hosted verification for PR #28.
 - Out: guessing counts from decimal reps, changing source exports or existing generated workbooks, changing history calculations, automatic equipment conversions, and installing or replacing the packaged app.
 
 ## Action items
@@ -36,3 +37,16 @@ Display confirmed full and partial rep counts separately in coach-workbook impor
 - Brooks PR review on 2026-10-26: 100/100, stable against the preceding PR Review record; no actionable findings. Sampled the 18-file diff across all production confirmation, transfer and UI paths plus corresponding tests. The large diff is cohesive and includes substantial test/documentation coverage. No generated files were excluded.
 - Codex review was requested; hosted review and CI readiness are checked after this record is saved. No review-driven source changes or additional tests were required by the Brooks pass.
 - GitHub reports the branch mergeable without conflicts. Leave the PR unmerged; the final chat report records the latest Codex and CI states.
+
+## Follow-up plan: integrate merged PR #27 (2026-10-28)
+
+Update PR #28 from current main after the user merged PR #27, retaining the full/partial rep feature and the reviewed dependency fixes.
+
+- [x] Confirm PR #27 is merged, PR #28 remains open, and the working tree is clean; inspect Development.md, both implementation records, and changed dependency locks.
+- [ ] Checkpoint this resolved plan, then merge origin/main into codex/separate-full-partial-reps without rewriting branch history.
+- [ ] Resolve overlapping implementation-plan and Brooks-history edits by preserving both feature and dependency-review evidence; retain main's exact reviewed pins and hashes.
+- [ ] Run the canonical offscreen suite, source compilation, and diff checks. Existing regressions cover this integration; add tests only if a new defect requires a behavioral fix.
+- [ ] Record local verification, commit and push the completed merge, and request fresh Codex review on the updated PR.
+- [ ] Watch the new CI Verify run through completion, inspect any observed failure, and confirm fresh review and mergeability state. Leave PR #28 unmerged.
+
+Open questions: none. The user explicitly requested this branch update and CI rerun after merging PR #27.
