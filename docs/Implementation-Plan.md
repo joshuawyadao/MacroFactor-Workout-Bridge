@@ -53,6 +53,19 @@ Open questions: none. The user explicitly requested this branch update and CI re
 
 Local integration validation on 2026-10-28: `./scripts/test.sh` completed with 523 tests passed in 71.061 seconds, no skips, exit 0. Source compilation and both working-tree and staged diff checks passed. Independent integration review found no actionable concerns. All feature application and test files are unchanged from the pre-merge branch; the existing tests validate the inherited dependency integration. Requirements locks and Development.md match merged main exactly. Preserve both PR #27 and PR #28 history records. The two remaining hosted-verification checklist items are tracked live in PR #28 and the completion report after publication, so recording their terminal state does not itself restart checks.
 
+## Approved CI follow-up: msgpack audit dependency
+
+The updated CI run cleared the six previous advisories but stopped before tests at msgpack 1.2.2 (CVE-2026-114613). The user approved the upstream-fixed 1.2.3 patch for audit tooling only.
+
+- [x] Inspect the failed audit log and verify the upstream advisory and 1.2.3 release. Confirm this package is confined to requirements/audit.lock.
+- [ ] Checkpoint this resolved follow-up plan, then change only the msgpack version and its reviewed Python 3.11 macOS/Linux wheel hashes; preserve every other pin/hash and the binary-only policy.
+- [ ] Verify the selected wheel bytes against PyPI SHA-256 metadata and validate the complete locked audit closure on macOS arm64 and Linux x86-64; run pip check.
+- [ ] Run all-lock audits with a shared explicit cache twice to exercise the actual CacheControl/msgpack serialization consumer, plus existing dependency regression tests, compilation and diff checks. No new tests are planned for this audit-tool-only patch unless a new application defect appears.
+- [ ] Update the canonical Development guide and this ledger, save and push the narrow CI fix, and request fresh Codex review.
+- [ ] Watch CI and review to terminal states, then report PR #28 readiness without merging it. Application/test/build pins and installed bundles remain unchanged.
+
+Open questions: none. The user explicitly approved the msgpack 1.2.3 patch and wheel/closure verification.
+
 ## Merged dependency refresh record (PR #27)
 
 Historical implementation and validation evidence retained from main; the current PR #28 integration checklist is above.
