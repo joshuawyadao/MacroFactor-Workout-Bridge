@@ -51,6 +51,30 @@ PYTHONPATH=src "$TEST_VENV/bin/python" -m macrofactor_bridge.desktop --help
 
 Replace the test module with one relevant to your change. A direct `PYTHONPATH=src python3 -m unittest discover -s tests -v` run can skip GUI modules when PySide6 is absent; it does not prove desktop coverage. GUI fixtures should call `self.addCleanup(dispose_widget, widget)` immediately after creating a top-level widget, within the existing optional-Qt import guard. Register temporary-directory cleanup first so widget workers finish before fixture files disappear. See [the historical GUI validation note](Regression-Validation.md) for the original cleanup defect and its dated results; use the commands above for the current gate.
 
+### Resource regressions
+
+The complete suite includes synthetic checks for preview sheet-read counts, operation-scoped archive verification, and bounded unchanged-ZIP-part allocation. Run their focused subset with the provisioned test interpreter:
+
+```sh
+PYTHONPATH=src QT_QPA_PLATFORM=offscreen \
+  "$TEST_VENV/bin/python" -m unittest \
+  tests.test_preview_efficiency tests.test_archive_efficiency \
+  tests.test_zip_streaming tests.test_program_generation -v
+```
+
+These checks pair resource assertions with proposals, notes, archive selection, tamper rejection, preserved ZIP contents and program-generation validation. Large ZIP payloads are generated in temporary directories; no personal files or binary fixtures are added. Allocation guards measure traced Python memory, not process RSS or end-to-end latency. Keep wall-clock benchmarks out of the normal gate unless they demonstrate a repeatable workload need; the resource changes introduce no hosted service or runtime dependency.
+
+The October 22, 2026 synthetic comparison against `f373920` observed the following resource changes. These are workload-specific counts/allocations, not predictions of user-visible speed or monetary savings:
+
+| Probe | Before | After |
+| --- | --- | --- |
+| Selected coach-sheet parses, ordinary / eligible-marker preview | 3 / 5 | 1 / 1 |
+| XLSX log sheet reads during preview | 2 | 1 |
+| Archive hash calls in one refresh, 1 coach + 64 distinct exports | 261 | 133 |
+| Python allocation peak comparing a 32 MiB unrelated ZIP part | 109.43 MiB | 3.19 MiB |
+
+The refresh comparison retains identical dashboard records and independent post-parse/final checks. Memory measurements used Python 3.11.2, a deflated repeated-byte member and `tracemalloc`; the committed tests generate their own payloads and use an allocation ceiling rather than those exact numbers.
+
 ## Dependency locks and audit
 
 Three reviewed, exact-version lock files have separate roles: [test.lock](../requirements/test.lock) provisions the canonical test runner; [app-build.lock](../requirements/app-build.lock) provisions the PyInstaller build; [audit.lock](../requirements/audit.lock) provisions `pip-audit` itself. They pin complete dependency closures with wheel SHA-256 hashes and binary-only installation. [Dependency tests](../tests/test_build_dependencies.py) check consistency between the locks, `pyproject.toml` optional dependencies, packaging and CI. When changing dependencies, update the affected closures and keep those parity checks passing.
@@ -74,6 +98,8 @@ Check that `python3.11 --version` is 3.11.17 or a later final 3.11 patch; substi
 This reports known package advisories and does not update packages. For a dependency update, resolve the closure on Python 3.11, record reviewed wheel hashes, run `python -m pip check` in the provisioned environment, audit the locks, rebuild the app and run the complete offscreen suite. A lock change must retain exact versions and reviewed wheel hashes; document any separately reviewed source-build requirement before allowing one.
 
 The audit closure also pins `certifi==2026.10.23` to remove the compromised emSign certificate chain ([advisory](https://github.com/certifi/python-certifi/security/advisories/GHSA-6q48-6c7w-9gw2)) and `filelock==4.2.4` to address local lock-file vulnerabilities ([POSIX advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-v4x8-3wr5-3wq8), [Windows database advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-9vhv-jxww-xfm5), [Windows timeout advisory](https://github.com/tox-dev/filelock/security/advisories/GHSA-567q-5qvw-pf92)). Filelock 4 requires Python 3.11 or newer; its use here is confined to CacheControl's `FileLock` context manager in the audit cache. When changing its major version, verify the actual cache read/write/delete path and repeat the all-lock audit using the same cache directory.
+
+The audit closure pins `msgpack==1.2.3` to address the C-extension decoding memory leak ([advisory](https://github.com/msgpack/msgpack-python/security/advisories/GHSA-j586-36cw-2gc2)). CacheControl uses it to serialize cached HTTP responses. The CPython 3.11 macOS arm64 and Linux x86-64 wheels retain required SHA-256 hashes; this patch adds no dependencies or application runtime integration. Verify a CacheControl response serialization round trip and repeat the all-lock audit when updating this pin.
 
 The app-build closure pins `setuptools==84.2.1`, which includes the fix for Windows legacy wheel-install path traversal ([advisory](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w)). Setuptools is build tooling; this update does not change the reviewed PySide6/Shiboken or PyInstaller versions. Audit and app-build lock changes can be reviewed and reverted independently, but restoring a vulnerable pin is not a safe long-term rollback.
 

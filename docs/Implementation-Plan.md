@@ -1,58 +1,61 @@
 # Plan
 
-Refresh only the vulnerable audit and build dependencies, verify their complete hash-pinned closures on Python 3.11, and prepare a reviewed pull request with a rebuilt, smoke-tested macOS app.
+Integrate the current main branch into PR #26, preserve the reviewed efficiency work and newer security pins, then complete the user-authorized merge and feature-branch cleanup.
 
 ## Scope
-- In: `certifi` 2026.7.22 → 2026.10.23 and `filelock` 3.32.6 → 4.2.4 in `requirements/audit.lock`; `setuptools` 84.0.0 → 84.2.1 in `requirements/app-build.lock`; canonical dependency notes in `docs/Development.md`; local and hosted verification; PR review ledger.
-- Out: PySide6, Shiboken, PyInstaller, Python minor-version migrations, application behavior, personal data, system Python, installed Applications bundles, and merging the PR.
+- In: conflict resolution against main at `37b5b50`, integration validation, the newly reported msgpack audit-tool patch, refreshed PR review/CI, squash merge into main and deletion of `codex/local-efficiency` locally and remotely.
+- Out: new application behavior, unrelated dependency upgrades, changes to other branches, private workout data and rebuilding or installing the app.
 
 ## Action items
-- [x] Inspect the README, Development guide, all three locks, `pyproject.toml`, build/test scripts, CI and `tests/test_build_dependencies.py`; refresh `origin/main` and current advisory evidence.
-- [x] Commit this resolved plan on `codex/dependency-security-refresh` before implementation (`fbbb735`).
-- [x] Verify target wheel SHA-256 values against PyPI and refresh only the affected exact pins/hashes, keeping the rest of each complete closure fixed.
-- [x] Validate the filelock major upgrade against CacheControl's actual file-cache API and Python 3.11 requirements; use an isolated audit environment, dependency resolution, `pip check`, and repeated cached audits. Existing dependency tests and real consumer checks cover this configuration-only change, so no new test files are planned.
-- [x] Update `docs/Development.md` with the security rationale and the audit-only filelock compatibility boundary; retain binary-only and required-hash installation instructions.
-- [x] Resolve/install audit and app-build closures on patched Python 3.11.17, validate Linux x86-64 audit wheels, audit all three locks, and run the existing focused dependency tests plus the full offscreen GUI suite, compilation and diff checks.
-- [x] Rebuild the macOS app, verify the ad-hoc signature, run its embedded-runtime smoke check, and confirm the bundled Python version. Each lock closure is an independent rollback boundary; do not roll back to vulnerable versions for routine continued use.
-- [x] Save and push the implementation branch, open a PR against `main`, request Codex review and run Brooks review; record concrete validation below and track live review/CI completion in the PR before handing off for merge.
+- [x] Inspect live PR #26, merged PR #27, current refs, Development guidance and existing dependency checks; verify a clean feature worktree.
+- [x] Checkpoint this resolved plan before merging main into the feature branch.
+- [x] Merge main; retain setuptools 84.2.1 and the matching lock hash/security guidance from PR #27, retain both Brooks history records, and keep the efficiency documentation and this current plan.
+- [x] Verify all three locks match main exactly, inspect every conflict resolution, and run the canonical 513-test offscreen suite, compilation and diff checks. Existing tests cover this integration; no executable behavior or test files need changing.
+- [x] Patch only audit-tool msgpack 1.2.2 to the advisory-fixed release, review macOS arm64/Linux x86-64 CPython 3.11 wheel hashes, install the full hash-pinned audit closure, exercise CacheControl serialization, audit all locks and run existing dependency tests. No application or test edits are needed.
+- [ ] Commit and push the integration; refresh Codex review, Brooks review and CI Verify on the final feature head, checking for new comments or changes to main.
+- [ ] Squash-merge PR #26 with an expected-head guard, fetch the resulting main commit, verify the efficiency implementation is present, and delete the feature branch locally and remotely.
 
 ## Open questions
-- None. Current PyPI metadata confirms the three targets are available and have no reported advisories. All three current vulnerable versions are reported by PyPI; leaving filelock unchanged would fail the existing all-lock CI audit. CacheControl requires `filelock>=3.8.0` with no major upper bound; the upgrade remains confined to audit tooling and must pass its real cache path before acceptance.
+- None. The user explicitly authorized merging PR #26 and deleting its feature branch. Keep main's newer dependency versions without downgrading them.
 
-## Validation results
+## Validation and risk
+- Conflicts arise from parallel security-tooling updates and documentation/history edits; preserve both intents without changing production code.
+- Main contains the same certifi 2026.10.23 and filelock 4.2.4 updates, plus newer setuptools 84.2.1. Reuse those already reviewed pins and hashes exactly.
+- Prior PR #26 validation: 513 local tests passed; CI Verify and final-head Codex review passed at `3fafddb` with no findings. Recheck the integrated head before merging.
+- The PR review skill readies the branch; the user's separate merge instruction authorizes the subsequent merge and cleanup.
 
-- Audited all 37 unique exact locked packages against current PyPI advisory data; only certifi, filelock and setuptools required changes. Target universal-wheel SHA-256 values matched PyPI; pip accepted the complete unchanged remainder of each closure with required hashes.
-- Provisioned an isolated Python 3.11.17 / OpenSSL 3.5.9 runtime from the checksum-verified python-build-standalone 20261013 archive; the system interpreter and installed app were not modified.
-- Audit environment: full dependency resolution and `pip check` passed. CacheControl 0.14.4 with filelock 4.2.4 passed cache miss/read/write/replace/delete, separate-body cache, 40 concurrent distinct-key writes and 40 same-key writes. All-lock `pip_audit --disable-pip --require-hashes` passed twice with the same explicit cache directory, reporting no known vulnerabilities each time.
-- Linux x86-64 Python 3.11 audit closure downloaded successfully with binary-only wheels and required hashes.
-- Existing dependency/documentation tests: 20 passed in 8.831 seconds, exit 0. No test files changed because application behavior and desktop dependencies are unchanged; real cache-consumer and build checks exercise the updated third-party integration.
-- macOS app rebuilt and ad-hoc signature verification passed; embedded GUI smoke passed. Bundled `libpython3.11.dylib` reports Python 3.11.17. Build environment `pip check` passed with setuptools 84.2.1. Compilation and `git diff --check` passed.
-- Complete offscreen suite: 496 tests passed in 62.765 seconds, no skips, exit 0. Final hosted CI and Codex review status are tracked in [PR #27](https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/pull/27) and the completion report rather than recorded as a permanent guarantee here.
-
-## PR review ledger
-
-- Plan checkpoint: `fbbb735`; isolated audit-tool upgrade checkpoint: `782edae`. Build tooling and canonical dependency notes are saved separately so the two lock updates remain independently reviewable.
-- Independent workbook-integrity review: no actionable findings; application source, test files, desktop pins, packaging scripts and CI are unchanged. Remaining gates are hosted CI and PR reviews.
-- The old GitHub CI/comment helper skill paths referenced by the PR workflow are not installed. Use native GitHub CLI/API check diagnostics and thread-aware GraphQL reads if needed; this does not change the review or verification gates.
-- Opened PR #27 after saving the implementation in `020d487`; requested Codex review. Brooks review and independent safety review both found no actionable concerns. Hosted CI and the final Codex review must complete before declaring merge readiness; no review feedback, CI failure or conflict has required an implementation change at this checkpoint.
+## Change ledger
+- October 28: main advanced through merged PR #27 (`37b5b50`). Read-only merge analysis found overlapping review history, Development guidance, implementation plan and app-build lock changes. Source and test files do not overlap.
+- Conflict resolution: retain the current integration plan; keep main's setuptools 84.2.1 lock and canonical security guidance; retain the efficiency resource guidance and both distinct Brooks review records. The historical PR #27 plan remains in Git and its PR body. No application or test changes are introduced.
 
 ## Brooks-Lint Review
 
 **Mode:** PR Review
 
-**Scope:** PR #27 changes versus `origin/main` (`f373920`): `docs/Development.md` and this plan; two dependency lockfiles excluded from decay analysis as generated configuration and separately checked for advisories, hashes and closure compatibility. Review metadata contains no production logic.
+**Scope:** Incremental integration changes since reviewed PR #26 head `3fafddb`: four conflict resolutions in Development guidance, this plan, review history and the app-build lock. All three resulting dependency locks match main `37b5b50` exactly; application source, tests, scripts, packaging and CI remain byte-identical to the reviewed feature head.
 
 **Health Score:** 100/100
 
 **Trend:** Stable at 100.
 
-The dependency refresh preserves the existing environment boundaries without adding application coupling or new abstractions.
+The integration preserves current security pins and the efficiency implementation without adding coupling or new behavior.
 
 ### Findings
 
-No actionable findings. The existing lock policy deliberately pins complete closures, and matching security notes are appropriate canonical documentation. Quick Test Check is inapplicable because this PR changes only configuration and documentation; existing tests, direct cache checks and the rebuilt app provide verification.
+No actionable findings across R1–R6. Generated lock configuration is excluded from code-decay scoring and verified separately for exact equality to current main. The Quick Test Check is inapplicable to this incremental configuration/documentation change; the previously reviewed regression suite remains unchanged and is being rerun.
 
 ### Summary
 
-- Retain the three advisory-backed package updates and reviewed wheel hashes.
-- Complete Codex review, hosted CI and a fresh mergeability check before handing off PR #27; leave the merge to the maintainer.
+- Preserve both feature and security review history records and canonical Development guidance.
+- Keep final hosted CI, refreshed Codex review and live mergeability as gates before the separately authorized merge and cleanup.
+- Integration validation: canonical suite completed with exit 0; test count and timing recorded in the PR before final merge. Compilation and diff checks passed; all three locks exactly match main 37b5b50. No test files changed because no new executable behavior was introduced. The first sandboxed run could not provision PyPI packages; the authorized network-enabled run completed successfully.
+
+## CI follow-up
+
+- Run `40737692224` at `6f52c01` failed in dependency auditing before tests: audit-tool msgpack 1.2.2 is affected by CVE-2026-114613; CI reports 1.2.3 as fixed. This advisory entered the database after the original review. Current main has the same affected pin.
+- The user's earlier authorization to update and validate affected locks remains applicable. Limit this follow-up to the msgpack patch and its two existing platform-wheel hashes, keeping main's other pins and source unchanged. Checkpoint this updated plan before changing the lock.
+- Refreshed Codex review is running on `6f52c01`; request final-head review after the audit patch. Canonical local integration validation already passed all 513 tests in 61.112 seconds with zero skips and exit 0.
+
+- Audit fix validation: msgpack 1.2.3 requires Python >=3.10 and adds no dependencies. Downloaded CPython 3.11 macOS arm64 and Linux x86-64 wheels matched official PyPI SHA-256 metadata; all other audit pins and both other locks are unchanged. Full hash-enforced audit-closure installation and pip check passed. CacheControl response serialization and FileCache set/get/delete passed. All-lock pip-audit reports no known vulnerabilities; 20 existing dependency tests passed in 7.821 seconds. No application or test files changed; the 513-test integration run remains valid and hosted CI will rerun the suite on the final head.
+- Codex review completed on integration commit `6f52c01` with no findings. Request review again after saving this narrow audit patch. Incremental Brooks review of the patch and matching Development guidance found no actionable findings (100/100, stable); generated lock hashes were separately verified and the Quick Test Check remains inapplicable to this configuration/docs delta.
+- Final hosted CI/review/merge/cleanup results are tracked in PR #26 to avoid introducing a documentation-only commit after the reviewed final head.

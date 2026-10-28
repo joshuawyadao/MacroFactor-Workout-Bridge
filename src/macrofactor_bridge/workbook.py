@@ -7,6 +7,7 @@ from pathlib import Path
 from .config import normalize_name
 from .models import BridgeConfig, CellData, SheetOptions, SheetRef, WeekOption
 from .ooxml import (
+    SheetSnapshot,
     WorkbookError,
     XlsxPackage,
     make_cell_reference,
@@ -38,7 +39,12 @@ def discover_workbook(path: str | Path, config: BridgeConfig) -> tuple[SheetOpti
 
 
 def _discover_sheet(package: XlsxPackage, sheet: SheetRef, config: BridgeConfig) -> SheetOptions:
-    snapshot = package.sheet_snapshot(sheet)
+    return _discover_sheet_snapshot(sheet, package.sheet_snapshot(sheet), config)
+
+
+def _discover_sheet_snapshot(
+    sheet: SheetRef, snapshot: SheetSnapshot, config: BridgeConfig
+) -> SheetOptions:
     week_pattern = re.compile(config.week_header_pattern, re.IGNORECASE)
     header_names = {normalize_name(value) for value in config.exercise_header_labels}
     weeks_by_identity: dict[tuple[str, int], WeekOption] = {}
@@ -98,9 +104,22 @@ def select_sheet_options(
     sheet_name: str,
     week_label: str,
 ) -> tuple[XlsxPackage, SheetRef, SheetOptions, WeekOption]:
+    package, sheet, options, week, _ = select_sheet_with_snapshot(
+        path, config, sheet_name, week_label
+    )
+    return package, sheet, options, week
+
+
+def select_sheet_with_snapshot(
+    path: str | Path,
+    config: BridgeConfig,
+    sheet_name: str,
+    week_label: str,
+) -> tuple[XlsxPackage, SheetRef, SheetOptions, WeekOption, SheetSnapshot]:
     package = XlsxPackage(path)
     sheet = package.sheet_by_name(sheet_name)
-    options = _discover_sheet(package, sheet, config)
+    snapshot = package.sheet_snapshot(sheet)
+    options = _discover_sheet_snapshot(sheet, snapshot, config)
     if options.exercise_column is None or options.exercise_header_cell is None:
         raise WorkbookError(
             f"Worksheet {sheet_name!r} has no configured exercise header "
@@ -124,7 +143,7 @@ def select_sheet_options(
     if len(matches) > 1:
         locations = ", ".join(week.header_cell for week in matches)
         raise WorkbookError(f"Week label {week_label!r} is ambiguous in {sheet_name!r}: {locations}")
-    return package, sheet, options, matches[0]
+    return package, sheet, options, matches[0], snapshot
 
 
 def target_rows(
@@ -132,10 +151,13 @@ def target_rows(
     sheet: SheetRef,
     options: SheetOptions,
     week: WeekOption,
+    *,
+    snapshot: SheetSnapshot | None = None,
 ) -> tuple[TargetRow, ...]:
     if options.exercise_column is None or options.exercise_header_cell is None:
         return ()
-    snapshot = package.sheet_snapshot(sheet)
+    if snapshot is None:
+        snapshot = package.sheet_snapshot(sheet)
     header_row, _ = split_cell_reference(options.exercise_header_cell)
     context_column_limit = min(
         (candidate.first_column for candidate in options.weeks),
@@ -182,35 +204,40 @@ def program_days(
     sheet: SheetRef,
     options: SheetOptions,
     week: WeekOption,
+    *,
+    snapshot: SheetSnapshot | None = None,
+    discovered_rows: tuple[TargetRow, ...] | None = None,
 ) -> tuple[ProgramDay, ...]:
     """Discover repeated ``Day N`` sections from the workbook's existing headers."""
     if options.exercise_column is None or options.exercise_header_cell is None:
         return ()
-    snapshot = package.sheet_snapshot(sheet)
+    if snapshot is None:
+        snapshot = package.sheet_snapshot(sheet)
     header_cell = snapshot.cells.get(options.exercise_header_cell)
     if header_cell is None or not isinstance(header_cell.value, str):
         return ()
     header_name = normalize_name(header_cell.value)
     header_rows: list[tuple[int, str]] = []
+    labels_by_row: dict[int, list[str]] = {}
+    for reference, cell in snapshot.cells.items():
+        row, column = split_cell_reference(reference)
+        if (
+            column < options.exercise_column
+            and isinstance(cell.value, str)
+            and re.fullmatch(r"day\s*\d+(?:\.\d+)?", cell.value.strip(), re.IGNORECASE)
+        ):
+            labels_by_row.setdefault(row, []).append(cell.value.strip())
     for reference, cell in snapshot.cells.items():
         row, column = split_cell_reference(reference)
         if column != options.exercise_column or not isinstance(cell.value, str):
             continue
         if normalize_name(cell.value) != header_name:
             continue
-        labels = [
-            candidate.value.strip()
-            for candidate_reference, candidate in snapshot.cells.items()
-            if (
-                (candidate_row := split_cell_reference(candidate_reference)[0]) == row
-                and split_cell_reference(candidate_reference)[1] < options.exercise_column
-                and isinstance(candidate.value, str)
-                and re.fullmatch(r"day\s*\d+(?:\.\d+)?", candidate.value.strip(), re.IGNORECASE)
-            )
-        ]
+        labels = labels_by_row.get(row, [])
         if labels:
             header_rows.append((row, labels[-1]))
-    discovered_rows = target_rows(package, sheet, options, week)
+    if discovered_rows is None:
+        discovered_rows = target_rows(package, sheet, options, week, snapshot=snapshot)
     sorted_headers = sorted(header_rows)
     days: list[ProgramDay] = []
     for index, (header_row, label) in enumerate(sorted_headers):
