@@ -89,6 +89,18 @@ No actionable concerns. Quick Test Check is inapplicable to this configuration/d
 - Publish the approved pin and wheel hashes, preserving every other lock entry.
 - Track final hosted CI and Codex review in PR #28 and the completion report, so recording terminal hosted status does not itself restart checks. The remaining publication and hosted-verification checklist items above are completed through that live record; leave the PR unmerged.
 
+## Follow-up integration of merged PR #26
+
+Main advanced to 62db9dc while the approved msgpack patch was being verified. PR #26 contains operation-scoped workbook/archive optimizations and the identical msgpack pin/hashes. Integrate that main state so GitHub can run PR #28's checks.
+
+- [x] Inspect the new main commit, affected source/tests/docs and exact audit-lock parity.
+- [ ] Checkpoint this resolved addition, then merge origin/main without rewriting branch history.
+- [ ] Preserve the partial-rep confirmation behavior and main's resource/safety improvements in any source overlap; combine canonical documentation and retain all plan/review records.
+- [ ] Run the canonical offscreen suite, compilation and diff checks, and independently review the integration. Add tests only if conflict resolution introduces behavior not covered by the existing feature and resource regressions.
+- [ ] Save and push the completed integration, request Codex review of its final head, then watch CI and review to terminal states. Record hosted status in PR #28 and leave it unmerged.
+
+Open questions: none. Updating PR #28 against current main and resolving conflicts are within the user's requested PR update.
+
 ## Merged dependency refresh record (PR #27)
 
 Historical implementation and validation evidence retained from main; the current PR #28 integration checklist is above.
