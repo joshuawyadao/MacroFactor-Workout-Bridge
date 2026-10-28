@@ -3,14 +3,15 @@
 Integrate the current main branch into PR #26, preserve the reviewed efficiency work and newer security pins, then complete the user-authorized merge and feature-branch cleanup.
 
 ## Scope
-- In: conflict resolution against main at `37b5b50`, integration validation, refreshed PR review/CI, squash merge into main and deletion of `codex/local-efficiency` locally and remotely.
-- Out: new application behavior, additional dependency upgrades, changes to other branches, private workout data and rebuilding or installing the app.
+- In: conflict resolution against main at `37b5b50`, integration validation, the newly reported msgpack audit-tool patch, refreshed PR review/CI, squash merge into main and deletion of `codex/local-efficiency` locally and remotely.
+- Out: new application behavior, unrelated dependency upgrades, changes to other branches, private workout data and rebuilding or installing the app.
 
 ## Action items
 - [x] Inspect live PR #26, merged PR #27, current refs, Development guidance and existing dependency checks; verify a clean feature worktree.
 - [x] Checkpoint this resolved plan before merging main into the feature branch.
 - [x] Merge main; retain setuptools 84.2.1 and the matching lock hash/security guidance from PR #27, retain both Brooks history records, and keep the efficiency documentation and this current plan.
 - [x] Verify all three locks match main exactly, inspect every conflict resolution, and run the canonical 513-test offscreen suite, compilation and diff checks. Existing tests cover this integration; no executable behavior or test files need changing.
+- [ ] Patch only audit-tool msgpack 1.2.2 to the advisory-fixed release, review macOS arm64/Linux x86-64 CPython 3.11 wheel hashes, install the full hash-pinned audit closure, exercise CacheControl serialization, audit all locks and run existing dependency tests. No application or test edits are needed.
 - [ ] Commit and push the integration; refresh Codex review, Brooks review and CI Verify on the final feature head, checking for new comments or changes to main.
 - [ ] Squash-merge PR #26 with an expected-head guard, fetch the resulting main commit, verify the efficiency implementation is present, and delete the feature branch locally and remotely.
 
@@ -48,3 +49,9 @@ No actionable findings across R1–R6. Generated lock configuration is excluded 
 - Preserve both feature and security review history records and canonical Development guidance.
 - Keep final hosted CI, refreshed Codex review and live mergeability as gates before the separately authorized merge and cleanup.
 - Integration validation: canonical suite completed with exit 0; test count and timing recorded in the PR before final merge. Compilation and diff checks passed; all three locks exactly match main 37b5b50. No test files changed because no new executable behavior was introduced. The first sandboxed run could not provision PyPI packages; the authorized network-enabled run completed successfully.
+
+## CI follow-up
+
+- Run `40737692224` at `6f52c01` failed in dependency auditing before tests: audit-tool msgpack 1.2.2 is affected by CVE-2026-114613; CI reports 1.2.3 as fixed. This advisory entered the database after the original review. Current main has the same affected pin.
+- The user's earlier authorization to update and validate affected locks remains applicable. Limit this follow-up to the msgpack patch and its two existing platform-wheel hashes, keeping main's other pins and source unchanged. Checkpoint this updated plan before changing the lock.
+- Refreshed Codex review is running on `6f52c01`; request final-head review after the audit patch. Canonical local integration validation already passed all 513 tests in 61.112 seconds with zero skips and exit 0.
