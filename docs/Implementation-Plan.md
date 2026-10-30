@@ -13,7 +13,7 @@ Make program generation verify MacroFactor exercise names against native exports
 - [x] Default notes to each exercise's own left-table row; exclude weekly and neighboring content and unscoped configured notes, with explicit opt-in for reviewed legacy overrides.
 - [x] Add synthetic regressions for unknown names and reference drift, duration preservation and resizing, and shared names with different row notes.
 - [x] Update Program-Generation, Program-Batch, Configuration, Architecture and anonymous config examples.
-- [ ] Run focused tests, the canonical offscreen suite, compilation and diff checks, then replay the successful private workflow without committing personal data.
+- [x] Run focused tests, the canonical offscreen suite, compilation and diff checks, then replay the successful private workflow without committing personal data.
 - [ ] Create coherent local checkpoints and push the completed branch with the save-branch workflow.
 
 ## Open questions
@@ -21,7 +21,8 @@ Make program generation verify MacroFactor exercise names against native exports
 
 ## Validation record
 - Implementation checkpoint: 287 focused program tests pass. New identity, duration and same-row note regressions use only synthetic workbooks. Existing legacy-note tests explicitly select reviewed mode and supply native-name fixtures.
-- Private replay passes the full source and independent output audits for all 24 exercises; both timed plank targets remain numeric 30-second values. Inputs and generated reports remain ignored.
-- A full offscreen run passed 542 tests before the last additional edge-case tests. The initial full run hit a background-load drift guard in an unrelated managed-GUI setup; that test passed in isolation and on the full rerun. Run the final suite once more on the completed implementation.
+- Final private replay passes full source and independent output audits for all 24 exercises (730 audited cells). All 759 non-note cells match the successful native export, both timed plank targets remain numeric 30-second values parsed from the source, and only worksheet/shared-string package parts differ. Every input hash is unchanged; private inputs and generated reports remain ignored.
+- The completed full offscreen run passed 548 tests in 67.636 seconds, exit 0, with no skips. The initial full run hit a background-load drift guard in an unrelated managed-GUI setup; that test passed in isolation and on the full rerun. The subsequent preview display change passed all 40 related CLI/preview/generation tests; final compilation and diff checks pass.
 - Compilation and diff checks pass; no dependencies changed. The existing pinned dependency locks report no known vulnerabilities.
 - Read-only workbook integrity review found and resolved compact-duration parsing, guarded time-override provenance and ambiguous native-time loss. Ambiguous time identity now blocks rather than erasing a target.
+- Preview follow-up: CLI output shows common/per-set time targets and marks timed reps as not applicable, so the reviewed numeric duration is visible before generation.

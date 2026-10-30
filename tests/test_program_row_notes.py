@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from dataclasses import replace
+from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -123,6 +125,12 @@ class ProgramRowNotesTests(unittest.TestCase):
         self.assertIsNone(rx.rep_max.value)
         self.assertEqual(rx.rest_seconds.value, 90)
         self.assertIn("Duration: 30sec eachleg", rx.notes)
+        from macrofactor_bridge.cli import _print_program_report
+        rendered = StringIO()
+        with redirect_stdout(rendered):
+            _print_program_report(report)
+        self.assertIn("duration target: 30s [coach_base]", rendered.getvalue())
+        self.assertIn("reps=not applicable (timed)", rendered.getvalue())
         self.assertTrue(audit_coach_program(self.coach, config, block, report).passed)
         generate_program(report, self.template, self.output)
         cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
