@@ -16,6 +16,7 @@ Fix the three actionable Codex findings on PR #29 while preserving native durati
 - [x] Fix Codex4429060440: block selected-week rep guidance that is blanked and cannot be retained by own-row notes; verify reviewed mode retains it.
 - [x] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
 - [x] Tighten strict native-time reconciliation to require positive durations for every active set; keep explicit blank-target mode supported.
+- [ ] Fix Codex4429126363: enforce strict native duration completeness after binding even when rep defaults prevented initial missing-rep errors; validate standalone and full audit consistency.
 - [ ] Request Codex review on the final head, wait for passing CI Verify and terminal review, refresh mergeability and report the unmerged PR's readiness.
 
 ## Open questions
@@ -78,3 +79,4 @@ No remaining actionable R1–R6 or Quick Test Check findings. The added context 
 No remaining actionable R1–R6 or Quick Test Check findings. The new representation guard requires weekly reps to survive in actual targets or permitted row notes; it does not expand note provenance. Native-time reconciliation remains narrow and fails closed on ambiguous source matches or other missing fields. Partial native time targets require the existing explicit blank-target policy. Added regressions cover each decision and observable workbook cells; no dependency or unrelated application changes were needed.
 
 Final review and CI outcomes remain in the PR description so the head can stay stable after review. Leave the PR unmerged.
+- Third Codex pass on6d56612 found4429126363: partial native time targets can bypass strict standalone preview when rep defaults were configured. Add a post-binding policy invariant independent of parser omissions, require the full source audit to agree, and parameterize native-time regressions with and without defaults. CI126 passed573 cases with one expected Linux skip; local573 passed without skips.
