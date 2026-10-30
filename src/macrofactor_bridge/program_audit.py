@@ -841,6 +841,8 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
         and all(type(field.value) is int and field.value > 0 for field in rx.set_duration_targets)
         for rx in exercise.prescriptions
     )
+    if native_duration and not complete_native_duration and not config.program.allow_blank_targets:
+        fail("incomplete_native_duration_targets", "Strict targets require a positive native duration for every active set")
     blank_reps = rule.program_blank_rep_targets
     minimum_notes = bool(reps and minimum is not None and maximum is None
                          and config.program.minimum_rep_policy == "notes_only")

@@ -52,14 +52,16 @@ class NativeTimeRequirementTests(unittest.TestCase):
     def test_partial_native_duration_does_not_resolve_strict_target_requirements(self):
         fixture = self.fixture
         change_cell(fixture.template, "N4", None)
-        config, block, report = fixture.preview()
-        self.assertFalse(report.generation_safe)
-        self.assertTrue(any(issue.code == "missing_prescription_field"
-                            and issue.exercise == "Old Exercise 1-1" for issue in report.blocking_issues),
-                        report.blocking_issues)
-        source = audit_coach_program(fixture.coach, config, block, report)
-        self.assertFalse(source.passed)
-        self.assertIn("source_audit_missing_targets", {issue.code for issue in source.issues})
+        for rep_defaults in (False, True):
+            with self.subTest(rep_defaults=rep_defaults):
+                if rep_defaults:
+                    fixture.payload["program"]["defaults"].update(rep_min=8, rep_max=12)
+                config, block, report = fixture.preview()
+                self.assertFalse(report.generation_safe)
+                self.assertIn("incomplete_native_duration_targets", {issue.code for issue in report.blocking_issues})
+                source = audit_coach_program(fixture.coach, config, block, report)
+                self.assertFalse(source.passed)
+                self.assertIn("source_audit_incomplete_native_duration_targets", {issue.code for issue in source.issues})
 
     def test_partial_native_duration_remains_supported_with_explicit_blank_policy(self):
         fixture = self.fixture

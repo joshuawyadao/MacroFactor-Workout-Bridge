@@ -16,7 +16,7 @@ Fix the three actionable Codex findings on PR #29 while preserving native durati
 - [x] Fix Codex4429060440: block selected-week rep guidance that is blanked and cannot be retained by own-row notes; verify reviewed mode retains it.
 - [x] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
 - [x] Tighten strict native-time reconciliation to require positive durations for every active set; keep explicit blank-target mode supported.
-- [ ] Fix Codex4429126363: enforce strict native duration completeness after binding even when rep defaults prevented initial missing-rep errors; validate standalone and full audit consistency.
+- [x] Fix Codex4429126363: enforce strict native duration completeness after binding even when rep defaults prevented initial missing-rep errors; validate standalone and full audit consistency.
 - [ ] Request Codex review on the final head, wait for passing CI Verify and terminal review, refresh mergeability and report the unmerged PR's readiness.
 
 ## Open questions
@@ -80,3 +80,18 @@ No remaining actionable R1–R6 or Quick Test Check findings. The new representa
 
 Final review and CI outcomes remain in the PR description so the head can stay stable after review. Leave the PR unmerged.
 - Third Codex pass on6d56612 found4429126363: partial native time targets can bypass strict standalone preview when rep defaults were configured. Add a post-binding policy invariant independent of parser omissions, require the full source audit to agree, and parameterize native-time regressions with and without defaults. CI126 passed573 cases with one expected Linux skip; local573 passed without skips.
+- Fix4429126363: strict completeness is now a post-binding invariant independent of parser missing-field errors or rep defaults. A shared service predicate requires a positive native duration for every active set; the independent full source audit enforces the policy separately. Native-time regressions cover defaults present/absent. All312 program checks,92 related checks and the independent17-case review pass; compilation/diff pass.
+
+## Brooks final strict-policy review
+
+**Mode:** PR Review
+
+**Scope:** Incremental post-binding strict native-time validation, shared completeness predicate, independent source audit and parameterized regressions since6d56612. No generated files excluded.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at100.
+
+No remaining actionable R1–R6 or Quick Test Check findings. One post-binding policy check now owns strict preview completeness; error reconciliation reuses its predicate rather than assuming that parser omissions cover every case. The full source audit remains independent, and explicit blank-target mode retains its prior behavior. The independent workbook reviewer verified both default/no-default cases and found no residual safety gap.
+
+Final full-suite, CI and Codex outcomes will be recorded in the PR description after this checkpoint; no status-only head changes are planned. Leave the PR unmerged.

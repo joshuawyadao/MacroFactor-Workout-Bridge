@@ -6,7 +6,7 @@ from .coach_program import parse_coach_program
 from .models import BridgeConfig
 from .ooxml import WorkbookError, file_sha256, split_cell_reference
 from .program_audit import audit_program_source_rows
-from .program_models import ProgramIssue, ProgramPreviewReport
+from .program_models import CyclePrescription, ProgramIssue, ProgramPreviewReport
 from .program_identity import verify_program_exercise_names
 from .program_output_audit import audit_program_output
 from .program_template import (
@@ -29,6 +29,16 @@ def _references_unchanged(report: ProgramPreviewReport) -> bool:
                    for path, digest in report.exercise_name_reference_hashes.items())
     except OSError:
         return False
+
+
+def _complete_native_time_target(prescription: CyclePrescription) -> bool:
+    targets = prescription.set_duration_targets
+    return bool(
+        type(prescription.set_count.value) is int and prescription.set_count.value > 0
+        and len(targets) == prescription.set_count.value
+        and all(target.source == "native_template" and type(target.value) is int and target.value > 0
+                for target in targets)
+    )
 
 
 def _resolved_native_time_rep_issue(issue: ProgramIssue, report: ProgramPreviewReport) -> bool:
@@ -55,18 +65,13 @@ def _resolved_native_time_rep_issue(issue: ProgramIssue, report: ProgramPreviewR
     if len(matches) != 1:
         return False
     exercise, prescription = matches[0]
-    targets = prescription.set_duration_targets
     return bool(
         not exercise.raw_base_fields.get("reps")
         and prescription.duration_seconds is None
         and prescription.rep_min.value is None and prescription.rep_max.value is None
         and prescription.rep_min.source == prescription.rep_max.source == "blank_by_policy"
         and not prescription.set_rep_targets
-        and type(prescription.set_count.value) is int
-        and prescription.set_count.value > 0
-        and len(targets) == prescription.set_count.value
-        and all(target.source == "native_template" for target in targets)
-        and all(type(target.value) is int and target.value > 0 for target in targets)
+        and _complete_native_time_target(prescription)
     )
 
 
@@ -170,6 +175,19 @@ def build_program_preview(
             )
         else:
             report.template_schema_verified = True
+            if not config.program.allow_blank_targets:
+                report.issues.extend(
+                    ProgramIssue(
+                        severity="blocking", code="incomplete_native_duration_targets",
+                        message="Strict targets require a positive native duration for every active set",
+                        sheet=sheet_name, cell=exercise.source_cell, day=day.label,
+                        exercise=exercise.coach_name, cycle=prescription.cycle,
+                    )
+                    for day in report.program.days
+                    for exercise in day.exercises if not exercise.excluded
+                    for prescription in exercise.prescriptions
+                    if prescription.set_duration_targets and not _complete_native_time_target(prescription)
+                )
             report.issues = [issue for issue in report.issues
                              if not _resolved_native_time_rep_issue(issue, report)]
             name_issues, verification, hashes = verify_program_exercise_names(
