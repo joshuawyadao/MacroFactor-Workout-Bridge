@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .coach_program import parse_coach_program
 from .models import BridgeConfig
-from .ooxml import WorkbookError, file_sha256
+from .ooxml import WorkbookError, file_sha256, split_cell_reference
 from .program_audit import audit_program_source_rows
 from .program_models import ProgramIssue, ProgramPreviewReport
 from .program_identity import verify_program_exercise_names
@@ -29,6 +29,44 @@ def _references_unchanged(report: ProgramPreviewReport) -> bool:
                    for path, digest in report.exercise_name_reference_hashes.items())
     except OSError:
         return False
+
+
+def _resolved_native_time_rep_issue(issue: ProgramIssue, report: ProgramPreviewReport) -> bool:
+    """Retire only a parser rep omission resolved by the exact native set evidence."""
+    if (issue.code != "missing_prescription_field"
+        or issue.message not in {
+            "No supported minimum reps value was provided",
+            "No supported maximum reps value was provided",
+        }
+        or issue.sheet != report.sheet or report.program is None):
+        return False
+    try:
+        issue_row = split_cell_reference(issue.cell)[0] if issue.cell else None
+    except WorkbookError:
+        return False
+    matches = [
+        (exercise, prescription)
+        for day in report.program.days if day.label == issue.day
+        for exercise in day.exercises
+        if not exercise.excluded and exercise.coach_name == issue.exercise
+        and (issue_row is None or exercise.source_row == issue_row)
+        for prescription in exercise.prescriptions if prescription.cycle == issue.cycle
+    ]
+    if len(matches) != 1:
+        return False
+    exercise, prescription = matches[0]
+    targets = prescription.set_duration_targets
+    return bool(
+        not exercise.raw_base_fields.get("reps")
+        and prescription.duration_seconds is None
+        and prescription.rep_min.value is None and prescription.rep_max.value is None
+        and prescription.rep_min.source == prescription.rep_max.source == "blank_by_policy"
+        and not prescription.set_rep_targets
+        and type(prescription.set_count.value) is int
+        and len(targets) == prescription.set_count.value
+        and all(target.source == "native_template" for target in targets)
+        and any(type(target.value) is int and target.value > 0 for target in targets)
+    )
 
 
 def build_program_preview(
@@ -131,6 +169,8 @@ def build_program_preview(
             )
         else:
             report.template_schema_verified = True
+            report.issues = [issue for issue in report.issues
+                             if not _resolved_native_time_rep_issue(issue, report)]
             name_issues, verification, hashes = verify_program_exercise_names(
                 report.program, template, program_name_reference_paths(config),
             )

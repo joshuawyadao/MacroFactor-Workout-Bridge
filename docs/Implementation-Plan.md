@@ -14,7 +14,7 @@ Fix the three actionable Codex findings on PR #29 while preserving native durati
 - [x] Address the integrity-review follow-up: explicit coach rep guidance suppressed by program_blank_rep_targets must not inherit native time targets; add a regression and retain provenance.
 - [x] Update any affected canonical guidance, rerun focused and canonical offscreen checks, compilation/diff and dependency verification as needed, and review the incremental fixes with Brooks.
 - [x] Fix Codex4429060440: block selected-week rep guidance that is blanked and cannot be retained by own-row notes; verify reviewed mode retains it.
-- [ ] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
+- [x] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
 - [ ] Request Codex review on the final head, wait for passing CI Verify and terminal review, refresh mergeability and report the unmerged PR's readiness.
 
 ## Open questions
@@ -57,3 +57,5 @@ No remaining actionable R1–R6 or Quick Test Check findings. The added context 
 - Save this final review/fix checkpoint, request final-head Codex review and wait for CI. Final hosted status belongs in the PR description, avoiding a status-only commit after review; leave the PR unmerged.
 - Second Codex pass on85cc1a5 found4429060440 (weekly rep guidance lost under blank-rep + row-only policy) and4429060446 (stale missing-rep errors after native-time binding). Both are actionable. Final-head CI123 passed564 cases with one expected Linux platform skip, including audit/compile/diff. Add focused regressions and save/acknowledge each fix separately.
 - Fix4429060440: row-only mode now blocks weekly numeric reps when neither structured targets nor equivalent own-row guidance retain them. Reviewed-note mode retains selected-week guidance; matching own-row numeric notes still work. Deferred Read-week instructions cannot fall back to different rep defaults while losing the weekly prescription. Added three regression cases, updated the existing weekly-blanking case to explicit reviewed mode, and passed58 focused tests.
+- Saved4429060440 in5d8d6b3 and acknowledged it after push.
+- Fix4429060446: after native duration binding, preview retires only exact missing-minimum/maximum-reps diagnostics for one matching source row/day/exercise/cycle whose native per-set time target resolved the omission. Missing RIR/rest/type, unrelated reps and ambiguous rows keep their blockers. Added four strict native-time regressions covering generation, source/output audits and input hashes; builder41 focused checks pass.
