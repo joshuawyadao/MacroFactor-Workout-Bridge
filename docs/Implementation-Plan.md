@@ -14,7 +14,7 @@ Make program generation verify MacroFactor exercise names against native exports
 - [x] Add synthetic regressions for unknown names and reference drift, duration preservation and resizing, and shared names with different row notes.
 - [x] Update Program-Generation, Program-Batch, Configuration, Architecture and anonymous config examples.
 - [x] Run focused tests, the canonical offscreen suite, compilation and diff checks, then replay the successful private workflow without committing personal data.
-- [ ] Create coherent local checkpoints and push the completed branch with the save-branch workflow.
+- [x] Create coherent local checkpoints and push the completed branch with the save-branch workflow.
 
 ## Open questions
 - None. The user selected the branch. Name evidence comes from private native exports rather than a bundled inferred catalog; row-only notes are the default.
@@ -26,3 +26,4 @@ Make program generation verify MacroFactor exercise names against native exports
 - Compilation and diff checks pass; no dependencies changed. The existing pinned dependency locks report no known vulnerabilities.
 - Read-only workbook integrity review found and resolved compact-duration parsing, guarded time-override provenance and ambiguous native-time loss. Ambiguous time identity now blocks rather than erasing a target.
 - Preview follow-up: CLI output shows common/per-set time targets and marks timed reps as not applicable, so the reviewed numeric duration is visible before generation.
+- Saved `codex/program-export-contracts` to origin with plan checkpoint `2cd061f`, implementation checkpoint `63e84f5` and preview follow-up `04f1177`. This final documentation-only completion record follows the successful push. No private workbooks, reports or local profiles are staged.
