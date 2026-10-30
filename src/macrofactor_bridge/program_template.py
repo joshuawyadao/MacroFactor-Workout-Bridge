@@ -468,13 +468,17 @@ def bind_template_durations(
             return f"{name} ∈ {exercise.superset.group}"
         return name
 
+    def has_explicit_reps(prescription: CyclePrescription) -> bool:
+        return bool(prescription.set_rep_targets or any(
+            field.value is not None and field.source != "config_default"
+            for field in (prescription.rep_min, prescription.rep_max)
+        ))
+
     def needs_native_target(exercise: object) -> bool:
         return bool(not exercise.excluded and exercise_name(exercise) in timed_sources and any(
             prescription.duration_seconds is None
             and not prescription.set_duration_targets
-            and prescription.rep_min.value is None
-            and prescription.rep_max.value is None
-            and not prescription.set_rep_targets
+            and not has_explicit_reps(prescription)
             for prescription in exercise.prescriptions
         ))
 
@@ -537,9 +541,7 @@ def bind_template_durations(
             for prescription in exercise.prescriptions:
                 if (prescription.duration_seconds is not None
                     or prescription.set_duration_targets
-                    or prescription.rep_min.value is not None
-                    or prescription.rep_max.value is not None
-                    or prescription.set_rep_targets
+                    or has_explicit_reps(prescription)
                     or prescription.set_count.value != len(active)):
                     if (prescription.set_count.value != len(active)
                         and needs_native_target(exercise)):
@@ -548,6 +550,8 @@ def bind_template_durations(
                     continue
                 rebound_rx.append(replace(
                     prescription,
+                    rep_min=PrescriptionField(None, "blank_by_policy"),
+                    rep_max=PrescriptionField(None, "blank_by_policy"),
                     set_duration_targets=tuple(
                         PrescriptionField(duration, "native_template", make_cell_reference(row, group.duration))
                         for duration, group in zip(durations, active, strict=True)

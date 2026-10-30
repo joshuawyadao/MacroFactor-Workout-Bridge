@@ -798,16 +798,24 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
     minimum, maximum = reps[0] if reps else (defaults.rep_min, defaults.rep_max)
     min_source = "config_reviewed_override" if "reps" in overrides else "coach_base" if reps else "config_default" if minimum is not None else "blank_by_policy"
     max_source = "config_reviewed_override" if "reps" in overrides else "coach_unbounded" if reps and maximum is None else "coach_base" if reps else "config_default" if maximum is not None else "blank_by_policy"
+    native_duration = bool(
+        duration is None and not reps and "reps" not in overrides
+        and any(rx.set_duration_targets and all(field.source == "native_template"
+                                                for field in rx.set_duration_targets)
+                and any(field.value is not None for field in rx.set_duration_targets)
+                for rx in exercise.prescriptions)
+    )
     blank_reps = rule.program_blank_rep_targets
     minimum_notes = bool(reps and minimum is not None and maximum is None
                          and config.program.minimum_rep_policy == "notes_only")
-    if blank_reps or minimum_notes or duration is not None:
+    if blank_reps or minimum_notes or duration is not None or native_duration:
         minimum = maximum = None
         min_source = max_source = "blank_by_policy"
     expected_rest = rest if rest is not None else defaults.rest_seconds
     rest_source = parsed_rest_source or ("config_default" if expected_rest is not None else "blank_by_policy")
     if not config.program.allow_blank_targets and (
-            expected_rest is None or defaults.rir is None or not blank_reps and duration is None and (minimum is None or maximum is None)):
+            expected_rest is None or defaults.rir is None or not blank_reps and duration is None
+            and not native_duration and (minimum is None or maximum is None)):
         fail("missing_targets", "Missing targets are not permitted by explicit configuration")
     if kind is None:
         fail("missing_set_type", "No source or explicitly configured set type exists")
@@ -835,6 +843,10 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                     fail("provenance", f"{field_name} lost its exact source cell/raw text")
             if source == "config_default" and (field.source_cell is not None or field.raw_text is not None):
                 fail("provenance", f"{field_name} default is misrepresented as coach-provided")
+            if (source == "blank_by_policy" and native_duration
+                    and field_name in {"rep_min", "rep_max"}
+                    and (field.source_cell is not None or field.raw_text is not None)):
+                fail("provenance", f"{field_name} native duration replacement has unexpected coach provenance")
         targets = tuple((target.minimum.value, target.maximum.value) for target in rx.set_rep_targets)
         if targets != (reps if len(reps) > 1 and not blank_reps else ()):
             fail("rep_sequence", "Per-set rep values differ from the literal ordered source list")
