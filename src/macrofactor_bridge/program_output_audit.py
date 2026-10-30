@@ -91,7 +91,9 @@ def _native_duration_provenance_matches(
     if (type(count) is not int or len(rx.set_duration_targets) != count
         or rx.duration_seconds is not None
         or rx.rep_min.value is not None or rx.rep_max.value is not None
-        or rx.set_rep_targets):
+        or rx.set_rep_targets or exercise.raw_base_fields.get("reps")
+        or rx.rep_min.raw_text or rx.rep_max.raw_text
+        or program.prescription_source == "selected_week" and rx.raw_unparsed_text):
         return False
     label = day.export_name or day.label
     if sum((item.export_name or item.label) == label for item in program.days) != 1:

@@ -851,6 +851,8 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
     if kind is None:
         fail("missing_set_type", "No source or explicitly configured set type exists")
     for rx in exercise.prescriptions:
+        if raw.get("reps") and any(field.source == "native_template" for field in rx.set_duration_targets):
+            fail("duration", "Native time cannot replace an authored base rep instruction")
         if duration is not None:
             if (rx.duration_seconds is None or rx.duration_seconds.value != duration
                     or rx.duration_seconds.source != ("config_reviewed_override" if "reps" in overrides else "coach_base")

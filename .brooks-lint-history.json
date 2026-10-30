@@ -207,5 +207,16 @@
       "suggestion": 0
     },
     "scope": "PR #29 vs origin/main 62db9dc; sampled high-risk native name verification, duration binding/write/read-back, row-only notes, reference hashes and batch publication, plus corresponding synthetic regressions"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 incremental fixes since63d11ff: native-duration precedence over defaults and suppressed/unparsed rep guidance, selected-week note audit context, reviewed-mode duration audit and synthetic regression coverage"
   }
 ]
