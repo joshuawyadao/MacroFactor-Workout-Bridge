@@ -1,61 +1,97 @@
 # Plan
 
-Integrate the current main branch into PR #26, preserve the reviewed efficiency work and newer security pins, then complete the user-authorized merge and feature-branch cleanup.
+Fix the three actionable Codex findings on PR #29 while preserving native duration targets, own-row notes and explicit legacy policy behavior.
 
 ## Scope
-- In: conflict resolution against main at `37b5b50`, integration validation, the newly reported msgpack audit-tool patch, refreshed PR review/CI, squash merge into main and deletion of `codex/local-efficiency` locally and remotely.
-- Out: new application behavior, unrelated dependency upgrades, changes to other branches, private workout data and rebuilding or installing the app.
+- In: native-time precedence over rep defaults; selected-week mapping context in the note audit; reviewed-mode duration audit without note retention; synthetic regressions, validation and per-finding saves/reactions.
+- Out: unrelated application behavior, personal workout data, dependency changes and merging the PR.
 
 ## Action items
-- [x] Inspect live PR #26, merged PR #27, current refs, Development guidance and existing dependency checks; verify a clean feature worktree.
-- [x] Checkpoint this resolved plan before merging main into the feature branch.
-- [x] Merge main; retain setuptools 84.2.1 and the matching lock hash/security guidance from PR #27, retain both Brooks history records, and keep the efficiency documentation and this current plan.
-- [x] Verify all three locks match main exactly, inspect every conflict resolution, and run the canonical 513-test offscreen suite, compilation and diff checks. Existing tests cover this integration; no executable behavior or test files need changing.
-- [x] Patch only audit-tool msgpack 1.2.2 to the advisory-fixed release, review macOS arm64/Linux x86-64 CPython 3.11 wheel hashes, install the full hash-pinned audit closure, exercise CacheControl serialization, audit all locks and run existing dependency tests. No application or test edits are needed.
-- [ ] Commit and push the integration; refresh Codex review, Brooks review and CI Verify on the final feature head, checking for new comments or changes to main.
-- [ ] Squash-merge PR #26 with an expected-head guard, fetch the resulting main commit, verify the efficiency implementation is present, and delete the feature branch locally and remotely.
+- [x] Inspect the three non-outdated Codex review threads, source/template/audit paths and existing duration/row-note/batch tests; retain the verified-name/export contract described in Program-Generation and Configuration.
+- [x] Fix comment 4428974724: distinguish default reps from explicit source replacements, preserve matching native times, test source/output audit agreement, then save/push and add thumbs up.
+- [x] Fix comment 4428974729: use the selected planned-week mapping context in the independent note audit while sourcing note text only from the own row, then save/push and acknowledge.
+- [x] Fix comment 4428974736: accept parsed durations in reviewed-mode audits when notes are disabled, verify a complete batch, then save/push and acknowledge.
+- [x] Address the integrity-review follow-up: explicit coach rep guidance suppressed by program_blank_rep_targets must not inherit native time targets; add a regression and retain provenance.
+- [x] Update any affected canonical guidance, rerun focused and canonical offscreen checks, compilation/diff and dependency verification as needed, and review the incremental fixes with Brooks.
+- [x] Fix Codex4429060440: block selected-week rep guidance that is blanked and cannot be retained by own-row notes; verify reviewed mode retains it.
+- [x] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
+- [x] Tighten strict native-time reconciliation to require positive durations for every active set; keep explicit blank-target mode supported.
+- [x] Fix Codex4429126363: enforce strict native duration completeness after binding even when rep defaults prevented initial missing-rep errors; validate standalone and full audit consistency.
+- [ ] Request Codex review on the final head, wait for passing CI Verify and terminal review, refresh mergeability and report the unmerged PR's readiness.
 
 ## Open questions
-- None. The user explicitly authorized merging PR #26 and deleting its feature branch. Keep main's newer dependency versions without downgrading them.
+- None. The requested full review cycle authorizes all three narrow fixes.
 
-## Validation and risk
-- Conflicts arise from parallel security-tooling updates and documentation/history edits; preserve both intents without changing production code.
-- Main contains the same certifi 2026.10.23 and filelock 4.2.4 updates, plus newer setuptools 84.2.1. Reuse those already reviewed pins and hashes exactly.
-- Prior PR #26 validation: 513 local tests passed; CI Verify and final-head Codex review passed at `3fafddb` with no findings. Recheck the integrated head before merging.
-- The PR review skill readies the branch; the user's separate merge instruction authorizes the subsequent merge and cleanup.
-
-## Change ledger
-- October 28: main advanced through merged PR #27 (`37b5b50`). Read-only merge analysis found overlapping review history, Development guidance, implementation plan and app-build lock changes. Source and test files do not overlap.
-- Conflict resolution: retain the current integration plan; keep main's setuptools 84.2.1 lock and canonical security guidance; retain the efficiency resource guidance and both distinct Brooks review records. The historical PR #27 plan remains in Git and its PR body. No application or test changes are introduced.
+## Review ledger
+- PR #29: base 62db9dc; previous head 63d11ff. Brooks/integrity reviews were clean, 79 focused tests passed, and CI Verify run41137021790 passed548 cases with one expected Linux platform skip.
+- Codex completed on63d11ff with three P2 findings (4428974724,4428974729,4428974736). All are actionable and will be saved/acknowledged separately. Threads remain unresolved as required by the review workflow.
+- Fix4428974724: native duration binding distinguishes config_default reps from explicit source/reviewed targets, blanks only defaults when retaining native times, and blocks ambiguous timed identity. The full base audit agrees; new duration-default integration tests cover preview, generation, both audits and unchanged hashes. Focused68 tests pass; compilation/diff clean.
+- Saved4428974724 in965a0cc and added thumbs up after push. Parent51 focused checks and builder68 focused checks passed.
+- Fix4428974729: independent note audit reads only selected planned-week cells for exact mapping context, honors pair direction and inherited headers, and keeps exported note text restricted to base cells. Six new regressions cover valid selected/inherited context, reversed pair direction, excluded completed results, unselected weeks and base-mode separation;53 focused checks pass.
+- Saved4428974729 in34f9372 and added thumbs up after push.
+- Fix4428974736: the reviewed-note legacy audit exempts independently parsed duration targets from the unsupported-reps guard. A full generated batch now retains30-second native targets with no Notes; unsupported prose remains blocked. Two batch regressions and the related focused audit suite pass.
+- Incremental integrity review found a follow-up to4428974724: the blank-rep policy hides explicit numeric reps from resolved values, so native-time binding must check retained source provenance before inheriting. This is actionable and included before the final review.
+- Saved4428974736 in0a9898f and acknowledged it after push (reaction466630058). All three original findings have separate fix commits and thumbs-up reactions; no threads were manually resolved.
+- Integrity follow-up: native time fallback now refuses authored base Reps, retained rep-field text after a blank-target policy, and unparsed selected-week instructions. RIR-only supported plan cues still retain native time. Independent source/output audits reject conflicting authored guidance. Added five regressions, including AMRAP and explicit base/weekly rep suppression.
+- Validation: full local suite passed559 tests after the three Codex fixes, then562 tests after the first provenance guard. Final provenance changes passed56 focused tests (38 in the narrow binder/output subset); compilation/diff pass. The final whole-program suite passed303 tests after the AMRAP/RIR cases; hosted final-head CI repeats the complete suite.
+- Private off-season replay after the fixes passed both audits, preserved both30-second targets, matched all759 non-note cells and left all input hashes unchanged. No dependency versions changed; final CI will repeat the locked audit.
 
 ## Brooks-Lint Review
 
 **Mode:** PR Review
 
-**Scope:** Incremental integration changes since reviewed PR #26 head `3fafddb`: four conflict resolutions in Development guidance, this plan, review history and the app-build lock. All three resulting dependency locks match main `37b5b50` exactly; application source, tests, scripts, packaging and CI remain byte-identical to the reviewed feature head.
+**Scope:** Incremental PR #29 fixes since63d11ff: native-time/source priority in template and output/source audits, selected-week note mapping context, reviewed-mode numeric durations, synthetic regressions and matching guidance. Sampled high-risk changed paths; no generated code excluded.
 
 **Health Score:** 100/100
 
-**Trend:** Stable at 100.
+**Trend:** Stable at100.
 
-The integration preserves current security pins and the efficiency implementation without adding coupling or new behavior.
+The fixes preserve explicit source instructions and keep note content separate from mapping context, without adding dependencies or unrelated behavior.
 
 ### Findings
 
-No actionable findings across R1–R6. Generated lock configuration is excluded from code-decay scoring and verified separately for exact equality to current main. The Quick Test Check is inapplicable to this incremental configuration/documentation change; the previously reviewed regression suite remains unchanged and is being rerun.
+No remaining actionable R1–R6 or Quick Test Check findings. The added context reader stays inside the independent audit boundary and consumes only selected planned members of the verified pairs. The time-fallback predicate distinguishes defaults, authored targets and unresolved guidance; independent read-back checks enforce the same source priority. Regression assertions observe exported cells, source immutability and blocked unsafe cases rather than mock wiring.
 
 ### Summary
 
-- Preserve both feature and security review history records and canonical Development guidance.
-- Keep final hosted CI, refreshed Codex review and live mergeability as gates before the separately authorized merge and cleanup.
-- Integration validation: canonical suite completed with exit 0; test count and timing recorded in the PR before final merge. Compilation and diff checks passed; all three locks exactly match main 37b5b50. No test files changed because no new executable behavior was introduced. The first sandboxed run could not provision PyPI packages; the authorized network-enabled run completed successfully.
+- Resolved all three Codex P2 concerns in separate commits and acknowledged each after its successful push.
+- Resolved the integrity-review follow-up for blanked and unparsed rep instructions; unsupported prose remains blocked where notes are disabled.
+- Save this final review/fix checkpoint, request final-head Codex review and wait for CI. Final hosted status belongs in the PR description, avoiding a status-only commit after review; leave the PR unmerged.
+- Second Codex pass on85cc1a5 found4429060440 (weekly rep guidance lost under blank-rep + row-only policy) and4429060446 (stale missing-rep errors after native-time binding). Both are actionable. Final-head CI123 passed564 cases with one expected Linux platform skip, including audit/compile/diff. Add focused regressions and save/acknowledge each fix separately.
+- Fix4429060440: row-only mode now blocks weekly numeric reps when neither structured targets nor equivalent own-row guidance retain them. Reviewed-note mode retains selected-week guidance; matching own-row numeric notes still work. Deferred Read-week instructions cannot fall back to different rep defaults while losing the weekly prescription. Added three regression cases, updated the existing weekly-blanking case to explicit reviewed mode, and passed58 focused tests.
+- Saved4429060440 in5d8d6b3 and acknowledged it after push.
+- Fix4429060446: after native duration binding, preview retires only exact missing-minimum/maximum-reps diagnostics for one matching source row/day/exercise/cycle whose native per-set time target resolved the omission. Missing RIR/rest/type, unrelated reps and ambiguous rows keep their blockers. Added four strict native-time regressions covering generation, source/output audits and input hashes; builder41 focused checks pass.
+- Integrity follow-up to4429060446: a native[30,blank] sequence must not retire missing-rep errors when blank targets are globally disallowed. Require a complete active-set time sequence for that relaxation and align the full source audit.
+- Saved4429060446 in5f00bf5 and acknowledged it after push (reaction466636851);4429060440 acknowledgment466636301. Both follow-ups have separate commits and no manually resolved threads.
+- Strict-time follow-up: rep-omission reconciliation requires a positive duration for every active set. The full source audit uses the same completeness requirement when blank targets are disabled. Two regressions prove[30,blank] blocks in strict mode and remains supported under explicit blank-target policy.
+- Local full suite passed571 tests before the final two strict-completeness cases. The new strict/native/audit subset passes; compilation and diff checks pass. Final whole-program/full/hosted results are recorded in the PR description after this checkpoint.
 
-## CI follow-up
+## Brooks incremental follow-up
 
-- Run `40737692224` at `6f52c01` failed in dependency auditing before tests: audit-tool msgpack 1.2.2 is affected by CVE-2026-114613; CI reports 1.2.3 as fixed. This advisory entered the database after the original review. Current main has the same affected pin.
-- The user's earlier authorization to update and validate affected locks remains applicable. Limit this follow-up to the msgpack patch and its two existing platform-wheel hashes, keeping main's other pins and source unchanged. Checkpoint this updated plan before changing the lock.
-- Refreshed Codex review is running on `6f52c01`; request final-head review after the audit patch. Canonical local integration validation already passed all 513 tests in 61.112 seconds with zero skips and exit 0.
+**Mode:** PR Review
 
-- Audit fix validation: msgpack 1.2.3 requires Python >=3.10 and adds no dependencies. Downloaded CPython 3.11 macOS arm64 and Linux x86-64 wheels matched official PyPI SHA-256 metadata; all other audit pins and both other locks are unchanged. Full hash-enforced audit-closure installation and pip check passed. CacheControl response serialization and FileCache set/get/delete passed. All-lock pip-audit reports no known vulnerabilities; 20 existing dependency tests passed in 7.821 seconds. No application or test files changed; the 513-test integration run remains valid and hosted CI will rerun the suite on the final head.
-- Codex review completed on integration commit `6f52c01` with no findings. Request review again after saving this narrow audit patch. Incremental Brooks review of the patch and matching Development guidance found no actionable findings (100/100, stable); generated lock hashes were separately verified and the Quick Test Check remains inapplicable to this configuration/docs delta.
-- Final hosted CI/review/merge/cleanup results are tracked in PR #26 to avoid introducing a documentation-only commit after the reviewed final head.
+**Scope:** Incremental fixes since85cc1a5: selected-week rep retention, exact native-time error reconciliation, strict active-set duration completeness and their synthetic regressions. No generated files excluded.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at100.
+
+No remaining actionable R1–R6 or Quick Test Check findings. The new representation guard requires weekly reps to survive in actual targets or permitted row notes; it does not expand note provenance. Native-time reconciliation remains narrow and fails closed on ambiguous source matches or other missing fields. Partial native time targets require the existing explicit blank-target policy. Added regressions cover each decision and observable workbook cells; no dependency or unrelated application changes were needed.
+
+Final review and CI outcomes remain in the PR description so the head can stay stable after review. Leave the PR unmerged.
+- Third Codex pass on6d56612 found4429126363: partial native time targets can bypass strict standalone preview when rep defaults were configured. Add a post-binding policy invariant independent of parser omissions, require the full source audit to agree, and parameterize native-time regressions with and without defaults. CI126 passed573 cases with one expected Linux skip; local573 passed without skips.
+- Fix4429126363: strict completeness is now a post-binding invariant independent of parser missing-field errors or rep defaults. A shared service predicate requires a positive native duration for every active set; the independent full source audit enforces the policy separately. Native-time regressions cover defaults present/absent. All312 program checks,92 related checks and the independent17-case review pass; compilation/diff pass.
+
+## Brooks final strict-policy review
+
+**Mode:** PR Review
+
+**Scope:** Incremental post-binding strict native-time validation, shared completeness predicate, independent source audit and parameterized regressions since6d56612. No generated files excluded.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at100.
+
+No remaining actionable R1–R6 or Quick Test Check findings. One post-binding policy check now owns strict preview completeness; error reconciliation reuses its predicate rather than assuming that parser omissions cover every case. The full source audit remains independent, and explicit blank-target mode retains its prior behavior. The independent workbook reviewer verified both default/no-default cases and found no residual safety gap.
+
+Final full-suite, CI and Codex outcomes will be recorded in the PR description after this checkpoint; no status-only head changes are planned. Leave the PR unmerged.

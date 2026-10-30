@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import zipfile
+import json
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -10,6 +11,29 @@ from macrofactor_bridge.ooxml import MAIN_NS, make_cell_reference, split_cell_re
 CONTENT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 OFFICE_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+
+def add_program_name_evidence(config_path: Path) -> None:
+    """Seed an explicit synthetic native log for tests of other program behavior.
+
+    Identity-gate tests intentionally build their own independent/mismatched
+    references instead. This is fixture setup, never a production fallback.
+    """
+    payload = json.loads(config_path.read_text())
+    names = set()
+    for rule in payload.get("exercises", []):
+        names.add(rule["canonical"])
+        expansion = rule.get("program_expansion") or {}
+        names.update(item["canonical"] for item in expansion.get("exercises", []))
+    reference = config_path.with_name(config_path.stem + "-native-names.xlsx")
+    cells = {f"{column}1": name for column, name in zip(
+        "ABCDEF", ("Date", "Workout", "Exercise", "Set Type", "Weight (lbs)", "Reps"), strict=True
+    )}
+    cells.update({f"C{row}": name for row, name in enumerate(sorted(names), 2)})
+    write_program_workbook(reference, sheet_name="Workout Log", cells=cells)
+    program = payload.setdefault("program", {})
+    program["exercise_name_references"] = [str(reference)]
+    config_path.write_text(json.dumps(payload))
 
 
 def _xml(root: ET.Element) -> bytes:

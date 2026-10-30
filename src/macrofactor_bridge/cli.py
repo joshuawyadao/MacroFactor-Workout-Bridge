@@ -153,6 +153,8 @@ def _print_program_report(report) -> None:
                     if prescription.set_rep_targets:
                         rep_value = ", ".join(f"{target.minimum.value}-{target.maximum.value}"
                                               for target in prescription.set_rep_targets)
+                    if prescription.duration_seconds or prescription.set_duration_targets:
+                        rep_value = "not applicable (timed)"
                     fields = (
                         f"sets={prescription.set_count.value or 'missing'} "
                         f"[{prescription.set_count.source}], "
@@ -164,6 +166,14 @@ def _print_program_report(report) -> None:
                         f"rest={rest_value} [{prescription.rest_seconds.source}]"
                     )
                     print(f"      {prescription.cycle}: {fields}")
+                    if prescription.duration_seconds is not None:
+                        target = prescription.duration_seconds
+                        print(f"        duration target: {target.value}s [{target.source}]")
+                    if prescription.set_duration_targets:
+                        print("        ordered duration targets: " + ", ".join(
+                            f"{index}: {str(field.value) + 's' if field.value is not None else 'blank'} [{field.source}]"
+                            for index, field in enumerate(prescription.set_duration_targets, start=1)
+                        ))
                     if prescription.set_types:
                         print("        ordered set types: " + ", ".join(
                             f"{index}: {field.value} [{field.source}]"

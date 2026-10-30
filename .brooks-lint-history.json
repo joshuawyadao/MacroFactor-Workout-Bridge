@@ -196,5 +196,49 @@
       "suggestion": 0
     },
     "scope": "PR #26 audit-only msgpack 1.2.2 to 1.2.3 patch after integration; reviewed canonical Development guidance and plan, separately verified both CPython 3.11 platform-wheel hashes and complete audit closure; application source and tests unchanged"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 vs origin/main 62db9dc; sampled high-risk native name verification, duration binding/write/read-back, row-only notes, reference hashes and batch publication, plus corresponding synthetic regressions"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 incremental fixes since63d11ff: native-duration precedence over defaults and suppressed/unparsed rep guidance, selected-week note audit context, reviewed-mode duration audit and synthetic regression coverage"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 follow-up since85cc1a5: weekly rep representation under row-only notes, exact native-time missing-rep reconciliation, strict per-set duration completeness and focused regression coverage"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 incremental fix since6d56612: post-binding strict native-time invariant shared with parser-issue reconciliation, independent source-audit agreement and defaults/no-defaults regression matrix"
   }
 ]
