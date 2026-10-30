@@ -197,8 +197,9 @@ def _has_authored_table_content(
     return False
 
 
-def _rules(name: str, variation: str, raw: dict[str, str], config: BridgeConfig) -> list[ExerciseRule]:
-    context = {normalize_name(value) for value in raw.values()}
+def _rules(name: str, variation: str, raw: dict[str, str], config: BridgeConfig,
+           extra_context: tuple[str, ...] = ()) -> list[ExerciseRule]:
+    context = {normalize_name(value) for value in (*raw.values(), *extra_context)}
     eligible = [rule for rule in config.rules if not rule.coach_context_aliases
                 or context.intersection(map(normalize_name, rule.coach_context_aliases))]
     def aliases(value: str) -> list[ExerciseRule]:
@@ -211,6 +212,27 @@ def _rules(name: str, variation: str, raw: dict[str, str], config: BridgeConfig)
         canonical = [rule for rule in eligible if normalize_name(rule.canonical) == normalize_name(variation)]
         return canonical or [rule for rule in aliases(name) if rule.coach_context_aliases]
     return aliases(name)
+
+
+def _note_plan_columns(snapshot, rows, header: _Header, config: BridgeConfig) -> dict[str, int]:
+    """Read literal plan/result headers for mapping context, never note content."""
+    if config.program.prescription_source != "selected_week":
+        return {}
+    pattern = re.compile(config.program.week_header_pattern, re.I)
+    columns: dict[str, int] = {}
+    for row in (header.row - 1, header.row):
+        for column, cell in rows.get(row, {}).items():
+            label = _text(cell)
+            if not label or cell.formula is not None or not pattern.fullmatch(label):
+                continue
+            first = column
+            for merged in snapshot.merges:
+                r1, c1, r2, c2 = split_range(merged)
+                if r1 <= row <= r2 and c1 <= column <= c2:
+                    first = c1
+                    break
+            columns[normalize_name(label)] = first + (config.program.week_pair_layout == "result_then_plan")
+    return columns
 
 
 def _reference_boundary(snapshot, headers, selected, rows, marker: str) -> int:
@@ -299,7 +321,11 @@ def audit_program_source_rows(
     skipped = [item.get("day") for item in report.skipped_items
                if item.get("reason") == "No coach-authored exercise rows"]
     observed_skipped = []
+    prior_note_weeks: dict[str, int] = {}
+    selected_weeks = set(map(normalize_name, report.included_weeks))
     for header in selected:
+        note_weeks = _note_plan_columns(snapshot, rows, header, config) or prior_note_weeks
+        prior_note_weeks = note_weeks
         next_headers = [item.row for item in headers if item.row > header.row]
         end = min(next_headers) - 1 if next_headers else max(rows, default=header.row)
         if boundary is not None and header.row == selected[-1].row:
@@ -328,7 +354,12 @@ def audit_program_source_rows(
                            if (value := _text(snapshot.cells.get(make_cell_reference(row, header.columns[role])))) is not None}
                     raw["variation"] = _text(snapshot.cells.get(make_cell_reference(
                         row, header.columns.get("variation", header.columns["exercise"])))) or _text(snapshot.cells.get(exercise.source_cell))
-                    matches = _rules(exercise.coach_name, raw["variation"], raw, config)
+                    mapping_context = tuple(
+                        text for key, column in note_weeks.items() if key in selected_weeks
+                        for cell in (rows.get(row, {}).get(column),)
+                        if cell is not None and cell.formula is None and (text := _text(cell))
+                    )
+                    matches = _rules(exercise.coach_name, raw["variation"], raw, config, mapping_context)
                     rule = next((rule for rule in matches if rule.canonical == (
                         exercise.expansion.parent_canonical if exercise.expansion else exercise.macrofactor_name
                     )), None)

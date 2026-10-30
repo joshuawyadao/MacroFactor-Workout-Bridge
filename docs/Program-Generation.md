@@ -98,7 +98,7 @@ Set `program.use_day_designations: true` to name exported workouts from the uniq
 
 ## Reviewed corrections and concise notes
 
-With `preserve_coach_notes: true`, the default `program.notes_source: "left_table_row"` exports only literal cells from that exercise's own base-table row. Weekly plans, completed results, neighboring warmups, footer text and per-rule `program_notes` cannot supply these notes. Configured notes produce a visible `configured_notes_not_applied` warning. Both independent source audits compare the complete note sequence to the selected row, so appended foreign cues fail validation.
+With `preserve_coach_notes: true`, the default `program.notes_source: "left_table_row"` exports only literal cells from that exercise's own base-table row. Weekly plans, completed results, neighboring warmups, footer text and per-rule `program_notes` cannot supply these notes. Configured notes produce a visible `configured_notes_not_applied` warning. In selected-week mode, selected planned-week text can qualify an exact mapping, but cannot enter row-only notes; completed results and unselected weeks cannot supply mapping context. Both independent source audits compare the complete note sequence to the selected row, so appended foreign cues fail validation.
 
 `program.notes_mode: "concise"` removes plain numeric targets and redundant canonical names while retaining that row's Style/Variation, equipment or technique wording, unilateral instructions, duration wording and target qualifiers. `"full"` retains labeled copies of the row's fields. `note_text_policy` controls presentation cleanup only; raw cells and field provenance stay in the private report. Reviewed numeric overrides do not become note sources: notes retain the original row wording.
 
