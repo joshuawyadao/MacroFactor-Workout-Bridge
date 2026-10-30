@@ -932,7 +932,7 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                     required_notes.append(effective["rest"])
             if minimum_notes:
                 required_notes.append(effective["reps"])
-        elif effective.get("reps") and not reps:
+        elif effective.get("reps") and not reps and duration is None:
             fail("unsupported_reps", "Unsupported rep instruction has no approved notes-retention policy")
         expected_notes = prepare_program_notes(
             required_notes, config.program.note_text_policy
