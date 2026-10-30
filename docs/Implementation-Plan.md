@@ -27,3 +27,33 @@ Make program generation verify MacroFactor exercise names against native exports
 - Read-only workbook integrity review found and resolved compact-duration parsing, guarded time-override provenance and ambiguous native-time loss. Ambiguous time identity now blocks rather than erasing a target.
 - Preview follow-up: CLI output shows common/per-set time targets and marks timed reps as not applicable, so the reviewed numeric duration is visible before generation.
 - Saved `codex/program-export-contracts` to origin with plan checkpoint `2cd061f`, implementation checkpoint `63e84f5` and preview follow-up `04f1177`. This final documentation-only completion record follows the successful push. No private workbooks, reports or local profiles are staged.
+
+## Brooks-Lint Review
+
+**Mode:** PR Review
+
+**Scope:** PR #29 versus main `62db9dc`; sampled the highest-risk changed program parser, configuration/models, name verifier, service, template writer, source/output audits, batch publication, CLI and corresponding synthetic tests. No generated files were excluded. The review is scoped to this program-export change.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at 100.
+
+The change enforces one coherent export contract without new runtime dependencies or unrelated application behavior.
+
+### Findings
+
+No actionable findings across R1–R6 or the Quick Test Check. Native identity verification, duration binding and own-row note formatting have small external interfaces; immutable prescription fields retain source provenance. Independent source/output grammars deliberately remain separate from the production parser/writer, while shared note formatting accepts only one literal row. Tests cover successful exports, ambiguous identities, malformed evidence, drift, stale cells, source-row isolation and tampered outputs. Temporary synthetic workbooks and bounded mutation seams keep failures observable without external personal data.
+
+### Summary
+
+- The diff exceeds 500 lines across 35 related files, a change-propagation review signal. The changed files remain inside one export contract and its fixtures/docs; no unrelated fan-out was found.
+- Native durations fail closed when their identity cannot be proven. A conservative block for the same timed name appearing under changed workout identity is an intentional safety tradeoff rather than silently clearing a target.
+- Independent workbook-integrity review and 79 focused tests passed. Prior validation remains 548 full offscreen tests, 40 CLI checks, compilation, diff and dependency audits; personal exports/profiles remain excluded.
+
+## PR review cycle ledger
+
+- Opened PR #29 as draft, then marked ready to start CI Verify. Base `62db9dc`, implementation head `f4554bd`; no merge conflicts.
+- Requested Codex review with the skill helper: issue comment `6534620526`. First poll showed no response; the next showed the bot running on `f4554bd` with no inline threads yet. No actionable Codex comments are available at this checkpoint.
+- Initial CI Verify run `41136707601` skipped while draft; ready-for-review run `41136762468` is in progress. No CI failure observed, so no production/test edits were made during this review pass.
+- Brooks and the independent integrity pass found no actionable concerns. This checkpoint saves only the required review record/history. Request final-head Codex review and wait for terminal CI after pushing it.
+- Keep final hosted review/check outcomes in the PR description so a status-only documentation commit does not invalidate the reviewed head. Leave the PR unmerged.
