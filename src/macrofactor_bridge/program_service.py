@@ -63,9 +63,10 @@ def _resolved_native_time_rep_issue(issue: ProgramIssue, report: ProgramPreviewR
         and prescription.rep_min.source == prescription.rep_max.source == "blank_by_policy"
         and not prescription.set_rep_targets
         and type(prescription.set_count.value) is int
+        and prescription.set_count.value > 0
         and len(targets) == prescription.set_count.value
         and all(target.source == "native_template" for target in targets)
-        and any(type(target.value) is int and target.value > 0 for target in targets)
+        and all(type(target.value) is int and target.value > 0 for target in targets)
     )
 
 

@@ -15,6 +15,7 @@ Fix the three actionable Codex findings on PR #29 while preserving native durati
 - [x] Update any affected canonical guidance, rerun focused and canonical offscreen checks, compilation/diff and dependency verification as needed, and review the incremental fixes with Brooks.
 - [x] Fix Codex4429060440: block selected-week rep guidance that is blanked and cannot be retained by own-row notes; verify reviewed mode retains it.
 - [x] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
+- [x] Tighten strict native-time reconciliation to require positive durations for every active set; keep explicit blank-target mode supported.
 - [ ] Request Codex review on the final head, wait for passing CI Verify and terminal review, refresh mergeability and report the unmerged PR's readiness.
 
 ## Open questions
@@ -59,3 +60,21 @@ No remaining actionable R1–R6 or Quick Test Check findings. The added context 
 - Fix4429060440: row-only mode now blocks weekly numeric reps when neither structured targets nor equivalent own-row guidance retain them. Reviewed-note mode retains selected-week guidance; matching own-row numeric notes still work. Deferred Read-week instructions cannot fall back to different rep defaults while losing the weekly prescription. Added three regression cases, updated the existing weekly-blanking case to explicit reviewed mode, and passed58 focused tests.
 - Saved4429060440 in5d8d6b3 and acknowledged it after push.
 - Fix4429060446: after native duration binding, preview retires only exact missing-minimum/maximum-reps diagnostics for one matching source row/day/exercise/cycle whose native per-set time target resolved the omission. Missing RIR/rest/type, unrelated reps and ambiguous rows keep their blockers. Added four strict native-time regressions covering generation, source/output audits and input hashes; builder41 focused checks pass.
+- Integrity follow-up to4429060446: a native[30,blank] sequence must not retire missing-rep errors when blank targets are globally disallowed. Require a complete active-set time sequence for that relaxation and align the full source audit.
+- Saved4429060446 in5f00bf5 and acknowledged it after push (reaction466636851);4429060440 acknowledgment466636301. Both follow-ups have separate commits and no manually resolved threads.
+- Strict-time follow-up: rep-omission reconciliation requires a positive duration for every active set. The full source audit uses the same completeness requirement when blank targets are disabled. Two regressions prove[30,blank] blocks in strict mode and remains supported under explicit blank-target policy.
+- Local full suite passed571 tests before the final two strict-completeness cases. The new strict/native/audit subset passes; compilation and diff checks pass. Final whole-program/full/hosted results are recorded in the PR description after this checkpoint.
+
+## Brooks incremental follow-up
+
+**Mode:** PR Review
+
+**Scope:** Incremental fixes since85cc1a5: selected-week rep retention, exact native-time error reconciliation, strict active-set duration completeness and their synthetic regressions. No generated files excluded.
+
+**Health Score:** 100/100
+
+**Trend:** Stable at100.
+
+No remaining actionable R1–R6 or Quick Test Check findings. The new representation guard requires weekly reps to survive in actual targets or permitted row notes; it does not expand note provenance. Native-time reconciliation remains narrow and fails closed on ambiguous source matches or other missing fields. Partial native time targets require the existing explicit blank-target policy. Added regressions cover each decision and observable workbook cells; no dependency or unrelated application changes were needed.
+
+Final review and CI outcomes remain in the PR description so the head can stay stable after review. Leave the PR unmerged.

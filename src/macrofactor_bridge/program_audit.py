@@ -836,6 +836,11 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
                 and any(field.value is not None for field in rx.set_duration_targets)
                 for rx in exercise.prescriptions)
     )
+    complete_native_duration = native_duration and all(
+        len(rx.set_duration_targets) == expected_count
+        and all(type(field.value) is int and field.value > 0 for field in rx.set_duration_targets)
+        for rx in exercise.prescriptions
+    )
     blank_reps = rule.program_blank_rep_targets
     minimum_notes = bool(reps and minimum is not None and maximum is None
                          and config.program.minimum_rep_policy == "notes_only")
@@ -846,7 +851,7 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
     rest_source = parsed_rest_source or ("config_default" if expected_rest is not None else "blank_by_policy")
     if not config.program.allow_blank_targets and (
             expected_rest is None or defaults.rir is None or not blank_reps and duration is None
-            and not native_duration and (minimum is None or maximum is None)):
+            and not complete_native_duration and (minimum is None or maximum is None)):
         fail("missing_targets", "Missing targets are not permitted by explicit configuration")
     if kind is None:
         fail("missing_set_type", "No source or explicitly configured set type exists")

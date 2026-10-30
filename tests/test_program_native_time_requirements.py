@@ -7,6 +7,7 @@ from macrofactor_bridge.program_audit import audit_coach_program
 from macrofactor_bridge.program_output_audit import audit_program_output
 from macrofactor_bridge.program_service import generate_program
 from tests import test_program_duration_defaults as default_fixtures
+from tests.test_program_duration import change_cell
 
 
 class NativeTimeRequirementTests(unittest.TestCase):
@@ -47,6 +48,29 @@ class NativeTimeRequirementTests(unittest.TestCase):
         self.assertFalse(any(issue.code == "missing_prescription_field"
                              and issue.exercise == "Old Exercise 1-1" for issue in report.blocking_issues),
                          report.blocking_issues)
+
+    def test_partial_native_duration_does_not_resolve_strict_target_requirements(self):
+        fixture = self.fixture
+        change_cell(fixture.template, "N4", None)
+        config, block, report = fixture.preview()
+        self.assertFalse(report.generation_safe)
+        self.assertTrue(any(issue.code == "missing_prescription_field"
+                            and issue.exercise == "Old Exercise 1-1" for issue in report.blocking_issues),
+                        report.blocking_issues)
+        source = audit_coach_program(fixture.coach, config, block, report)
+        self.assertFalse(source.passed)
+        self.assertIn("source_audit_missing_targets", {issue.code for issue in source.issues})
+
+    def test_partial_native_duration_remains_supported_with_explicit_blank_policy(self):
+        fixture = self.fixture
+        fixture.payload["program"]["allow_blank_targets"] = True
+        change_cell(fixture.template, "N4", None)
+        config, block, report = fixture.preview()
+        self.assertTrue(report.generation_safe, report.blocking_issues)
+        self.assertTrue(audit_coach_program(fixture.coach, config, block, report).passed)
+        generate_program(report, fixture.template, fixture.output)
+        cells = XlsxPackage(fixture.output).sheet_snapshot("Training Programs").cells
+        self.assertEqual((cells["I4"].value, cells["N4"].value), (30, None))
 
     def test_duplicate_same_name_rows_cannot_hide_missing_reps(self):
         fixture = self.fixture
