@@ -87,6 +87,8 @@ Part 2 reuses exact exercise identities but adds policy choices. Keep a separate
 | `unitless_rest_policy` | `block` | `seconds` interprets only the base Rest column; ranges also need `rest_range_policy: "upper"`. |
 | `allow_blank_targets`, `preserve_coach_notes` | `false` | Leave missing targets blank and retain instructions in exercise Notes; review the combined policy in the program guide. |
 | `minimum_rep_policy` | `block` | `notes_only` requires both blank targets and preserved notes; does not invent a maximum. |
+| `notes_source` | `left_table_row` | Only own-row base cells can supply notes. Explicit `reviewed` retains legacy configured/selected-week cues; see the program guide. |
+| `exercise_name_references` | `[]` | Private native program/log paths relative to this config; exact names must appear in these or the selected program template. |
 | `notes_mode`, `note_text_policy` | `full`, `verbatim` | `concise` trims repetition; `conservative` uses only the explicit text-cleanup allow-list. |
 | `exclude_warmups`, `exclude_cardio`, `exclude_empty_days` | `false` | Opt-in exclusions with preview evidence; populated days cannot masquerade as empty. |
 | `resize_template_workouts`, `use_day_designations` | `false` | Guarded row-group resize and reviewed day subtitles respectively. |

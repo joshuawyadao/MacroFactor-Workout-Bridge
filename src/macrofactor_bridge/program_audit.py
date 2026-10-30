@@ -17,7 +17,7 @@ from .config import normalize_name
 from .models import BridgeConfig, ExerciseRule
 from .ooxml import MAIN_NS, WorkbookError, XlsxPackage, make_cell_reference, split_cell_reference, split_range
 from .program_models import ProgramBlockOption, ProgramIssue, ProgramPreviewReport
-from .program_text import prepare_program_notes
+from .program_text import left_table_row_notes, prepare_program_notes
 
 
 @dataclass(frozen=True)
@@ -321,6 +321,28 @@ def audit_program_source_rows(
             if actual_rows != source_rows:
                 fail("row_coverage", "Preview source rows differ from the complete base table, including rows after blank gaps",
                      day=header.label, raw=f"source={source_rows}; preview={actual_rows}")
+            if config.program.notes_source == "left_table_row":
+                for exercise in preview_day.exercises:
+                    row = exercise.source_row
+                    raw = {role: value for role in ("style", "sets", "reps", "rest")
+                           if (value := _text(snapshot.cells.get(make_cell_reference(row, header.columns[role])))) is not None}
+                    raw["variation"] = _text(snapshot.cells.get(make_cell_reference(
+                        row, header.columns.get("variation", header.columns["exercise"])))) or _text(snapshot.cells.get(exercise.source_cell))
+                    matches = _rules(exercise.coach_name, raw["variation"], raw, config)
+                    rule = next((rule for rule in matches if rule.canonical == (
+                        exercise.expansion.parent_canonical if exercise.expansion else exercise.macrofactor_name
+                    )), None)
+                    expected = prepare_program_notes(left_table_row_notes(
+                        raw, rule.canonical if rule else None, mode=config.program.notes_mode,
+                        retain_rep_guidance=bool(rule and rule.program_blank_rep_targets) or (
+                            config.program.minimum_rep_policy == "notes_only" and bool(
+                                re.fullmatch(r"\d+\+\s*(?:reps?)?", raw.get("reps", ""), re.I)
+                            )
+                        ),
+                    ), config.program.note_text_policy) if config.program.preserve_coach_notes else ()
+                    if any(rx.notes != expected for rx in exercise.prescriptions):
+                        fail("notes", "Notes differ from this exercise's own literal left-table row",
+                             day=header.label, cell=exercise.source_cell)
             preview_day = next(preview_days, None)
         elif config.program.exclude_empty_days and not source_rows and not _has_authored_table_content(
                 header, end_row=end, rows=rows):
@@ -725,6 +747,12 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
             overrides.add(correction.field)
     count, ranged_count = _count(effective.get("sets"), config)
     reps = _reps(effective.get("reps"))
+    duration_match = re.fullmatch(
+        r"\s*([0-9]+)\s*(s|sec(?:ond)?s?|m|min(?:ute)?s?)(?:\s*(?:ea\.?|each)(?:\s*(?:leg|side))?)?\s*",
+        effective.get("reps", ""), re.I,
+    )
+    duration = (int(duration_match[1]) * (60 if duration_match[2].lower().startswith("m") else 1)
+                if duration_match and int(duration_match[1]) > 0 else None)
     rest, parsed_rest_source = _rest(effective.get("rest"), config)
     rep_cell = snapshot.cells.get(make_cell_reference(row, header.columns["reps"]))
     date_rep = bool(rep_cell and isinstance(rep_cell.value, (int, float))
@@ -738,7 +766,7 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
         fail("rep_sequence", "Per-set rep sequence cannot be allocated to the configured set count/expansion")
     if effective.get("rest") and rest is None:
         fail("unsupported_rest", "Rest text is not independently supported; it requires human review")
-    if "reps" in overrides and not reps:
+    if "reps" in overrides and not reps and duration is None:
         fail("override_value", "Reviewed rep correction is outside the independent numeric grammar")
     styles = {"standard": "standard", "standard set": "standard", "standard sets": "standard",
               "straight set": "standard", "straight sets": "standard", "superset": "superset",
@@ -773,17 +801,25 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
     blank_reps = rule.program_blank_rep_targets
     minimum_notes = bool(reps and minimum is not None and maximum is None
                          and config.program.minimum_rep_policy == "notes_only")
-    if blank_reps or minimum_notes:
+    if blank_reps or minimum_notes or duration is not None:
         minimum = maximum = None
         min_source = max_source = "blank_by_policy"
     expected_rest = rest if rest is not None else defaults.rest_seconds
     rest_source = parsed_rest_source or ("config_default" if expected_rest is not None else "blank_by_policy")
     if not config.program.allow_blank_targets and (
-            expected_rest is None or defaults.rir is None or not blank_reps and (minimum is None or maximum is None)):
+            expected_rest is None or defaults.rir is None or not blank_reps and duration is None and (minimum is None or maximum is None)):
         fail("missing_targets", "Missing targets are not permitted by explicit configuration")
     if kind is None:
         fail("missing_set_type", "No source or explicitly configured set type exists")
     for rx in exercise.prescriptions:
+        if duration is not None:
+            if (rx.duration_seconds is None or rx.duration_seconds.value != duration
+                    or rx.duration_seconds.source != ("config_reviewed_override" if "reps" in overrides else "coach_base")
+                    or rx.duration_seconds.source_cell != make_cell_reference(row, header.columns["reps"])
+                    or rx.duration_seconds.raw_text != raw.get("reps")):
+                fail("duration", "Duration value/provenance differs from the literal source time")
+        elif rx.duration_seconds is not None and rx.duration_seconds.source != "native_template":
+            fail("duration", "Duration has no literal source or associated native export evidence")
         expected = (("set_count", expected_count, count_source, "sets"),
                     ("rep_min", minimum, min_source, "reps"), ("rep_max", maximum, max_source, "reps"),
                     ("rest_seconds", expected_rest, rest_source, "rest"),
@@ -824,6 +860,14 @@ def _audit_prescriptions(snapshot, header, row, raw, rule, child, exercise,
         ):
             fail("weekly_retention", "Configured base cycles must not claim unlabeled weekly cells as source instructions")
         notes = "\n".join(rx.notes)
+        if config.program.notes_source == "left_table_row":
+            expected_notes = prepare_program_notes(left_table_row_notes(
+                raw, rule.canonical, mode=config.program.notes_mode,
+                retain_rep_guidance=blank_reps or minimum_notes,
+            ), config.program.note_text_policy) if config.program.preserve_coach_notes else ()
+            if rx.notes != expected_notes:
+                fail("notes", "Notes differ from this exercise's own literal left-table row")
+            continue
         required_notes = []
         if config.program.preserve_coach_notes:
             if config.program.notes_mode == "full":

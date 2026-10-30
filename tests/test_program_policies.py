@@ -12,6 +12,7 @@ from macrofactor_bridge.config import ConfigError, load_config
 from macrofactor_bridge.ooxml import XlsxPackage, file_sha256, make_cell_reference
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
 from tests.test_program_preview import exercise_row
 from tests.test_program_generation import rewrite_zip_member
@@ -30,7 +31,7 @@ class ProgramPolicyTests(unittest.TestCase):
                 "sheet_order": "right_to_left",
                 "rest_range_policy": "upper",
                 "allow_blank_targets": True,
-                "preserve_coach_notes": True,
+                "preserve_coach_notes": True, "notes_source": "reviewed",
                 "exclude_warmups": True,
                 "exclude_cardio": True,
                 "defaults": {"set_type": "standard"},
@@ -46,6 +47,7 @@ class ProgramPolicyTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload), encoding="utf-8")
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def write(self, cells, merges=("J5:K5", "L5:M5")):

@@ -32,7 +32,7 @@ from .program_models import (
     SupersetMembership,
     WorkoutDay,
 )
-from .program_text import prepare_program_notes
+from .program_text import left_table_row_notes, prepare_program_notes
 
 
 @dataclass(frozen=True)
@@ -603,6 +603,16 @@ def _parse_set_count(raw: str | None, range_policy: str = "block") -> int | None
     return upper if 1 <= lower <= upper else None
 
 
+def _parse_duration(raw: str | None) -> int | None:
+    match = re.fullmatch(
+        r"\s*(\d+)\s*(s|sec(?:ond)?s?|m|min(?:ute)?s?)(?:\s*(?:ea\.?|each)(?:\s*(?:leg|side))?)?\s*",
+        raw or "", re.I,
+    )
+    if match is None or int(match[1]) < 1:
+        return None
+    return int(match[1]) * (60 if match[2].lower().startswith("m") else 1)
+
+
 def _parse_reps(raw: str | None) -> tuple[int, int | None] | None:
     if raw is None:
         return None
@@ -1035,6 +1045,13 @@ def _prescriptions(
     rule: ExerciseRule | None = None,
 ) -> tuple[CyclePrescription, ...]:
     original_base = base_raw
+    if rule and rule.program_notes is not None and config.program.notes_source == "left_table_row" and not suppress_blockers:
+        issues.append(ProgramIssue(
+            severity="warning", code="configured_notes_not_applied",
+            message="Row-only notes ignore configured program_notes; opt into notes_source reviewed for reviewed overrides",
+            sheet=sheet, day=day.label, exercise=exercise,
+            cell=make_cell_reference(row, day.columns["exercise"]),
+        ))
     base_raw = dict(base_raw)
     overridden = set()
     for override in rule.program_base_overrides if rule else ():
@@ -1061,12 +1078,14 @@ def _prescriptions(
     per_side_sets = bool(set_count is not None and re.search(r"\b(?:ea\.?|each)\b", base_raw.get("sets", ""), re.I))
     rep_range = _parse_reps(base_raw.get("reps"))
     rep_list = _parse_rep_list(base_raw.get("reps"))
+    duration = _parse_duration(base_raw.get("reps"))
     rep_cell = snapshot.cells.get(cells["reps"])
     date_rep = bool(rep_cell and rep_cell.style in (date_styles or set())
                     and isinstance(rep_cell.value, (int, float)) and "reps" not in overridden)
     if date_rep:
         rep_range = None
         rep_list = ()
+        duration = None
     if rep_list and len(rep_list) != set_count and not suppress_blockers:
         issues.append(ProgramIssue(
             severity="blocking", code="rep_sequence_length_mismatch",
@@ -1085,7 +1104,7 @@ def _prescriptions(
             sheet=sheet, day=day.label, exercise=exercise, cell=cells["rest"],
             raw_text=base_raw.get("rest"),
         ))
-    for key, valid in (("sets", set_count is not None), ("reps", rep_range is not None or bool(rep_list))):
+    for key, valid in (("sets", set_count is not None), ("reps", rep_range is not None or bool(rep_list) or duration is not None)):
         if key in overridden and not valid and not suppress_blockers:
             issues.append(ProgramIssue(
                 severity="blocking", code="unsupported_base_override",
@@ -1101,7 +1120,7 @@ def _prescriptions(
         )
     notes_policy = config.program.preserve_coach_notes
     blank_targets = config.program.allow_blank_targets
-    blank_reps_allowed = blank_targets or blank_rep_targets
+    blank_reps_allowed = blank_targets or blank_rep_targets or duration is not None
     if date_rep and not suppress_blockers:
         issues.append(ProgramIssue(
             severity="warning" if notes_policy and blank_reps_allowed else "blocking",
@@ -1110,7 +1129,7 @@ def _prescriptions(
             sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
             raw_text=base_raw.get("reps"),
         ))
-    if rep_range is None and not rep_list and not (notes_policy and blank_reps_allowed):
+    if rep_range is None and not rep_list and duration is None and not (notes_policy and blank_reps_allowed):
         _base_value_issue(
             field_name="rep target", raw_text=base_raw.get("reps"), cell=cells["reps"],
             sheet=sheet, day=day.label, exercise=exercise, issues=issues,
@@ -1155,9 +1174,9 @@ def _prescriptions(
         if raw_unparsed is not None and not suppress_blockers:
             issues.append(
                 ProgramIssue(
-                    severity="warning" if notes_policy else "blocking",
-                    code="coach_instruction_in_notes" if notes_policy else "unsupported_week_instruction",
-                    message=("Selected-week instruction retained verbatim in exercise notes" if notes_policy
+                    severity="warning" if notes_policy and config.program.notes_source == "reviewed" else "blocking",
+                    code="coach_instruction_in_notes" if notes_policy and config.program.notes_source == "reviewed" else "unsupported_week_instruction",
+                    message=("Selected-week instruction retained verbatim in exercise notes" if notes_policy and config.program.notes_source == "reviewed"
                              else "Selected-week text is not a fully supported prescription"),
                     sheet=sheet,
                     cell=week_cell,
@@ -1168,6 +1187,12 @@ def _prescriptions(
                 )
             )
         parsed_week = parsed_week or _ParsedWeek()
+        if duration is not None and (parsed_week.rep_min is not None or parsed_week.rep_max is not None) and not suppress_blockers:
+            issues.append(ProgramIssue(
+                severity="blocking", code="conflicting_duration_and_reps",
+                message="Weekly rep target conflicts with the base duration target",
+                sheet=sheet, cell=week_cell, day=day.label, exercise=exercise, cycle=week_label,
+            ))
         minimum, maximum = rep_range or (rep_list[0] if rep_list else (None, None))
         if rep_range and maximum is None and parsed_week.rep_max is not None and not suppress_blockers:
             issues.append(ProgramIssue(
@@ -1260,7 +1285,7 @@ def _prescriptions(
                 name="minimum reps", base_value=minimum, base_cell=cells["reps"],
                 base_raw=base_raw.get("reps"), week_value=parsed_week.rep_min,
                 week_cell=week_cell, week_raw=raw_week,
-                default_value=config.program.defaults.rep_min, sheet=sheet,
+                default_value=config.program.defaults.rep_min if duration is None else None, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
                 allow_blank=blank_reps_allowed,
@@ -1270,7 +1295,7 @@ def _prescriptions(
                 name="maximum reps", base_value=maximum, base_cell=cells["reps"],
                 base_raw=base_raw.get("reps"), week_value=parsed_week.rep_max,
                 week_cell=week_cell, week_raw=raw_week,
-                default_value=config.program.defaults.rep_max, sheet=sheet,
+                default_value=config.program.defaults.rep_max if duration is None else None, sheet=sheet,
                 day=day.label, exercise=exercise, cycle=week_label, issues=issues,
                 suppress_blockers=suppress_blockers,
                 allow_blank=blank_reps_allowed,
@@ -1295,6 +1320,8 @@ def _prescriptions(
             notes=notes if notes_policy else ((raw_unparsed,) if raw_unparsed else ()),
             raw_week_text=source_week,
             raw_unparsed_text=(source_week if config.program.prescription_source == "base" else raw_unparsed),
+            duration_seconds=(_field(duration, "config_reviewed_override" if "reps" in overridden else "coach_base", cells["reps"], original_base.get("reps"))
+                              if duration is not None else None),
         )
         if rep_list:
             prescription = replace(prescription, set_rep_targets=tuple(
@@ -1312,6 +1339,8 @@ def _prescriptions(
                 set_count, "coach_range_upper_by_policy", cells["sets"], base_raw.get("sets"),
             ))
         for key, fields in (("sets", ("set_count",)), ("reps", ("rep_min", "rep_max"))):
+            if key == "reps" and duration is not None:
+                continue
             if key in overridden:
                 prescription = replace(prescription, **{
                     field: replace(getattr(prescription, field), source="config_reviewed_override",
@@ -1372,6 +1401,14 @@ def _prescriptions(
                     sheet=sheet, cell=cells["reps"], day=day.label, exercise=exercise,
                     cycle=week_label, raw_text=raw_minimum,
                 ))
+        if config.program.notes_source == "left_table_row":
+            prescription = replace(prescription, notes=(left_table_row_notes(
+                original_base, rule.canonical if rule else None,
+                mode=config.program.notes_mode,
+                retain_rep_guidance=blank_rep_targets or (
+                    config.program.minimum_rep_policy == "notes_only" and bool(rep_range and maximum is None)
+                ),
+            ) if notes_policy else ()))
         prescription = replace(
             prescription,
             notes=prepare_program_notes(

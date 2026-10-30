@@ -23,7 +23,7 @@ flowchart LR
 
 Inspect the block, preview its prescriptions, resolve blockers, then generate a new file and verify it manually in MacroFactor. For many blocks, use [batch review](Program-Batch.md).
 
-**On this page:** [Inspect and preview](#inspect-and-preview) · [Base programs and duration](#initial-base-program-and-workout-names) · [Reviewed corrections](#reviewed-corrections-and-concise-notes) · [Sequential expansion](#reviewed-sequential-exercises-from-one-row) · [Import policies](#other-import-policies) · [Generate](#generate-a-candidate).
+**On this page:** [Inspect and preview](#inspect-and-preview) · [Verified names and time targets](#verified-exercise-names-and-duration-targets) · [Base programs](#initial-base-program-and-workout-names) · [Reviewed corrections](#reviewed-corrections-and-concise-notes) · [Sequential expansion](#reviewed-sequential-exercises-from-one-row) · [Import policies](#other-import-policies) · [Generate](#generate-a-candidate).
 
 ## Inspect and preview
 
@@ -53,7 +53,7 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-preview \
 
 Report paths must be new files and cannot reuse an input, mapping or generated workbook path; both desktop and CLI refuse to overwrite an existing report.
 
-The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
+The preview contains discovered days and exercises, exact mapping outcomes, per-cycle set count/type/reps/duration/RIR/rest, source-cell and raw-text provenance, proposed configuration defaults, explicit exclusions, custom or unavailable MacroFactor exercises, supersets, skipped items, blockers, source and template hashes, schema-verification state, and whether generation is safe. Omitting `--template` keeps the preview available but adds a blocking missing-template issue.
 
 Parsing is deliberately allow-listed. Base sets must be positive integers. Reps can be a single value, a range such as `8-12`, `8 to 12 reps`, `8 to 12 range`, or `8 to 12 rep range`, or a comma-separated positive per-set list whose length matches the set count. Single numbers become equal minimum/maximum targets. Explicit `ea`/`each` suffixes (optionally `leg`/`side`) mean per-side reps; a trailing `again` or `here` preserves the preceding exact target. Those suffixes must be terminal: additional prose remains uninterpreted. `N+ reps` has a minimum but no maximum: native generation remains blocked until a direct export verifies minimum-only encoding, unless the user explicitly enables the notes-only fallback below. Rest needs an explicit seconds or minutes unit. Weekly cells may use compact instructions such as `3 x 8-10 @ 2 RIR, 120 sec rest`. `Read week`, `your choice`, RPE, AMRAP, weights, substitutions and progression prose remain raw and blocking unless an explicit notes/blank policy applies.
 
@@ -64,6 +64,27 @@ The coach `Style` column is preserved as raw classification text. The separate `
 Within a discovered day, the exercise table begins at the first exercise and ends when all base columns are blank. Standalone weekly footer notes do not extend the exercise table into later reference sections. Review discovered boundaries before generation; the independent scan described above still checks beyond the first separator.
 
 The optional top-level `program.defaults` object can propose `rep_min`/`rep_max`, `rir`, `rest_seconds`, and an explicit standard `set_type`. Defaults are disabled by `null`, never replace coach-provided values, and are labeled `config_default` in preview. Rep defaults require both `rep_min` and `rep_max`. Set `program.week_pair_layout` only after verifying whether each week pair is planned-then-result or result-then-planned in that coach workbook.
+
+## Verified exercise names and duration targets
+
+Every included `canonical` name must match an exact Exercise label in the selected native program export or a configured private reference. `macrofactor_available: true` and `macrofactor_custom: true` are declarations, not evidence. Unknown names block generation, including plausible descriptive names; the app never invents or fuzzily substitutes a label. Exported superset membership suffixes such as ` ∈ SS1` are removed only for verifying the base name.
+
+If the template does not contain every exercise, add native program exports or native `Workout Log` exports under `program.exercise_name_references`:
+
+```json
+{
+  "program": {
+    "exercise_name_references": ["../local-data/reference/macrofactor-log.xlsx"],
+    "notes_source": "left_table_row"
+  }
+}
+```
+
+Paths resolve relative to the mapping file. References stay local and ignored, and preview reports record their hashes and matching names. Keep current, unedited exports from your MacroFactor account as evidence, including for custom exercises. Evidence confirms exported labels; each generated candidate still needs manual import review. Log exports can supply name evidence but cannot replace the direct program **template**.
+
+An exact base Reps cell such as `30 sec each leg`, `45 seconds` or `1 min each side` becomes an integer-second movement-duration target. Reps stay blank even when rep defaults exist, rest remains separate, and same-row notes retain unilateral wording. Bare numbers remain reps; duration ranges and arbitrary prose are not guessed. Explicit duration targets require a native template with `Set N Duration` columns for every set. Older templates without these columns continue to support rep programs and block timed exports.
+
+The writer preserves native per-set time targets only when workout label, unique exact exercise identity and active set count match and the source has no explicit duration or rep target. Explicit source duration takes priority. Different replacement exercises and inactive sets cannot inherit old time values. Ambiguous timed identities, renamed workouts or changed set counts with no explicit source replacement block generation instead of silently losing the native target. Duration columns participate in resizing, numeric read-back and independent output audits; the writer continues to preserve unrelated OOXML parts byte-for-byte.
 
 ## Initial base program and workout names
 
@@ -77,7 +98,11 @@ Set `program.use_day_designations: true` to name exported workouts from the uniq
 
 ## Reviewed corrections and concise notes
 
-`program.notes_mode: "concise"` with `preserve_coach_notes: true` omits redundant structured-field dumps and import-setting boilerplate from exported notes. The private report still retains source values, weekly text and policy provenance. Unresolved targets and unilateral cues remain in notes. Exact-rule `program_notes` can supply a reviewed list of residual technique/equipment cues (an empty list removes redundant variation text). This replaces only the variation note, not unresolved target guidance. Without that list, unmatched variation wording is retained conservatively. The default `"full"` mode is unchanged.
+With `preserve_coach_notes: true`, the default `program.notes_source: "left_table_row"` exports only literal cells from that exercise's own base-table row. Weekly plans, completed results, neighboring warmups, footer text and per-rule `program_notes` cannot supply these notes. Configured notes produce a visible `configured_notes_not_applied` warning. Both independent source audits compare the complete note sequence to the selected row, so appended foreign cues fail validation.
+
+`program.notes_mode: "concise"` removes plain numeric targets and redundant canonical names while retaining that row's Style/Variation, equipment or technique wording, unilateral instructions, duration wording and target qualifiers. `"full"` retains labeled copies of the row's fields. `note_text_policy` controls presentation cleanup only; raw cells and field provenance stay in the private report. Reviewed numeric overrides do not become note sources: notes retain the original row wording.
+
+For an existing profile that intentionally uses hand-reviewed residual `program_notes`, set `program.notes_source: "reviewed"` explicitly. This legacy mode permits configured cues and selected-week notes and requires the same careful block scoping as before. Under the default row-only policy, unparsed selected-week instructions block instead of being silently discarded or inserted into notes; base mode keeps them in the private report for later review.
 
 Optional `program.note_text_policy: "conservative"` improves only the exported exercise-note presentation. It collapses stray whitespace, corrects a small reviewed allow-list of unambiguous spelling mistakes, normalizes common workout abbreviations such as AMRAP/RIR/RPE/BSS, capitalizes the note, adds terminal punctuation and closes unmatched opening parentheses. It does not use fuzzy spell checking, infer a prescription, rename an exercise or alter URLs. The preview/report retains the exact coach cell text and source-cell provenance. The backward-compatible default is `"verbatim"`.
 
@@ -136,13 +161,13 @@ For an import that carries coaching instructions in notes and leaves unspecified
 }
 ```
 
-`right_to_left` lists the last worksheet first; it does not infer dates from worksheet names. All discovered days and optional exercises remain included unless explicitly excluded. `upper` selects the upper end of an exact rest range and identifies that choice in field provenance and notes. `allow_blank_targets` leaves missing reps, RIR, and rest blank when no explicit configured default is present. With `preserve_coach_notes`, `Read week` rep instructions remain deferred, unsupported rep instructions stay in notes with blank targets, and full base/selected-week coaching text is retained in the template's exercise Notes field. RPE is never converted to RIR. Bare numbers in weekly cells are retained as instructions rather than interpreted as rep targets, because they may be weights. Excel date-formatted rep cells are flagged and never emitted as serial-number rep targets.
+`right_to_left` lists the last worksheet first; it does not infer dates from worksheet names. All discovered days and optional exercises remain included unless explicitly excluded. `upper` selects the upper end of an exact rest range and identifies that choice in field provenance; row notes retain the source range. `allow_blank_targets` leaves missing reps, RIR, and rest blank when no explicit configured default is present. With `preserve_coach_notes`, `Read week` base rep instructions remain deferred and unsupported base rep instructions stay in the own-row Notes with blank targets. Selected-week prose requires explicit reviewed-note mode; the default does not export weekly text. RPE is never converted to RIR. Bare numbers in weekly cells are retained as instructions rather than interpreted as rep targets, because they may be weights. Excel date-formatted rep cells are flagged and never emitted as serial-number rep targets.
 
-`set_count_range_policy: "upper"` selects the upper end of an exact base set-count range such as `2–3` or `3 to 4 sets`. The preview labels that choice `coach_range_upper_by_policy`; Notes retain the original range and selected total when notes are enabled. Exact weekly set counts still undergo conflict checking, and the total must fit the verified template's set capacity. Malformed ranges and prose remain blocked. The default policy is `"block"`.
+`set_count_range_policy: "upper"` selects the upper end of an exact base set-count range such as `2–3` or `3 to 4 sets`. The preview labels that choice `coach_range_upper_by_policy`; Notes retain the original range when notes are enabled; the selected total is recorded in prescription provenance. Exact weekly set counts still undergo conflict checking, and the total must fit the verified template's set capacity. Malformed ranges and prose remain blocked. The default policy is `"block"`.
 
 `unitless_rest_policy: "seconds"` explicitly interprets positive integers in the **base Rest column** as seconds. The default remains `"block"`. Unitless ranges additionally require `rest_range_policy: "upper"`. Preview preserves the source cell/raw value, emits a policy warning, and uses distinct `coach_unitless_seconds_by_policy` or `coach_unitless_seconds_range_upper_by_policy` provenance. Explicit minute/second units take precedence; weekly bare numbers never inherit this policy. Repeated-unit ranges such as `75 sec to 105 sec` and exact ceilings such as `120 sec max` are supported; mixed units, reversed ranges and arbitrary prose remain blocked. Ceiling and `(timed)` cues survive concise exercise notes.
 
-Literal unilateral set counts such as `2 each leg` mean two sets per side, not four. They retain coach-source provenance and a per-side note. A configured native superset gives **each movement** the full resolved count; combined text alone does not choose exercise identities or establish membership/order. Previously reviewed sequential `program_expansion` rules remain sequential.
+Literal unilateral set counts such as `2 each leg` mean two sets per side, not four. They retain coach-source provenance and their original per-side wording in notes. A configured native superset gives **each movement** the full resolved count; combined text alone does not choose exercise identities or establish membership/order. Previously reviewed sequential `program_expansion` rules remain sequential.
 
 The standard-set default is explicit and visible. Myo/drop/superset instructions override the default and stay subject to verified template support; explicit configured superset membership supplies the group and order. Unresolved exercise identities and conflicting exact values remain blockers. These settings do not change Part 1 or weaken the strict parser configuration used by existing workflows. Part 1's `+` formatting for completed myo-rep results is not a native program set-type encoding.
 
@@ -189,9 +214,9 @@ PYTHONPATH=src python3 -m macrofactor_bridge program-generate \
   --report local-data/generated/reports/program-generation.json
 ```
 
-The generator writes only to a new `.xlsx` path. It rechecks both inputs after preview, preserves their bytes, retains the template worksheet layout and formatting, rebuilds shared strings so replaced template content is not carried forward, and verifies every unrelated OOXML package member byte-for-byte.
+The generator writes only to a new `.xlsx` path. It rechecks the source, template and exercise-name reference hashes before and after writing, preserves their bytes, retains the template worksheet layout and formatting, rebuilds shared strings so replaced template content is not carried forward, and verifies every unrelated OOXML package member byte-for-byte.
 
-The verified export proves one repeated cycle layout, including active sets with blank rep, RIR, and rest targets. Generation requires all selected coach weeks or explicitly configured base cycles to resolve to identical set count, ordered types, rep range, RIR, rest, and notes for each exercise. The included day count must fit the guarded template-resize policy and sets must fit its discovered capacity. Provided RIR values must be integers from 0 through 6; blank targets require explicit policy provenance. Standard sets, explicitly configured standard/myo sequences, and separately grouped standard supersets are writable. A program with different cycle prescriptions or drop-set encoding needs a direct export demonstrating that structure before support can be implemented.
+The verified export proves one repeated cycle layout, including active sets with blank rep, RIR, and rest targets. Generation requires all selected coach weeks or explicitly configured base cycles to resolve to identical set count, ordered types, rep range, duration targets, RIR, rest, and notes for each exercise. The included day count must fit the guarded template-resize policy and sets must fit its discovered capacity. Provided RIR values must be integers from 0 through 6; blank targets require explicit policy provenance. Standard sets, explicitly configured standard/myo sequences, and separately grouped standard supersets are writable. A program with different cycle prescriptions or drop-set encoding needs a direct export demonstrating that structure before support can be implemented.
 
 The small mixed-set reference omits rep-range columns when all targets are blank. It proves the type values but is not a full-layout generation template: the current generator still requires Type, Rep Range, RIR and Rest columns for each set and merged workout groups. Keep using a verified full-layout template for the candidate. Compatibility remains unverified until the user manually imports the generated file into MacroFactor.
 

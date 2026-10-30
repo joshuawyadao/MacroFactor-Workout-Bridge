@@ -16,6 +16,7 @@ from macrofactor_bridge.ooxml import WorkbookError, XlsxPackage, file_sha256
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template
 
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import (
     add_day_header,
     write_macrofactor_program_template,
@@ -71,6 +72,7 @@ class ProgramGenerationTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
+        add_program_name_evidence(self.config_path)
         self.config = load_config(self.config_path)
         self.template = self.root / "template.xlsx"
         write_macrofactor_program_template(
@@ -365,6 +367,7 @@ class ProgramGenerationTests(unittest.TestCase):
             exercise["superset_group"] = "SS1"
             exercise["superset_order"] = index
         self.config_path.write_text(json.dumps(payload), encoding="utf-8")
+        add_program_name_evidence(self.config_path)
         self.config = load_config(self.config_path)
         cells: dict[str, object | None] = {}
         add_day_header(cells, row=5, day="Day 1")

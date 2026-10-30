@@ -18,6 +18,7 @@ from macrofactor_bridge.program_service import build_program_preview, generate_p
 from macrofactor_bridge.service import build_preview, apply_changes
 from tests.test_program_preview import exercise_row
 from tests.test_program_generation import rewrite_zip_member
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
 
 
@@ -52,6 +53,7 @@ class ProgramExpansionTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload))
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def preview(self):
