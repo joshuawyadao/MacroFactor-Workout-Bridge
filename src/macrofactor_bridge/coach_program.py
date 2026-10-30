@@ -1187,6 +1187,7 @@ def _prescriptions(
                 )
             )
         parsed_week = parsed_week or _ParsedWeek()
+        weekly_rep_target = (parsed_week.rep_min, parsed_week.rep_max)
         if duration is not None and (parsed_week.rep_min is not None or parsed_week.rep_max is not None) and not suppress_blockers:
             issues.append(ProgramIssue(
                 severity="blocking", code="conflicting_duration_and_reps",
@@ -1402,6 +1403,17 @@ def _prescriptions(
                     cycle=week_label, raw_text=raw_minimum,
                 ))
         if config.program.notes_source == "left_table_row":
+            if (any(value is not None for value in weekly_rep_target)
+                    and (prescription.rep_min.value, prescription.rep_max.value) != weekly_rep_target
+                    and not prescription.set_rep_targets
+                    and not (notes_policy and _parse_reps(original_base.get("reps")) == weekly_rep_target)
+                    and not suppress_blockers):
+                issues.append(ProgramIssue(
+                    severity="blocking", code="weekly_rep_guidance_not_retained",
+                    message="Weekly reps are absent from structured targets and row-only notes; keep the targets or explicitly use reviewed notes",
+                    sheet=sheet, cell=week_cell, day=day.label, exercise=exercise,
+                    cycle=week_label, raw_text=raw_week,
+                ))
             prescription = replace(prescription, notes=(left_table_row_notes(
                 original_base, rule.canonical if rule else None,
                 mode=config.program.notes_mode,

@@ -137,7 +137,7 @@ class NativeDurationDefaultIntegrationTests(unittest.TestCase):
                          (None, None, None, None))
 
     def test_explicit_weekly_reps_stay_blank_by_policy_without_inheriting_time(self):
-        self.payload["program"]["prescription_source"] = "selected_week"
+        self.payload["program"].update(prescription_source="selected_week", notes_source="reviewed")
         self.payload["exercises"][0]["program_blank_rep_targets"] = True
         self.cells["J6"] = self.cells["L6"] = "2 x 8-12 @ 2 RIR, 90 sec rest"
         self.write_coach()
@@ -145,10 +145,44 @@ class NativeDurationDefaultIntegrationTests(unittest.TestCase):
         self.assertTrue(report.generation_safe, report.blocking_issues)
         rx = report.program.days[0].exercises[0].prescriptions[0]
         self.assertIsNotNone(rx.rep_min.raw_text)
+        self.assertIn("2 x 8-12 @ 2 RIR, 90 sec rest", rx.notes)
         self.assertFalse(rx.set_duration_targets)
         generate_program(report, self.template, self.output)
         cells = XlsxPackage(self.output).sheet_snapshot("Training Programs").cells
         self.assertEqual((cells["I4"].value, cells["N4"].value), (None, None))
+
+    def test_row_only_notes_block_weekly_rep_guidance_after_target_blanking(self):
+        self.payload["program"]["prescription_source"] = "selected_week"
+        self.payload["exercises"][0]["program_blank_rep_targets"] = True
+        self.cells["J6"] = self.cells["L6"] = "2 x 8-12 @ 2 RIR, 90 sec rest"
+        self.write_coach()
+        _, _, report = self.preview()
+        self.assertFalse(report.generation_safe)
+        self.assertIn("weekly_rep_guidance_not_retained", {issue.code for issue in report.blocking_issues})
+        with self.assertRaisesRegex(WorkbookError, "blocking"):
+            generate_program(report, self.template, self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_same_rep_guidance_in_base_row_survives_blanking_with_row_only_notes(self):
+        self.payload["program"]["prescription_source"] = "selected_week"
+        self.payload["exercises"][0]["program_blank_rep_targets"] = True
+        self.cells["G6"] = "8-12"
+        self.cells["J6"] = self.cells["L6"] = "2 x 8-12 @ 2 RIR, 90 sec rest"
+        self.write_coach()
+        _, _, report = self.preview()
+        self.assertTrue(report.generation_safe, report.blocking_issues)
+        rx = report.program.days[0].exercises[0].prescriptions[0]
+        self.assertIn("Reps: 8-12", rx.notes)
+        generate_program(report, self.template, self.output)
+
+    def test_deferred_weekly_reps_cannot_be_replaced_by_different_rep_defaults(self):
+        self.payload["program"]["prescription_source"] = "selected_week"
+        self.cells["G6"] = "Read week"
+        self.cells["J6"] = self.cells["L6"] = "2 x 12-15 @ 2 RIR, 90 sec rest"
+        self.write_coach()
+        _, _, report = self.preview()
+        self.assertFalse(report.generation_safe)
+        self.assertIn("weekly_rep_guidance_not_retained", {issue.code for issue in report.blocking_issues})
 
     def test_output_audit_rejects_native_time_with_authored_rep_guidance(self):
         _, _, report = self.preview()
