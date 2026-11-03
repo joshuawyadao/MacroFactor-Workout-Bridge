@@ -14,6 +14,7 @@ from macrofactor_bridge.program_output_audit import audit_program_output
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template
 from tests.test_program_preview import exercise_row
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import (
     add_day_header,
     write_macrofactor_program_template,
@@ -39,7 +40,7 @@ class ConfiguredBaseCycleTests(unittest.TestCase):
                 "week_pair_layout": "plan_then_result",
                 "allow_blank_targets": True,
                 "preserve_coach_notes": True,
-                "notes_mode": "concise",
+                "notes_mode": "concise", "notes_source": "reviewed",
                 "use_day_designations": True,
                 "resize_template_workouts": True,
                 "rest_range_policy": "upper",
@@ -132,6 +133,7 @@ class ConfiguredBaseCycleTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload), encoding="utf-8")
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def preview(self):

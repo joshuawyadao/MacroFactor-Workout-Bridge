@@ -15,6 +15,7 @@ from macrofactor_bridge.program_models import PrescriptionField, ProgramCycle
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template, template_generation_issues
 from tests.test_program_preview import exercise_row
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
 
 
@@ -29,7 +30,8 @@ class ProgramMyoTests(unittest.TestCase):
         self.config_path = self.root / "config.json"
         self.payload = {
             "program": {"week_pair_layout": "plan_then_result", "allow_blank_targets": True,
-                        "preserve_coach_notes": True, "defaults": {"set_type": "standard"}},
+                        "preserve_coach_notes": True, "notes_source": "reviewed",
+                        "defaults": {"set_type": "standard"}},
             "exercises": [
                 {"canonical": "Synthetic Alpha", "coach_aliases": ["Coach Alpha"],
                  "program_set_types": ["standard", "myo", "myo"],
@@ -49,6 +51,7 @@ class ProgramMyoTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload))
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def preview(self):

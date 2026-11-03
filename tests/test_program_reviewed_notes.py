@@ -12,6 +12,7 @@ from macrofactor_bridge.program_audit import audit_coach_program
 from macrofactor_bridge.program_output_audit import audit_program_output
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from tests.test_program_preview import exercise_row
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import (
     add_day_header,
     write_macrofactor_program_template,
@@ -39,7 +40,7 @@ class ProgramReviewedNotesTests(unittest.TestCase):
                 "week_pair_layout": "plan_then_result",
                 "prescription_source": "base",
                 "preserve_coach_notes": True,
-                "notes_mode": "concise",
+                "notes_mode": "concise", "notes_source": "reviewed",
                 "defaults": {"set_type": "standard", "rir": 2},
             },
             "exercises": [
@@ -55,6 +56,7 @@ class ProgramReviewedNotesTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload), encoding="utf-8")
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def write_source(

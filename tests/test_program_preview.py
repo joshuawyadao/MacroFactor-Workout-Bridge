@@ -531,7 +531,7 @@ class ProgramPreviewTests(unittest.TestCase):
                 )
                 prescription = report.program.days[0].exercises[0].prescriptions[0]
                 self.assertEqual(prescription.raw_unparsed_text, raw)
-                self.assertIn(raw, prescription.notes)
+                self.assertNotIn(raw, prescription.notes)
                 self.assertTrue(
                     any(issue.code == "unsupported_week_instruction" for issue in report.issues)
                 )

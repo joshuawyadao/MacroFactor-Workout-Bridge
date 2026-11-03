@@ -13,6 +13,7 @@ from macrofactor_bridge.program_output_audit import audit_program_output
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from macrofactor_bridge.program_template import inspect_program_template
 from tests.test_program_output_audit import change_cell
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import (
     add_day_header,
     write_macrofactor_program_template,
@@ -59,6 +60,7 @@ class FiveSetProgramReferenceTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload), encoding="utf-8")
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def write_coach(self, *, sets: int = 5, one_row_per_day: bool = False) -> None:

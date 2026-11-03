@@ -121,6 +121,7 @@ def _load_program_config(
         ("week_header_coverage_policy", ("intersection", "aligned_union_base_only"), "intersection"),
         ("notes_mode", ("full", "concise"), "full"),
         ("note_text_policy", ("verbatim", "conservative"), "verbatim"),
+        ("notes_source", ("left_table_row", "reviewed"), "left_table_row"),
         ("minimum_rep_policy", ("block", "notes_only"), "block"),
         ("color", (None, *VERIFIED_PROGRAM_COLORS), None),
         ("icon", (None, *VERIFIED_PROGRAM_ICONS), None),
@@ -140,6 +141,11 @@ def _load_program_config(
             raise ConfigError(f"program.{key} must be a boolean")
         policy_values[key] = value
     base_cycle_count = payload.get("base_cycle_count")
+    references = payload.get("exercise_name_references", [])
+    if not isinstance(references, list) or any(
+        not isinstance(value, str) or not value.strip() for value in references
+    ):
+        raise ConfigError("program.exercise_name_references must be a list of nonempty paths")
     if base_cycle_count is not None and (
         type(base_cycle_count) is not int or not 1 <= base_cycle_count <= 52
     ):
@@ -214,6 +220,7 @@ def _load_program_config(
             payload, "variation_header_labels", ProgramConfig.variation_header_labels, "program"
         ),
         base_cycle_count=base_cycle_count,
+        exercise_name_references=tuple(references),
         **policy_values,
     )
 

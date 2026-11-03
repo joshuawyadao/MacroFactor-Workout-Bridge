@@ -11,6 +11,7 @@ from macrofactor_bridge.config import ConfigError, load_config
 from macrofactor_bridge.program_audit import audit_coach_program
 from macrofactor_bridge.program_service import build_program_preview
 from tests.test_program_preview import exercise_row
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_macrofactor_program_template, write_program_workbook
 
 
@@ -26,13 +27,14 @@ class BaseRestPolicyTests(unittest.TestCase):
         self.payload = {
             "program": {"prescription_source": "base", "week_pair_layout": "plan_then_result",
                         "allow_blank_targets": True, "preserve_coach_notes": True,
-                        "notes_mode": "concise", "rest_range_policy": "upper",
+                        "notes_mode": "concise", "notes_source": "reviewed", "rest_range_policy": "upper",
                         "unitless_rest_policy": "seconds", "defaults": {"set_type": "standard"}},
             "exercises": [{"canonical": "Alpha", "coach_aliases": ["Alpha Move"]}],
         }
 
     def prepare(self, rest, *, sets=2, week="UNLABELLED WEEK INSTRUCTION"):
         self.config_path.write_text(json.dumps(self.payload))
+        add_program_name_evidence(self.config_path)
         self.config = load_config(self.config_path)
         cells = {}
         add_day_header(cells, row=5, day="Day 1")
