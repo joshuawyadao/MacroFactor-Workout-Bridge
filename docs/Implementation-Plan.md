@@ -1,97 +1,43 @@
 # Plan
 
-Fix the three actionable Codex findings on PR #29 while preserving native duration targets, own-row notes and explicit legacy policy behavior.
+Provision the reviewed Python locally with a pinned uv tool, preserving existing environments and exposing an explicit interpreter path for tests, audit and build.
 
 ## Scope
-- In: native-time precedence over rep defaults; selected-week mapping context in the note audit; reviewed-mode duration audit without note retention; synthetic regressions, validation and per-finding saves/reactions.
-- Out: unrelated application behavior, personal workout data, dependency changes and merging the PR.
+- In: checkout-local Python 3.11.17 setup script, failure/reuse tests, development and first-run documentation, reviewed feature PR into main.
+- Out: system Python replacement, application dependency upgrades, automatic app installation, merging the PR.
 
 ## Action items
-- [x] Inspect the three non-outdated Codex review threads, source/template/audit paths and existing duration/row-note/batch tests; retain the verified-name/export contract described in Program-Generation and Configuration.
-- [x] Fix comment 4428974724: distinguish default reps from explicit source replacements, preserve matching native times, test source/output audit agreement, then save/push and add thumbs up.
-- [x] Fix comment 4428974729: use the selected planned-week mapping context in the independent note audit while sourcing note text only from the own row, then save/push and acknowledge.
-- [x] Fix comment 4428974736: accept parsed durations in reviewed-mode audits when notes are disabled, verify a complete batch, then save/push and acknowledge.
-- [x] Address the integrity-review follow-up: explicit coach rep guidance suppressed by program_blank_rep_targets must not inherit native time targets; add a regression and retain provenance.
-- [x] Update any affected canonical guidance, rerun focused and canonical offscreen checks, compilation/diff and dependency verification as needed, and review the incremental fixes with Brooks.
-- [x] Fix Codex4429060440: block selected-week rep guidance that is blanked and cannot be retained by own-row notes; verify reviewed mode retains it.
-- [x] Fix Codex4429060446: reconcile only missing-rep issues resolved by verified native duration binding without weakening other missing-target checks.
-- [x] Tighten strict native-time reconciliation to require positive durations for every active set; keep explicit blank-target mode supported.
-- [x] Fix Codex4429126363: enforce strict native duration completeness after binding even when rep defaults prevented initial missing-rep errors; validate standalone and full audit consistency.
-- [ ] Request Codex review on the final head, wait for passing CI Verify and terminal review, refresh mergeability and report the unmerged PR's readiness.
+- [x] Inspect development/build guides, Python preflight and dependency tests; verify uv's documented installation options.
+- [x] Add a shell setup command using uv 0.13.7 and exact CPython 3.11.17 under ignored `.venv/python`; return only a validated absolute path on stdout.
+- [x] Cover missing/wrong uv, failed downloads, invalid runtime, paths with spaces and repeated setup without external downloads in unit tests.
+- [x] Document uv installation, setup, interpreter selection, audit/build use and retention/rollback in Development; link from README and Getting Started.
+- [x] Run focused tests, canonical suite, dependency audit, compilation and diff checks; attempt real provisioning and record limitations.
+- [ ] Review the diff, commit/push, open a PR into main, request Codex review and follow CI/review through completion or a concrete blocker.
 
 ## Open questions
-- None. The requested full review cycle authorizes all three narrow fixes.
+- None.
 
-## Review ledger
-- PR #29: base 62db9dc; previous head 63d11ff. Brooks/integrity reviews were clean, 79 focused tests passed, and CI Verify run41137021790 passed548 cases with one expected Linux platform skip.
-- Codex completed on63d11ff with three P2 findings (4428974724,4428974729,4428974736). All are actionable and will be saved/acknowledged separately. Threads remain unresolved as required by the review workflow.
-- Fix4428974724: native duration binding distinguishes config_default reps from explicit source/reviewed targets, blanks only defaults when retaining native times, and blocks ambiguous timed identity. The full base audit agrees; new duration-default integration tests cover preview, generation, both audits and unchanged hashes. Focused68 tests pass; compilation/diff clean.
-- Saved4428974724 in965a0cc and added thumbs up after push. Parent51 focused checks and builder68 focused checks passed.
-- Fix4428974729: independent note audit reads only selected planned-week cells for exact mapping context, honors pair direction and inherited headers, and keeps exported note text restricted to base cells. Six new regressions cover valid selected/inherited context, reversed pair direction, excluded completed results, unselected weeks and base-mode separation;53 focused checks pass.
-- Saved4428974729 in34f9372 and added thumbs up after push.
-- Fix4428974736: the reviewed-note legacy audit exempts independently parsed duration targets from the unsupported-reps guard. A full generated batch now retains30-second native targets with no Notes; unsupported prose remains blocked. Two batch regressions and the related focused audit suite pass.
-- Incremental integrity review found a follow-up to4428974724: the blank-rep policy hides explicit numeric reps from resolved values, so native-time binding must check retained source provenance before inheriting. This is actionable and included before the final review.
-- Saved4428974736 in0a9898f and acknowledged it after push (reaction466630058). All three original findings have separate fix commits and thumbs-up reactions; no threads were manually resolved.
-- Integrity follow-up: native time fallback now refuses authored base Reps, retained rep-field text after a blank-target policy, and unparsed selected-week instructions. RIR-only supported plan cues still retain native time. Independent source/output audits reject conflicting authored guidance. Added five regressions, including AMRAP and explicit base/weekly rep suppression.
-- Validation: full local suite passed559 tests after the three Codex fixes, then562 tests after the first provenance guard. Final provenance changes passed56 focused tests (38 in the narrow binder/output subset); compilation/diff pass. The final whole-program suite passed303 tests after the AMRAP/RIR cases; hosted final-head CI repeats the complete suite.
-- Private off-season replay after the fixes passed both audits, preserved both30-second targets, matched all759 non-note cells and left all input hashes unchanged. No dependency versions changed; final CI will repeat the locked audit.
+## Validation and review ledger
+- Eight new setup tests pass; the original 20 dependency/build tests pass. Python compilation, shell syntax and diff checks pass.
+- Real uv 0.13.7 provisioned CPython 3.11.17 locally; a second run reused the same interpreter and returned the same path.
+- All three dependency locks audited successfully: no known vulnerabilities. Audit environment `pip check` passes.
+- Managed-Python macOS build and signature verification pass; the built app's offscreen smoke test passes.
+- Read-only scout review identified a missing second-stage runtime validation failure test; added it and verified all eight setup tests pass.
+- Canonical offscreen suite passed with exit status 0 using managed Python 3.11.17 and the hash-locked Qt test environment. Build environment `pip check` also passes.
+- PR #30 opened against main; implementation saved in 516a6db after plan checkpoint 97b2725. Hosted CI and Codex review are being requested; their live results are reported on the PR.
 
 ## Brooks-Lint Review
 
 **Mode:** PR Review
-
-**Scope:** Incremental PR #29 fixes since63d11ff: native-time/source priority in template and output/source audits, selected-week note mapping context, reviewed-mode numeric durations, synthetic regressions and matching guidance. Sampled high-risk changed paths; no generated code excluded.
-
+**Scope:** Setup script, setup tests and three documentation changes vs origin/main; no generated files changed.
 **Health Score:** 100/100
+**Trend:** Stable at 100.
 
-**Trend:** Stable at100.
-
-The fixes preserve explicit source instructions and keep note content separate from mapping context, without adding dependencies or unrelated behavior.
+The setup isolates provisioning behind one explicit command with tested error boundaries.
 
 ### Findings
-
-No remaining actionable R1–R6 or Quick Test Check findings. The added context reader stays inside the independent audit boundary and consumes only selected planned members of the verified pairs. The time-fallback predicate distinguishes defaults, authored targets and unresolved guidance; independent read-back checks enforce the same source priority. Regression assertions observe exported cells, source immutability and blocked unsafe cases rather than mock wiring.
+No remaining actionable R1–R6 or Quick Test Check findings. Exact tool/interpreter pins are intentional boundary policy; the existing build preflight remains authoritative for build support. Network-independent tests cover failure and reuse, complemented by a real download, reuse, audit and macOS build/smoke check.
 
 ### Summary
-
-- Resolved all three Codex P2 concerns in separate commits and acknowledged each after its successful push.
-- Resolved the integrity-review follow-up for blanked and unparsed rep instructions; unsupported prose remains blocked where notes are disabled.
-- Save this final review/fix checkpoint, request final-head Codex review and wait for CI. Final hosted status belongs in the PR description, avoiding a status-only commit after review; leave the PR unmerged.
-- Second Codex pass on85cc1a5 found4429060440 (weekly rep guidance lost under blank-rep + row-only policy) and4429060446 (stale missing-rep errors after native-time binding). Both are actionable. Final-head CI123 passed564 cases with one expected Linux platform skip, including audit/compile/diff. Add focused regressions and save/acknowledge each fix separately.
-- Fix4429060440: row-only mode now blocks weekly numeric reps when neither structured targets nor equivalent own-row guidance retain them. Reviewed-note mode retains selected-week guidance; matching own-row numeric notes still work. Deferred Read-week instructions cannot fall back to different rep defaults while losing the weekly prescription. Added three regression cases, updated the existing weekly-blanking case to explicit reviewed mode, and passed58 focused tests.
-- Saved4429060440 in5d8d6b3 and acknowledged it after push.
-- Fix4429060446: after native duration binding, preview retires only exact missing-minimum/maximum-reps diagnostics for one matching source row/day/exercise/cycle whose native per-set time target resolved the omission. Missing RIR/rest/type, unrelated reps and ambiguous rows keep their blockers. Added four strict native-time regressions covering generation, source/output audits and input hashes; builder41 focused checks pass.
-- Integrity follow-up to4429060446: a native[30,blank] sequence must not retire missing-rep errors when blank targets are globally disallowed. Require a complete active-set time sequence for that relaxation and align the full source audit.
-- Saved4429060446 in5f00bf5 and acknowledged it after push (reaction466636851);4429060440 acknowledgment466636301. Both follow-ups have separate commits and no manually resolved threads.
-- Strict-time follow-up: rep-omission reconciliation requires a positive duration for every active set. The full source audit uses the same completeness requirement when blank targets are disabled. Two regressions prove[30,blank] blocks in strict mode and remains supported under explicit blank-target policy.
-- Local full suite passed571 tests before the final two strict-completeness cases. The new strict/native/audit subset passes; compilation and diff checks pass. Final whole-program/full/hosted results are recorded in the PR description after this checkpoint.
-
-## Brooks incremental follow-up
-
-**Mode:** PR Review
-
-**Scope:** Incremental fixes since85cc1a5: selected-week rep retention, exact native-time error reconciliation, strict active-set duration completeness and their synthetic regressions. No generated files excluded.
-
-**Health Score:** 100/100
-
-**Trend:** Stable at100.
-
-No remaining actionable R1–R6 or Quick Test Check findings. The new representation guard requires weekly reps to survive in actual targets or permitted row notes; it does not expand note provenance. Native-time reconciliation remains narrow and fails closed on ambiguous source matches or other missing fields. Partial native time targets require the existing explicit blank-target policy. Added regressions cover each decision and observable workbook cells; no dependency or unrelated application changes were needed.
-
-Final review and CI outcomes remain in the PR description so the head can stay stable after review. Leave the PR unmerged.
-- Third Codex pass on6d56612 found4429126363: partial native time targets can bypass strict standalone preview when rep defaults were configured. Add a post-binding policy invariant independent of parser omissions, require the full source audit to agree, and parameterize native-time regressions with and without defaults. CI126 passed573 cases with one expected Linux skip; local573 passed without skips.
-- Fix4429126363: strict completeness is now a post-binding invariant independent of parser missing-field errors or rep defaults. A shared service predicate requires a positive native duration for every active set; the independent full source audit enforces the policy separately. Native-time regressions cover defaults present/absent. All312 program checks,92 related checks and the independent17-case review pass; compilation/diff pass.
-
-## Brooks final strict-policy review
-
-**Mode:** PR Review
-
-**Scope:** Incremental post-binding strict native-time validation, shared completeness predicate, independent source audit and parameterized regressions since6d56612. No generated files excluded.
-
-**Health Score:** 100/100
-
-**Trend:** Stable at100.
-
-No remaining actionable R1–R6 or Quick Test Check findings. One post-binding policy check now owns strict preview completeness; error reconciliation reuses its predicate rather than assuming that parser omissions cover every case. The full source audit remains independent, and explicit blank-target mode retains its prior behavior. The independent workbook reviewer verified both default/no-default cases and found no residual safety gap.
-
-Final full-suite, CI and Codex outcomes will be recorded in the PR description after this checkpoint; no status-only head changes are planned. Leave the PR unmerged.
+- Retain explicit interpreter selection and checkout-local storage.
+- Hosted CI and Codex review remain pending before merge readiness.

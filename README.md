@@ -26,6 +26,8 @@ Review your workout history and copy completed MacroFactor sets into a coach wor
 
 You need final Python **3.11.17 or a later 3.11 patch** for a local build, a MacroFactor **exercise-log** `.csv` or `.xlsx` export using pounds, and a coach `.xlsx` workbook. Set `PYTHON_BIN` to that interpreter if `python3` selects another version; the build checks it before changing its environment. Python 3.11 remains the reviewed dependency-lock baseline; source-only CLI use supports Python 3.11+. Using the built app requires no Python or Terminal.
 
+If your Python is older, follow [reproducible local Python setup](docs/Development.md#reproducible-local-python) to provision the reviewed interpreter and export `PYTHON_BIN` before building.
+
 From a checkout of this repository:
 
 ```sh

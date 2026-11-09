@@ -23,6 +23,35 @@ export PYTHON_BIN=python3.11
 
 Set `PYTHON_BIN` to an absolute interpreter path when needed. Use a maintained distributor for Python 3.11 security releases: python.org no longer supplies 3.11 binary installers. Keep an isolated interpreter under ignored `.venv/` if you want to preserve the system installation. The build preflight rejects unsupported or prerelease interpreters before recreating `.app-build-venv`. CI uses Python 3.11.17. Updating the interpreter does not update an existing app: rebuild and launch the new bundle explicitly.
 
+### Reproducible local Python
+
+If your selected Python is older than the reviewed baseline, install **uv 0.13.7** using the [official versioned installer](https://docs.astral.sh/uv/getting-started/installation/#installing-specific-versions). Download and inspect the installer before running it:
+
+```sh
+UV_INSTALLER="$(mktemp -t macrofactor-uv.XXXXXX)"
+curl --proto '=https' --tlsv1.2 -LsSf https://astral.sh/uv/0.13.7/install.sh -o "$UV_INSTALLER"
+less "$UV_INSTALLER"
+sh "$UV_INSTALLER"
+# Start a new shell or follow the installer's PATH instructions.
+uv --version
+```
+
+From the repository root, provision the exact reviewed interpreter and select it:
+
+```sh
+PYTHON_BIN="$(./scripts/setup_python.sh)" && export PYTHON_BIN
+"$PYTHON_BIN" --version
+"$PYTHON_BIN" -c 'import ssl; print(ssl.OPENSSL_VERSION)'
+./scripts/test.sh
+./scripts/build_macos_app.sh  # macOS only
+```
+
+The helper requires the pinned uv release and installs **CPython 3.11.17** from uv's bundled [python-build-standalone catalog](https://docs.astral.sh/uv/guides/install-python/). This pins the installer catalog and interpreter version; it is not a byte-for-byte app-build guarantee. Downloads need network access on first use. Python and uv's cache stay under this checkout's ignored `.venv/python/` and `.venv/uv-cache/`; uv does not add Python commands to your user bin directory. Repeated runs reuse the managed installation. The helper ignores uv config files, checks the build preflight and exact version, and checks that `ssl`, `venv` and `ensurepip` are available before printing only the absolute interpreter path. Errors go to stderr and return nonzero. The `&&` above prevents exporting a failed result; stop if setup fails.
+
+Existing test/audit environments and system Python remain in place. Each linked worktree provisions its own interpreter, and the existing test runner keys its shared environment by the resolved interpreter path. Re-run setup and export `PYTHON_BIN` in a new shell. To use a different maintained 3.11.17+ interpreter instead, set `PYTHON_BIN` to its absolute path; keep the managed installation until dependent environments and any app build have been replaced. Changing Python does not update an installed app. Review future Python/uv pin changes together with CI and the hash-locked wheel closures.
+
+For the dependency audit below, create its environment using `"$PYTHON_BIN" -m venv .venv/audit` after selecting this interpreter. Install the audit lock and run the documented audit command; setup itself installs no application or audit packages.
+
 ## Verification
 
 Run the canonical source and offscreen GUI suite from any linked worktree, and follow the process to its unittest summary and exit status. Then complete the [dependency audit](#dependency-locks-and-audit) below:

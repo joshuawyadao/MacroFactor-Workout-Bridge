@@ -52,6 +52,8 @@ For history, include an all-time export when available. A weekly export can tran
 
 ## Build and open the app
 
+If your local Python is too old, use [reproducible local Python setup](Development.md#reproducible-local-python) to install the reviewed interpreter into this checkout and export `PYTHON_BIN`. Keep that shell open for the build below.
+
 Check `python3 --version` first. The build requires final Python **3.11.17 or a later 3.11 patch** and rejects older patches, prereleases and other minor versions before clearing its build environment. If your patched interpreter has a different command or path, select it explicitly; for example, use `PYTHON_BIN=python3.11 ./scripts/build_macos_app.sh` after checking `python3.11 --version`. Python 3.11 security releases are source-only from python.org; use a distributor that provides the current security patch. See [Development](Development.md#prerequisites-and-source-entry-points) for runtime selection and verification.
 
 ```sh
