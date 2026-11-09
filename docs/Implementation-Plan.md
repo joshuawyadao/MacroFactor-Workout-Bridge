@@ -11,7 +11,7 @@ Provision the reviewed Python locally with a pinned uv tool, preserving existing
 - [x] Add a shell setup command using uv 0.13.7 and exact CPython 3.11.17 under ignored `.venv/python`; return only a validated absolute path on stdout.
 - [x] Cover missing/wrong uv, failed downloads, invalid runtime, paths with spaces and repeated setup without external downloads in unit tests.
 - [x] Document uv installation, setup, interpreter selection, audit/build use and retention/rollback in Development; link from README and Getting Started.
-- [ ] Run focused tests, canonical suite, dependency audit, compilation and diff checks; attempt real provisioning and record limitations.
+- [x] Run focused tests, canonical suite, dependency audit, compilation and diff checks; attempt real provisioning and record limitations.
 - [ ] Review the diff, commit/push, open a PR into main, request Codex review and follow CI/review through completion or a concrete blocker.
 
 ## Open questions
@@ -23,7 +23,8 @@ Provision the reviewed Python locally with a pinned uv tool, preserving existing
 - All three dependency locks audited successfully: no known vulnerabilities. Audit environment `pip check` passes.
 - Managed-Python macOS build and signature verification pass; the built app's offscreen smoke test passes.
 - Read-only scout review identified a missing second-stage runtime validation failure test; added it and verified all eight setup tests pass.
-- Canonical offscreen suite in progress. PR creation, hosted checks and Codex review pending.
+- Canonical offscreen suite passed with exit status 0 using managed Python 3.11.17 and the hash-locked Qt test environment. Build environment `pip check` also passes.
+- PR #30 opened against main; implementation saved in 516a6db after plan checkpoint 97b2725. Hosted CI and Codex review are being requested; their live results are reported on the PR.
 
 ## Brooks-Lint Review
 
