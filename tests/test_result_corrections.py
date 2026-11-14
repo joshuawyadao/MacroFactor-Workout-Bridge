@@ -181,6 +181,19 @@ class ResultCorrectionTests(unittest.TestCase):
         self.assertEqual(report.result_corrections[0]['status'], 'withheld')
         self.assertIn('Skipped source rows', report.result_corrections[0]['review_reason'])
 
+    def test_nonfinite_corrected_source_withholds_cell_and_preserves_unrelated_preview(self) -> None:
+        for field in (4, 5):
+            original = self.rows[0][field]
+            for invalid in ('sNaN', 'NaN', 'Infinity'):
+                with self.subTest(field=field, invalid=invalid):
+                    self.rows[0][field] = invalid
+                    self._write_log()
+                    report = self._preview()
+                    self.assertEqual({item.cell: item.value for item in report.proposed_writes}, {'L7': '96 x 12'})
+                    self.assertEqual(report.result_corrections[0]['status'], 'withheld')
+                    self.assertTrue(any('nonfinite' in item['reason'] for item in report.skipped_rows))
+            self.rows[0][field] = original
+
     def test_unmatched_correction_is_visible_and_does_not_replace_other_workout(self) -> None:
         self.payload['result_corrections'][0]['workout'] = 'Old workout name'
         self._write_mapping()

@@ -67,8 +67,10 @@ def _review_result_correction(
     expected = [(normalize_name(item.set_type), item.weight, item.reps)
                 for item in correction.expected_sets]
     logged = [(normalize_name(item.set_type), item.weight, item.reps) for item in records]
+    finite = all(value is None or value.is_finite()
+                 for item in records for value in (item.weight, item.reps))
     return {
-        "status": "matched" if logged == expected else "withheld",
+        "status": "matched" if finite and logged == expected else "withheld",
         "date": correction.workout_date.isoformat(),
         "workout": correction.workout,
         "exercise": correction.exercise,

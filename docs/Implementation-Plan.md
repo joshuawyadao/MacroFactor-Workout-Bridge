@@ -27,6 +27,7 @@ Match reviewed weekly results by compacting unchanged weights, retaining explici
 - The private calibration retains existing review items for a shared sequential preacher row and an extra exercise with no coach row. Those require manual review and are not made into guessed mappings.
 - Main's active ruleset requires `CI Verify`, linear history, resolved review threads, and squash merge; approval count is zero. The PR will remain unmerged.
 - All 82 focused transfer/correction/formatter/model tests pass, Python compilation and diff checks pass, and all three dependency locks audit with no known vulnerabilities. The final canonical offscreen run passed 598 tests with exit status 0. Local source tests used Python 3.11.2; hosted CI selects the reviewed patched interpreter.
+- PR #31 opened with application head `e73c29d`; its required `CI Verify` passed. Codex review found one P2 issue: signaling nonfinite values in raw correction sets could raise during Decimal equality. The comparison now checks finiteness first; a synthetic regression covers signaling/quiet NaN and Infinity in both weight and reps while retaining the unrelated preview.
 
 ## Brooks-Lint Review
 
