@@ -67,8 +67,19 @@ def _print_report(report, mode: str) -> None:
         f"{len(report.occupied_cells)} occupied, "
         f"{len(report.skipped_rows)} other skipped, "
         f"{len(report.exercise_notes)} exercise notes, "
+        f"{len(report.result_corrections)} reviewed result corrections, "
         f"{len(report.empty_day_markers)} empty-day review markers"
     )
+    for correction in report.result_corrections:
+        location = correction['cell'] or 'unmatched workout'
+        original = correction['original_value'] or 'no eligible result'
+        print(
+            f"  Result correction ({correction['status']}) {location}: "
+            f"{original} -> {correction['corrected_value']} "
+            f"({correction['reason']})"
+        )
+        if correction.get('review_reason'):
+            print(f"    Review: {correction['review_reason']}")
     if report.output_file:
         print(f"Output: {report.output_file}")
         print(f"Coach source unchanged: {report.source_hash_before == report.source_hash_after}")

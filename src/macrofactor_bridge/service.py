@@ -21,6 +21,7 @@ from .models import (
     EmptyDayMarker,
     ExerciseRule,
     ProposedWrite,
+    ResultCorrection,
     SetRecord,
 )
 from .ooxml import WorkbookError, file_sha256, split_cell_reference, validate_copy_integrity
@@ -47,6 +48,7 @@ class _FormattedTarget:
     superset_key: str | None
     first_row: int
     records: tuple[SetRecord, ...]
+    correction_review: dict[str, object] | None = None
 
 
 def _source_name_and_superset(value: str) -> tuple[str, str | None]:
@@ -54,6 +56,44 @@ def _source_name_and_superset(value: str) -> tuple[str, str | None]:
     if not match:
         return value.strip(), None
     return value[: match.start()].strip(), match.group(1).upper()
+
+
+def _review_result_correction(
+    correction: ResultCorrection,
+    records: list[SetRecord],
+    original_value: str,
+    cell: str,
+) -> dict[str, object]:
+    expected = [(normalize_name(item.set_type), item.weight, item.reps)
+                for item in correction.expected_sets]
+    logged = [(normalize_name(item.set_type), item.weight, item.reps) for item in records]
+    finite = all(value is None or value.is_finite()
+                 for item in records for value in (item.weight, item.reps))
+    return {
+        "status": "matched" if finite and logged == expected else "withheld",
+        "date": correction.workout_date.isoformat(),
+        "workout": correction.workout,
+        "exercise": correction.exercise,
+        "cell": cell,
+        "source_rows": [item.source_row for item in records],
+        "original_value": original_value,
+        "corrected_value": correction.value,
+        "reason": correction.reason,
+    }
+
+
+def _record_correction_outcomes(
+    report: BridgeReport,
+    pieces: list[_FormattedTarget],
+    status: str,
+    review_reason: str | None = None,
+) -> None:
+    for piece in pieces:
+        if piece.correction_review is not None:
+            entry = {**piece.correction_review, "status": status}
+            if review_reason:
+                entry["review_reason"] = review_reason
+            report.result_corrections.append(entry)
 
 
 def _matching_coach_rows(
@@ -178,12 +218,19 @@ def build_preview(
         preview_config_path=config.source_path,
     )
     report.skipped_rows.extend(imported_log.skipped_rows)
+    corrections = {
+        (item.workout_date, normalize_name(item.workout), normalize_name(item.exercise)): item
+        for item in config.result_corrections
+    }
+    logged_sessions: dict[tuple[date, str, str], list[SetRecord]] = defaultdict(list)
     valid: list[SetRecord] = []
     invalid_numeric: list[SetRecord] = []
     for record in records:
         if not from_date <= record.workout_date <= to_date:
             continue
         report.rows_in_range += 1
+        source_name, _ = _source_name_and_superset(record.exercise)
+        logged_sessions[(record.workout_date, normalize_name(record.workout), normalize_name(source_name))].append(record)
         if not record.exercise:
             report.skipped_rows.append({"row": record.source_row, "reason": "missing exercise"})
             continue
@@ -322,6 +369,33 @@ def build_preview(
                 {"exercise": source_name, "reason": "no completed sets remained after filtering"}
             )
             continue
+        session_key = (exercise_records[0].workout_date, normalize_name(exercise_records[0].workout), key)
+        correction = corrections.get(session_key)
+        correction_review = None
+        if correction is not None:
+            correction_review = _review_result_correction(
+                correction, logged_sessions[session_key], formatted, target.result_cell
+            )
+            alias_keys = {normalize_name(alias) for alias in rule.source_aliases}
+            uncertain_rows = [item for item in imported_log.skipped_rows
+                              if not item.get("exercise") or normalize_name(
+                                  _source_name_and_superset(str(item["exercise"]))[0]
+                              ) in alias_keys]
+            if uncertain_rows:
+                correction_review["status"] = "withheld"
+                correction_review["uncertain_source_rows"] = uncertain_rows
+            if correction_review["status"] == "withheld":
+                reason = (
+                    "Skipped source rows prevent verifying reviewed result correction; affected result withheld"
+                    if uncertain_rows else
+                    "Reviewed result correction source sets changed; affected result withheld for review"
+                )
+                correction_review["review_reason"] = reason
+                report.result_corrections.append(correction_review)
+                report.ambiguous_matches.append({"exercise": source_name, "cell": target.result_cell, "reason": reason})
+                invalid_cells.add(target.result_cell)
+                continue
+            formatted = correction.value
         formatted_targets.append(
             _FormattedTarget(
                 rule=rule,
@@ -332,6 +406,7 @@ def build_preview(
                 superset_key=rule.superset_group or source_supersets.get(key),
                 first_row=min(record.source_row for record in exercise_records),
                 records=tuple(exercise_records),
+                correction_review=correction_review,
             )
         )
 
@@ -340,6 +415,7 @@ def build_preview(
         by_target[target.target_cell].append(target)
     for cell_reference, pieces in sorted(by_target.items(), key=lambda item: split_cell_reference(item[0])):
         if cell_reference in invalid_cells:
+            _record_correction_outcomes(report, pieces, "withheld", "Another mapped source for this target is invalid")
             report.ambiguous_matches.append({
                 "cell": cell_reference,
                 "reason": "Result withheld because a mapped set or conversion has invalid numeric values",
@@ -347,6 +423,7 @@ def build_preview(
             continue
         cell = snapshot.cells[cell_reference]
         if not cell.is_empty:
+            _record_correction_outcomes(report, pieces, "withheld", "Target result cell is occupied")
             report.occupied_cells.append(
                 {
                     "cell": cell_reference,
@@ -359,6 +436,11 @@ def build_preview(
         if len(pieces) == 1:
             combined = pieces[0].value
         else:
+            if any(piece.correction_review is not None for piece in pieces):
+                reason = "Reviewed result corrections require a single source exercise per target"
+                _record_correction_outcomes(report, pieces, "withheld", reason)
+                report.ambiguous_matches.append({"cell": cell_reference, "reason": reason})
+                continue
             keys = {piece.superset_key for piece in pieces}
             if len(keys) != 1 or None in keys:
                 report.ambiguous_matches.append(
@@ -383,6 +465,7 @@ def build_preview(
                     }
                 )
                 continue
+        _record_correction_outcomes(report, pieces, "applied")
         report.proposed_writes.append(
             ProposedWrite(
                 sheet=sheet_name,
@@ -390,8 +473,26 @@ def build_preview(
                 cell=cell_reference,
                 value=combined,
                 source_exercises=tuple(piece.source_name for piece in pieces),
+                review_note=(
+                    f"Reviewed result correction: {pieces[0].correction_review['reason']}"
+                    if pieces[0].correction_review is not None else None
+                ),
             )
         )
+    reviewed_scopes = {
+        (item["date"], normalize_name(str(item["workout"])), normalize_name(str(item["exercise"])))
+        for item in report.result_corrections
+    }
+    for correction in config.result_corrections:
+        scope = (correction.workout_date.isoformat(), normalize_name(correction.workout), normalize_name(correction.exercise))
+        if from_date <= correction.workout_date <= to_date and scope not in reviewed_scopes:
+            report.result_corrections.append({
+                "status": "not_applied", "date": correction.workout_date.isoformat(),
+                "workout": correction.workout, "exercise": correction.exercise, "cell": None,
+                "source_rows": [], "original_value": None, "corrected_value": correction.value,
+                "reason": correction.reason,
+                "review_reason": "No eligible exact workout/exercise match in selected dates; correction not applied",
+            })
     marker = config.empty_day_marker
     uncertain_absence = any(
         (
@@ -399,6 +500,7 @@ def build_preview(
             report.ambiguous_matches,
             report.zero_rep_rows,
             report.skipped_rows,
+            any(item["status"] != "applied" for item in report.result_corrections),
         )
     )
     if marker is not None and valid and not uncertain_absence:

@@ -28,6 +28,8 @@ Read reuse lasts for one operation. A weekly preview shares its selected coach-s
 
 Workbook transfer and program generation stream unmodified ZIP members into the new package and compare preserved member contents in chunks. Member ordering, metadata and the archive comment are retained. The intentionally edited XML parts still use the existing parsing and namespace-preserving write logic, so streaming bounds the unchanged-part buffers rather than the whole workbook's memory. Input hashes, independent source/output audits and exclusive publication remain authoritative.
 
+Completed-set formatting groups adjacent unchanged loads with commas and retains mini-set `+` and drop-set arrows. Optional reviewed result corrections are scoped to one workout date, name, and exact source exercise. The complete ordered raw source sets must match their configured expectations before replacement text can be proposed. Correction policies participate in the Part 1 configuration fingerprint, and preview reports expose their original/corrected values and outcome. This boundary does not alter importer records, history statistics, or future program prescriptions; see [Configuration](Configuration.md#reviewed-result-corrections).
+
 ## Source map
 
 All application modules live in `src/macrofactor_bridge/`. These groups are navigation aids, not separate Python packages.
