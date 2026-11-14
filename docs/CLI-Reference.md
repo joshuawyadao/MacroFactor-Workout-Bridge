@@ -94,6 +94,8 @@ Apply refuses to create an output when there are no proposed writes. When some c
 - Repeated weight: `200 x 8, 7`
 - Weight changes: `200 x 8, 7; 180 x 10`
 - Myo and mini sets: `160 x 10+3+2`
+- Standard and myo sets at the same load: `160 x 12, 9+3, 8+4`
+- A changed load within a myo series keeps the next set in a separate weight group.
 - Supersets: `50/60 x 10/12, 9/11`
 - Superset weight changes: `50/60 x 10/12; 50/55 x 9/11`
 - Drop sets: `100 x 8→70 x 10`

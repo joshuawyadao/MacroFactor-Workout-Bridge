@@ -46,6 +46,8 @@ The marker is proposed only when the selected dates contain usable workout data,
 
 There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule. A load conversion does not double or halve exported repetitions, and the transfer does not add machine base weight.
 
+When reviewing a corrected coach result, distinguish an ongoing display rule from a logging mistake. A combined exported load displayed per side needs an explicit `weight_multiplier: 0.5` and `weight_suffix: "s"` on that exercise's exact mapping. An already per-arm stack load needs only `weight_suffix: "s"`. Do not halve it again. A wrong weight recorded in one workout belongs in a dated result correction, rather than a permanent multiplier.
+
 Per-side weight and per-side repetitions are independent. For an exercise confirmed to export combined weight, use `weight_multiplier: 0.5` and `weight_suffix: "s"` to display the load per side. Equal repetitions on each side do not mean doubling or halving the logged count. A different exercise on similar equipment still needs its own confirmed rule.
 
 Part 1 aliases must match the configured workbook exercise column. If that column is `Style`, map its labels and use `coach_context_aliases` for exact variation disambiguation when needed. A Part 2 configuration using variation descriptions is not automatically a Part 1 transfer mapping. Register a performed substitution by its exact export name without changing the intended future program.
@@ -65,6 +67,34 @@ These keys live in the top-level `workbook` object, alongside the top-level `exe
 Week labels, header rows and target result columns are discovered from the workbook. A merged week header uses its rightmost column as the result column; an unmerged header uses its adjacent column. Repeated headers for the same week/result column are consolidated. A target result cell must already exist and be empty.
 
 Keep the full top-level JSON object when editing; JSON does not allow comments or trailing commas. `weight_multiplier` must be finite and positive. Use [CLI inspect and preview](CLI-Reference.md#weekly-workbook-transfer) to verify the resulting configuration before writing a workbook. The app's **Save editable copy…** creates a copy of its bundled mapping; the bundled file itself is never edited.
+
+## Reviewed result corrections
+
+To retain a confirmed logging correction for a particular workout, add an optional top-level `result_corrections` list alongside `workbook` and `exercises`. Store personal corrections in an ignored local configuration. This synthetic example replaces one exercise's final coach result only when its complete ordered logged set list still matches:
+
+```json
+{
+  "date": "2026-08-03",
+  "workout": "Synthetic Push",
+  "exercise": "Example Press",
+  "expected_sets": [
+    {"set_type": "Standard Set", "weight": "84", "reps": "10"},
+    {"set_type": "Standard Set", "weight": "94", "reps": "8"}
+  ],
+  "value": "84 x 10, 8+3p",
+  "reason": "Reviewed load and partial-rep correction"
+}
+```
+
+Each entry requires exactly these six fields. The date must use `YYYY-MM-DD`; workout and exercise use exact names after the usual normalization. The exercise must be a configured source alias. Expected sets include every source set in order, with finite numeric weights/reps and positive reps; `null` weight matches a blank exported weight. Duplicate date/workout/exercise entries and unknown fields are rejected.
+
+`value` is the reviewed final result text, including any per-side suffix or confirmed partial-rep notation. It is not converted again. For example, `8+3p` explicitly records eight full reps and three partials; fractional exported reps never imply that notation automatically. Corrections can also remove an accidentally logged extra set because the complete original sequence remains the guard.
+
+Preview and JSON reports show the original result, corrected text, reason, scope, source rows, and whether the correction was applied or withheld. If any expected set differs, the affected result cell is withheld for review. Occupied/formula cells remain protected, and corrections cannot be combined with multiple exercises writing one target, including supersets. Other dates are unaffected. Changes to correction scope, expected sets, value, or reason require a fresh preview before apply.
+
+Corrections affect only completed-result transfers. They preserve the original exports and do not rewrite history statistics or future program prescriptions. If the source export is later corrected, update or remove the matching correction after reviewing the new source sets.
+
+Skipped XLSX rows with an uncertain date also withhold a correction when they name that exercise or have no exercise identity. Preview lists in-range corrections with no eligible exact workout/exercise match as `not_applied`, so a renamed workout or missing session is visible. An unrelated workout keeps its own logged values. Unused corrections prevent automatic empty-day markers until reviewed.
 
 ## History annotations are separate
 

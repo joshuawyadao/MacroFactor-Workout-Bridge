@@ -62,7 +62,7 @@ class FormattingTests(unittest.TestCase):
         )
         self.assertEqual(value, "160 x 10+3+2")
 
-    def test_standard_set_after_myo_series_starts_a_new_weight_group(self) -> None:
+    def test_same_weight_standard_after_myo_series_uses_one_weight(self) -> None:
         value = format_sets(
             [
                 record("Myo Set", "160", "10", 1),
@@ -71,7 +71,54 @@ class FormattingTests(unittest.TestCase):
             ],
             self.rule,
         )
-        self.assertEqual(value, "160 x 10+3; 160 x 8")
+        self.assertEqual(value, "160 x 10+3, 8")
+
+    def test_same_weight_standard_and_myo_series_share_one_weight(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "160", "12", 1),
+                record("Myo Set", "160", "9", 2),
+                record("Mini-set", "160", "3", 3),
+                record("Myo Set", "160", "8", 4),
+                record("Mini-set", "160", "4", 5),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "160 x 12, 9+3, 8+4")
+
+    def test_myo_series_with_new_weight_starts_new_group(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "160", "12", 1),
+                record("Myo Set", "140", "9", 2),
+                record("Mini-set", "140", "3", 3),
+                record("Standard Set", "140", "8", 4),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "160 x 12; 140 x 9+3, 8")
+
+    def test_changed_weight_mini_prevents_merging_next_anchor(self) -> None:
+        value = format_sets(
+            [
+                record("Myo Set", "160", "10", 1),
+                record("Mini-set", "140", "3", 2),
+                record("Myo Set", "160", "8", 3),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "160 x 10+140 x 3; 160 x 8")
+
+    def test_changed_weight_mini_series_prints_new_load_once(self) -> None:
+        value = format_sets(
+            [
+                record("Myo Set", "160", "10", 1),
+                record("Mini-set", "140", "3", 2),
+                record("Mini-set", "140", "2", 3),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "160 x 10+140 x 3+2")
 
     def test_drop_sets_use_arrow(self) -> None:
         value = format_sets(
@@ -79,6 +126,35 @@ class FormattingTests(unittest.TestCase):
             self.rule,
         )
         self.assertEqual(value, "100 x 8→70 x 10")
+
+    def test_drop_tail_prevents_merging_next_anchor(self) -> None:
+        value = format_sets(
+            [
+                record("Standard Set", "100", "8", 1),
+                record("Drop Set", "70", "10", 2),
+                record("Standard Set", "100", "7", 3),
+            ],
+            self.rule,
+        )
+        self.assertEqual(value, "100 x 8→70 x 10; 100 x 7")
+
+    def test_per_side_load_groups_reps_without_rounding_fractional_reps(self) -> None:
+        converted = ExerciseRule(
+            canonical="Lunge",
+            source_aliases=("Lunge",),
+            coach_aliases=("Lunge",),
+            weight_multiplier=Decimal("0.5"),
+            weight_suffix="s",
+        )
+        value = format_sets(
+            [
+                record("Standard Set", "90", "12.33", 1),
+                record("Myo Set", "90", "8", 2),
+                record("Mini-set", "90", "3", 3),
+            ],
+            converted,
+        )
+        self.assertEqual(value, "45s x 12.33, 8+3")
 
     def test_conversion_and_suffix_are_independent(self) -> None:
         converted = ExerciseRule(
