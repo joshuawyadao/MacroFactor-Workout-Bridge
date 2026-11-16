@@ -108,8 +108,16 @@ class BuildDependencyTests(unittest.TestCase):
     def test_ci_requires_packaged_arm64_build_and_embedded_smoke(self) -> None:
         workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
         self.assertIn("needs: [portable, packaged_app]", workflow)
-        self.assertIn("architecture: arm64", workflow)
         self.assertIn('python-version: "3.11.17"', workflow)
+        packaged = workflow.split("\n  packaged_app:\n", 1)[1].split("\n  verify:\n", 1)[0]
+        self.assertIn("runs-on: macos-15", packaged)
+        self.assertIn("test \"$(uname -m)\" = arm64", packaged)
+        self.assertIn("astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9", packaged)
+        self.assertIn('version: "0.13.7"', packaged)
+        self.assertIn('checksum: "81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731"', packaged)
+        self.assertIn('build_python="$(./scripts/setup_python.sh)"', packaged)
+        self.assertIn('printf \'PYTHON_BIN=%s\\n\' "$build_python" >> "$GITHUB_ENV"', packaged)
+        self.assertNotIn("PYTHON_BIN: python", packaged)
         self.assertIn("run: ./scripts/build_macos_app.sh", workflow)
         self.assertIn("QT_QPA_PLATFORM: offscreen", workflow)
         self.assertIn("--smoke-test", workflow)

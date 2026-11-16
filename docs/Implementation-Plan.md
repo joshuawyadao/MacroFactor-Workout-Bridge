@@ -11,6 +11,7 @@ Verify the delivered macOS app bundle as well as the Python and Qt source suite.
 - [x] Add a macOS Apple silicon build/signature/offscreen packaged-smoke job using existing locked tools.
 - [x] Keep Ubuntu complete tests and audit, and require both jobs through CI Verify.
 - [x] Add meaningful regression checks for platform selection and aggregate failure handling.
+- [x] Replace unavailable macOS ARM `setup-python` 3.11.17 distribution with pinned, checksum-verified uv and the existing exact-version local provisioner; retain ARM and patched-floor checks.
 - [ ] Run focused workbook safety, packaging-contract tests and local bundle smoke where dependencies are available.
 - [ ] Update verification docs, save and push the isolated branch, and inspect hosted results.
 

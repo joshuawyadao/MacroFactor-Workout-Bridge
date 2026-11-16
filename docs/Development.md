@@ -21,7 +21,7 @@ export PYTHON_BIN=python3.11
 "$PYTHON_BIN" -c 'import ssl; print(ssl.OPENSSL_VERSION)'
 ```
 
-Set `PYTHON_BIN` to an absolute interpreter path when needed. Use a maintained distributor for Python 3.11 security releases: python.org no longer supplies 3.11 binary installers. Keep an isolated interpreter under ignored `.venv/` if you want to preserve the system installation. The build preflight rejects unsupported or prerelease interpreters before recreating `.app-build-venv`. CI uses Python 3.11.17. Updating the interpreter does not update an existing app: rebuild and launch the new bundle explicitly.
+Set `PYTHON_BIN` to an absolute interpreter path when needed. Use a maintained distributor for Python 3.11 security releases: python.org no longer supplies 3.11 binary installers. Keep an isolated interpreter under ignored `.venv/` if you want to preserve the system installation. The build preflight rejects unsupported or prerelease interpreters before recreating `.app-build-venv`. The macOS ARM CI job provisions Python 3.11.17 with the same pinned uv helper below because `actions/setup-python` did not offer that exact ARM build on the macOS 15 runner. It verifies the runner and interpreter architecture before building. The uv action is commit-pinned and its 0.13.7 ARM archive checksum is fixed to the [official release](https://github.com/astral-sh/uv/releases/tag/0.13.7); the helper uses uv's frozen Python catalog. Ubuntu source tests retain `actions/setup-python`. Updating the interpreter does not update an existing app: rebuild and launch the new bundle explicitly.
 
 ### Reproducible local Python
 
