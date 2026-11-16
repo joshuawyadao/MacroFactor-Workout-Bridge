@@ -74,13 +74,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up reviewed Python installer
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          version: "0.13.7"
-          checksum: "81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731" # uv-aarch64-apple-darwin.tar.gz
-          download-from-astral-mirror: false
-          enable-cache: false
+      - name: Install reviewed ARM Python installer
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          uv_archive="$RUNNER_TEMP/uv-aarch64-apple-darwin-0.13.7.tar.gz"
+          uv_dir="$RUNNER_TEMP/uv-aarch64-apple-darwin"
+          curl --proto '=https' --tlsv1.2 --fail --location --retry 3 --retry-delay 2 \
+            --output "$uv_archive" \
+            https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-apple-darwin.tar.gz
+          printf '%s  %s\n' '81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731' "$uv_archive" | shasum -a 256 --check
+          tar -xzf "$uv_archive" -C "$RUNNER_TEMP" uv-aarch64-apple-darwin/uv
+          test "$("$uv_dir/uv" --version)" = 'uv 0.13.7'
+          printf '%s\n' "$uv_dir" >> "$GITHUB_PATH"
       - name: Provision reviewed arm64 build Python
         run: |
           test "$(uname -m)" = arm64
