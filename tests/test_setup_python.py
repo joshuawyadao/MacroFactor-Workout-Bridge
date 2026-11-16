@@ -65,6 +65,27 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.root / ".venv").exists())
 
+    def test_verified_release_provenance_suffix_is_accepted(self) -> None:
+        self.fake_uv()
+        self.env["TEST_UV_VERSION"] = "uv 0.13.7 (316c827e0 2026-11-03 aarch64-apple-darwin)"
+        result = self.run_setup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), str(self.python))
+
+    def test_newer_or_malformed_uv_version_fails_before_provisioning(self) -> None:
+        for version in (
+            "uv 0.13.8", "uv 0.13.70", "uv 0.13.7 extra",
+            "uv 0.13.7 (broken", "uv 0.13.7 (signed) trailing",
+        ):
+            with self.subTest(version=version):
+                self.fake_uv()
+                self.env["TEST_UV_VERSION"] = version
+                result = self.run_setup()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn(f"received {version}", result.stderr)
+                self.assertFalse((self.root / ".venv").exists())
+
     def test_setup_returns_path_with_spaces_and_preserves_existing_environment(self) -> None:
         self.fake_uv()
         sentinel = self.root / ".venv/audit/keep"

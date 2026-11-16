@@ -85,7 +85,7 @@ jobs:
             https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-apple-darwin.tar.gz
           printf '%s  %s\n' '81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731' "$uv_archive" | shasum -a 256 --check
           tar -xzf "$uv_archive" -C "$RUNNER_TEMP" uv-aarch64-apple-darwin/uv
-          test "$("$uv_dir/uv" --version)" = 'uv 0.13.7'
+          "$uv_dir/uv" --version
           printf '%s\n' "$uv_dir" >> "$GITHUB_PATH"
       - name: Provision reviewed arm64 build Python
         run: |

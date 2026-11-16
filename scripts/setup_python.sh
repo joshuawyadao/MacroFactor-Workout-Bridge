@@ -15,10 +15,11 @@ if ! command -v uv >/dev/null 2>&1; then
     printf 'Install uv %s first; see docs/Development.md#reproducible-local-python.\n' "$UV_VERSION" >&2
     exit 1
 fi
-case "$(uv --version)" in
-    "uv $UV_VERSION"|"uv $UV_VERSION ("*) ;;
+UV_REPORTED_VERSION=$(uv --version)
+case "$UV_REPORTED_VERSION" in
+    "uv $UV_VERSION"|"uv $UV_VERSION ("*")") ;;
     *)
-        printf 'This setup requires uv %s; see docs/Development.md#reproducible-local-python.\n' "$UV_VERSION" >&2
+        printf 'This setup requires uv %s; received %s. See docs/Development.md#reproducible-local-python.\n' "$UV_VERSION" "$UV_REPORTED_VERSION" >&2
         exit 1
         ;;
 esac

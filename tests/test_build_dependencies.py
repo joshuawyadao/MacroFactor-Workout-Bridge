@@ -119,7 +119,7 @@ class BuildDependencyTests(unittest.TestCase):
         self.assertIn("shasum -a 256 --check", packaged)
         self.assertIn("tar -xzf", packaged)
         self.assertLess(packaged.index("shasum -a 256 --check"), packaged.index("tar -xzf"))
-        self.assertIn("test \"$(\"$uv_dir/uv\" --version)\" = 'uv 0.13.7'", packaged)
+        self.assertIn('"$uv_dir/uv" --version', packaged)
         self.assertIn('printf \'%s\\n\' "$uv_dir" >> "$GITHUB_PATH"', packaged)
         self.assertIn('build_python="$(./scripts/setup_python.sh)"', packaged)
         self.assertIn('printf \'PYTHON_BIN=%s\\n\' "$build_python" >> "$GITHUB_ENV"', packaged)
