@@ -1,24 +1,21 @@
 # Plan
 
-Verify the delivered macOS app bundle as well as the Python and Qt source suite.
+Run MacroFactor's complete portable and packaged-app verification after main merges while preserving existing PR/manual behavior and required fail-closed CI.
 
 ## Scope
-- In: Scoped CI enforcement, automated validation, meaningful orchestration regressions, and canonical verification documentation for MacroFactor Workout Bridge.
-- Out: Product feature changes, deployment, paid services or account changes, personal data, physical-device operation, and release signing/publishing.
+- In: Main-push workflow trigger, explicit eligible-event job conditions, event-matrix regression coverage, canonical Development documentation and PR review.
+- Out: Product behavior, dependencies/toolchain pins, Actions permissions/policy, real workbooks, signing/distribution and merging the PR.
 
 ## Action items
-- [x] Read Development and Local-File-Workflow docs, locked packaging requirements and existing smoke tests.
-- [x] Add a macOS Apple silicon build/signature/offscreen packaged-smoke job using existing locked tools.
-- [x] Keep Ubuntu complete tests and audit, and require both jobs through CI Verify.
-- [x] Add meaningful regression checks for platform selection and aggregate failure handling.
-- [x] Replace unavailable macOS ARM `setup-python` 3.11.17 distribution with pinned, checksum-verified uv and the existing exact-version local provisioner; retain ARM and patched-floor checks.
-- [x] Use an inline official-release uv download after the repository's GitHub-owned Actions policy rejected the third-party setup action before job startup.
-- [x] Accept the verified release's parenthesized provenance in the existing uv version guard; retain strict rejection of other versions and malformed suffixes.
-- [x] Run 32 focused packaging/provisioning tests; verify the full Python/Qt suite and actual ARM packaged-app smoke on hosted CI.
-- [x] Update verification docs, save and push the isolated branch, and inspect hosted results.
+- [x] Inspect README, Development, workflow, required platform aggregate and existing build-dependency tests on main fbeb550.
+- [x] Reproduce missing main-push execution with focused workflow/event regression tests before the fix.
+- [x] Enable pushes only to main; run portable, packaged ARM and aggregate for main pushes, ready PRs and manual dispatch, preserving draft/unknown-event refusal.
+- [x] Preserve exact Python/uv/hash provisioning, permissions and literal-success aggregate requirements; extend existing failure/skip/cancellation assertions only where needed.
+- [x] Update docs/Development.md with PR and post-merge behavior and actual verification limits.
+- [ ] Run focused stdlib tests, shell/whitespace checks, then hosted full portable and actual packaged macOS validation.
+- [ ] Save/push, open a PR, obtain exact-head Codex and Brooks reviews, address findings and confirm required CI Verify plus clean mergeability; leave unmerged.
 
-## Discovery notes
-- Baseline: `56a9561957f5be2886d1c4790fd5f892128354cb` (`origin/main`), isolated from the original checkout.
-- Existing in-progress changes in original project folders remain untouched.
-- Missing hosting/account capabilities are reported as concrete limitations; they are not permission to weaken required checks.
-- All 32 focused build/provisioning/CI tests passed locally. Full local packaging remained unavailable because system Python 3.11.2 is below the required floor; hosted run https://github.com/joshuawyadao/MacroFactor-Workout-Bridge/actions/runs/43943149572 passed at source `0b7177d`: complete Python/Qt suite, dependency audit, exact Python 3.11.17 ARM provisioning, packaged app build/signature and offscreen embedded Qt smoke, then CI Verify. Real desktop/workbook acceptance remains manual.
+## Open questions
+None.
+
+Validation before save: the new main-push eligibility regression failed against the original missing trigger, then passed after the workflow correction. All23 build-dependency cases and the focused real shell aggregate cases pass; diff whitespace is clean. Local interpreter3.11.2 and missing PySide6 do not meet packaged/native requirements, so full Python/Qt and actual ARM app smoke remain hosted PR gates. Main-push execution itself becomes observable after merging; this PR is left unmerged.

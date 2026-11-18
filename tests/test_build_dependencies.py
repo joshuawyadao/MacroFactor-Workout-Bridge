@@ -91,16 +91,62 @@ def wait_for_file(path: Path, timeout_seconds: float = 5.0) -> None:
 
 
 class BuildDependencyTests(unittest.TestCase):
+    def test_ci_runs_after_main_push_and_only_for_eligible_events(self) -> None:
+        workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
+        triggers = workflow.split("\non:\n", 1)[1].split("\nconcurrency:\n", 1)[0]
+        self.assertRegex(triggers, r"(?m)^  push:\n    branches: \[main\]$")
+
+        cases = (
+            ("push", "refs/heads/main", False, True),
+            ("push", "refs/heads/feature", False, False),
+            ("pull_request", "refs/pull/1/merge", False, True),
+            ("pull_request", "refs/pull/1/merge", True, False),
+            ("workflow_dispatch", "refs/heads/feature", False, True),
+            ("schedule", "refs/heads/main", False, False),
+        )
+        for job in ("portable", "packaged_app", "verify"):
+            with self.subTest(job=job):
+                body = re.split(
+                    r"\n  (?=\S)", workflow.split(f"\n  {job}:\n", 1)[1], maxsplit=1
+                )[0]
+                condition = re.search(r"(?m)^    if: (.+)$", body)
+                self.assertIsNotNone(condition)
+                expression = condition.group(1)
+                tokens = re.findall(
+                    r"github\.event\.pull_request\.draft|github\.event_name|github\.ref|"
+                    r"always\(\)|'[^']*'|false|true|==|&&|\|\||[()]",
+                    expression,
+                )
+                self.assertEqual("".join(tokens), expression.replace(" ", ""))
+                python_expression = (
+                    expression.replace("github.event.pull_request.draft", "draft")
+                    .replace("github.event_name", "event_name")
+                    .replace("github.ref", "ref")
+                    .replace("always()", "True")
+                    .replace("false", "False")
+                    .replace("true", "True")
+                    .replace("&&", " and ")
+                    .replace("||", " or ")
+                )
+                for event_name, ref, draft, expected in cases:
+                    with self.subTest(job=job, event_name=event_name, ref=ref, draft=draft):
+                        actual = eval(
+                            python_expression,
+                            {"__builtins__": {}},
+                            {"event_name": event_name, "ref": ref, "draft": draft},
+                        )
+                        self.assertEqual(actual, expected)
+
     def test_required_ci_gate_rejects_unsuccessful_platform_jobs(self) -> None:
         script = PROJECT_ROOT / "scripts/check_ci_results.sh"
         for job in ("PORTABLE", "PACKAGED_APP"):
-            for result in ("failure", "cancelled", "skipped"):
+            for result in ("failure", "cancelled", "skipped", "timed_out", ""):
                 with self.subTest(job=job, result=result):
                     environment = dict(os.environ, PORTABLE_RESULT="success", PACKAGED_APP_RESULT="success")
                     environment[f"{job}_RESULT"] = result
                     completed = subprocess.run([str(script)], env=environment, capture_output=True, text=True)
                     self.assertNotEqual(completed.returncode, 0)
-                    self.assertIn(f"{job} check result: {result}", completed.stderr)
+                    self.assertIn(f"{job} check result: {result or 'missing'}", completed.stderr)
 
         environment = dict(os.environ, PORTABLE_RESULT="success", PACKAGED_APP_RESULT="success")
         self.assertEqual(subprocess.run([str(script)], env=environment).returncode, 0)
