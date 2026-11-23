@@ -44,7 +44,7 @@ The marker is proposed only when the selected dates contain usable workout data,
 - `weight_suffix` defaults to an empty string and is independent of weight conversion.
 - `superset_group` and `superset_order` let multiple configured exercises write one target cell with `/` in configured order. Part 1 requires the same number of completed standard sets for each movement, paired by set position; unsupported mixed/special-set combinations remain unresolved.
 
-There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule. A load conversion does not double or halve exported repetitions, and the transfer does not add machine base weight.
+There is deliberately no general dumbbell, cable, plate-loaded, or machine conversion rule. A load conversion does not double or halve exported repetitions, and the transfer does not add machine base weight. Separately confirmed full/partial counts change workbook display only; they are stored outside the exercise mapping and do not change numeric history. See [full and partial counts](CLI-Reference.md#full-and-partial-rep-counts).
 
 When reviewing a corrected coach result, distinguish an ongoing display rule from a logging mistake. A combined exported load displayed per side needs an explicit `weight_multiplier: 0.5` and `weight_suffix: "s"` on that exercise's exact mapping. An already per-arm stack load needs only `weight_suffix: "s"`. Do not halve it again. A wrong weight recorded in one workout belongs in a dated result correction, rather than a permanent multiplier.
 
@@ -88,7 +88,7 @@ To retain a confirmed logging correction for a particular workout, add an option
 
 Each entry requires exactly these six fields. The date must use `YYYY-MM-DD`; workout and exercise use exact names after the usual normalization. The exercise must be a configured source alias. Expected sets include every source set in order, with finite numeric weights/reps and positive reps; `null` weight matches a blank exported weight. Duplicate date/workout/exercise entries and unknown fields are rejected.
 
-`value` is the reviewed final result text, including any per-side suffix or confirmed partial-rep notation. It is not converted again. For example, `8+3p` explicitly records eight full reps and three partials; fractional exported reps never imply that notation automatically. Corrections can also remove an accidentally logged extra set because the complete original sequence remains the guard.
+`value` supplies the final result text for a matching correction, taking precedence over saved per-set rep counts. Enter the final per-side suffix or partial-rep notation as needed. For example, `8+3p` records eight full reps and three partials. A correction can also remove an accidentally logged extra set when the complete original sequence matches.
 
 Preview and JSON reports show the original result, corrected text, reason, scope, source rows, and whether the correction was applied or withheld. If any expected set differs, the affected result cell is withheld for review. Occupied/formula cells remain protected, and corrections cannot be combined with multiple exercises writing one target, including supersets. Other dates are unaffected. Changes to correction scope, expected sets, value, or reason require a fresh preview before apply.
 

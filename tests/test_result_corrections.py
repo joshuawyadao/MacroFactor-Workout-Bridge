@@ -13,7 +13,9 @@ from pathlib import Path
 
 from macrofactor_bridge.config import ConfigError, load_config
 from macrofactor_bridge.cli import main
+from macrofactor_bridge.importers import load_exercise_log
 from macrofactor_bridge.ooxml import WorkbookError, XlsxPackage, file_sha256
+from macrofactor_bridge.rep_counts import rep_count_entry, save_rep_counts
 from macrofactor_bridge.service import apply_changes, build_preview
 from tests.xlsx_factory import write_program_workbook
 
@@ -91,9 +93,10 @@ class ResultCorrectionTests(unittest.TestCase):
     def _write_mapping(self) -> None:
         self.mapping.write_text(json.dumps(self.payload), encoding="utf-8")
 
-    def _preview(self):
+    def _preview(self, rep_counts_path=None):
         return build_preview(
-            self.export, self.coach, load_config(self.mapping), SHEET, "Week 2", DAY, DAY
+            self.export, self.coach, load_config(self.mapping), SHEET, "Week 2", DAY, DAY,
+            rep_counts_path=rep_counts_path,
         )
 
     def test_matching_correction_writes_reviewed_value_without_reconverting_weight(self) -> None:
@@ -114,6 +117,27 @@ class ResultCorrectionTests(unittest.TestCase):
         self.assertEqual(snapshot.cells["L6"].value, CORRECTED)
         self.assertEqual((file_sha256(self.coach), file_sha256(self.export)), (coach_hash, export_hash))
         self.assertEqual(report.validation["unrelated_members_changed"], [])
+
+    def test_dated_correction_takes_precedence_over_saved_or_unconfirmed_splits(self) -> None:
+        self.rows[1][-1] = "9.33"
+        self.payload["result_corrections"][0]["expected_sets"][1]["reps"] = "9.33"
+        self._write_log()
+        self._write_mapping()
+        path = self.mapping.with_name("counts.json")
+        record = load_exercise_log(self.export)[1]
+
+        for with_confirmation in (False, True):
+            with self.subTest(with_confirmation=with_confirmation):
+                if with_confirmation:
+                    save_rep_counts(path, self.export, [
+                        {**rep_count_entry(record), "full_reps": 7, "partial_reps": 5},
+                    ])
+                report = self._preview(path)
+                self.assertEqual(report.proposed_writes[0].value, CORRECTED)
+                self.assertEqual(report.result_corrections[0]["original_value"], "84s x 10, 9.33")
+                self.assertEqual(report.result_corrections[0]["status"], "applied")
+                self.assertEqual(report.ambiguous_matches, [])
+                self.assertEqual([entry["exercise"] for entry in report.rep_count_sets], ["Harbor Row"])
 
     def test_correction_is_scoped_to_both_date_and_workout(self) -> None:
         for field, replacement in (("date", "2026-10-07"), ("workout", "Synthetic Pull")):

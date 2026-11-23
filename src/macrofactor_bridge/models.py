@@ -76,6 +76,8 @@ class SetRecord:
     rir: Decimal | None = None
     workout_duration_seconds: Decimal | None = None
     source_file: str = ""
+    full_reps: int | None = None
+    partial_reps: int | None = None
 
 
 @dataclass(frozen=True)
@@ -166,6 +168,9 @@ class BridgeReport:
     output_hash: str | None = None
     validation: dict[str, Any] = field(default_factory=dict)
     result_corrections: list[dict[str, Any]] = field(default_factory=list)
+    rep_count_sets: list[dict[str, Any]] = field(default_factory=list)
+    rep_counts_path: str | None = None
+    preview_rep_counts_hash: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

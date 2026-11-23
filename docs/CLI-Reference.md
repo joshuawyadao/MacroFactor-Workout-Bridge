@@ -101,8 +101,19 @@ Apply refuses to create an output when there are no proposed writes. When some c
 - Drop sets: `100 x 8→70 x 10`
 - Bodyweight or blank MacroFactor weight: `0 x reps`
 - Configured per-side conversion plus suffix: `45s x 12`
+- Confirmed partial reps: `45s x 10, 8+4p`
 
-Per-side load conversions are explicit mapping rules; repetitions remain as exported. No general machine or dumbbell conversion is inferred. See [Configuration](Configuration.md).
+Per-side load conversions are explicit mapping rules and never scale rep counts. No general machine or dumbbell conversion is inferred. See [Configuration](Configuration.md).
+
+### Full and partial rep counts
+
+An exported `Reps` value can combine full and partial reps. Whole numbers and decimals both support explicit review because neither identifies the original split. With `--rep-counts`, an unconfirmed fractional set holds its coach result for review. Other eligible results can still be saved. The CLI without `--rep-counts` transfers reps as exported.
+
+Use the desktop's **Review full/partial reps…** editor to save actual counts, or prepare a private JSON file and pass the same `--rep-counts /path/to/rep-counts.json` to `preview` and `apply`. An explicitly supplied file must exist. Desktop confirmations use the same JSON format and can be passed directly to the CLI.
+
+The JSON object has `schema_version: 1`, `export_sha256` containing the exact source export's SHA-256, and a `sets` array. Copy each affected record from the preview report's `rep_count_sets`, retaining its `source_row`, `workout_date`, `workout`, `exercise`, `set_type`, `weight`, and `exported_reps` exactly. Set `full_reps` and `partial_reps` to nonnegative integer counts with a positive combined count. Save only confirmed entries in `sets`; use an empty array to retain no confirmations. Exported number fields in these identities remain strings or `null` as shown in the report.
+
+Confirmed sets display as `8+4p`, `8+1p` for one partial, `0+3p` for partials only, or `8` for full reps only. A suffix-free `+3` still denotes a myo mini-set. Saved counts must match the export hash and exact original set identity. A changed or deleted confirmation file after preview requires a fresh preview. A matching [dated correction](Configuration.md#reviewed-result-corrections) supplies the final text for its result cell.
 
 ## Private workspace commands
 
