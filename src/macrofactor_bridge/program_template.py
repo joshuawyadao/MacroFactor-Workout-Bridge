@@ -28,7 +28,8 @@ from .ooxml import (
     validate_copy_integrity,
 )
 from .program_models import (
-    CyclePrescription, Program, ProgramIssue, VERIFIED_PROGRAM_COLORS, VERIFIED_PROGRAM_ICONS,
+    CyclePrescription, PrescriptionField, Program, ProgramIssue,
+    VERIFIED_PROGRAM_COLORS, VERIFIED_PROGRAM_ICONS,
 )
 
 
@@ -39,6 +40,7 @@ class ProgramTemplateSetColumns:
     rep_range: int
     rir: int
     rest: int
+    duration: int | None = None
 
 
 @dataclass(frozen=True)
@@ -66,7 +68,7 @@ class ProgramTemplateSchema:
     icon_cell: str | None = None
 
 
-_SET_HEADER = re.compile(r"set\s+(\d+)\s+(type|rep\s+range|rir|rest)", re.IGNORECASE)
+_SET_HEADER = re.compile(r"set\s+(\d+)\s+(type|rep\s+range|rir|rest|duration)", re.IGNORECASE)
 _CYCLE_HEADER = re.compile(r"cycle\s+(\d+)", re.IGNORECASE)
 _CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 
@@ -306,8 +308,11 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
         for columns in fields.values()
     ):
         raise WorkbookError("Every template set header must occur exactly once")
-    if any(set(fields) != required_fields for fields in set_fields.values()):
+    if any(not required_fields.issubset(fields) or set(fields) - required_fields - {"duration"}
+           for fields in set_fields.values()):
         raise WorkbookError("Every template set group needs Type, Rep Range, RIR, and Rest")
+    if len({"duration" in fields for fields in set_fields.values()}) != 1:
+        raise WorkbookError("Duration columns must be present for every template set group")
     sets = tuple(
         ProgramTemplateSetColumns(
             number=number,
@@ -315,6 +320,7 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
             rep_range=set_fields[number]["rep_range"][0],
             rir=set_fields[number]["rir"][0],
             rest=set_fields[number]["rest"][0],
+            duration=set_fields[number].get("duration", [None])[0],
         )
         for number in set_numbers
     )
@@ -384,6 +390,7 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
             group.rep_range,
             group.rir,
             group.rest,
+            *((group.duration,) if group.duration is not None else ()),
         )),
     }
     missing_cells = [
@@ -413,6 +420,148 @@ def inspect_program_template(path: str | Path) -> ProgramTemplateSchema:
         days=tuple(day_groups),
         **appearance_cells,
     )
+
+
+def bind_template_durations(
+    program: Program, template_path: str | Path, schema: ProgramTemplateSchema,
+) -> Program:
+    """Carry native time targets only when workout, exercise and set identity agree.
+
+    This happens during preview, so the resulting immutable program remains the
+    reviewed input to generation and independent output audit.
+    """
+    if not any(group.duration is not None for group in schema.sets):
+        return program
+    snapshot = XlsxPackage(template_path).sheet_snapshot(schema.sheet_name)
+    cells = snapshot.cells
+
+    def value(row: int, column: int) -> object:
+        cell = cells.get(make_cell_reference(row, column))
+        return cell.value if cell is not None else None
+
+    for template_day in schema.days:
+        for row in template_day.rows:
+            for group in schema.sets:
+                assert group.duration is not None
+                reference = make_cell_reference(row, group.duration)
+                cell = cells[reference]
+                if cell.value is not None and (
+                    type(cell.value) is not int or cell.value < 1
+                    or cell.cell_type not in {None, "n"}
+                ):
+                    raise WorkbookError(f"Template duration {reference} must be positive numeric seconds")
+
+    timed_sources: dict[str, str] = {}
+    for template_day in schema.days:
+        for row in template_day.rows:
+            name = value(row, schema.exercise_column)
+            if not isinstance(name, str):
+                continue
+            for group in schema.sets:
+                if value(row, group.duration) is not None:
+                    timed_sources.setdefault(name, make_cell_reference(row, group.duration))
+                    break
+
+    def exercise_name(exercise: object) -> str | None:
+        name = exercise.macrofactor_name
+        if name is not None and exercise.superset is not None:
+            return f"{name} ∈ {exercise.superset.group}"
+        return name
+
+    def blocks_native_time_fallback(exercise: object, prescription: CyclePrescription) -> bool:
+        """Defaults permit fallback; authored or unresolved target guidance does not."""
+        return bool(exercise.raw_base_fields.get("reps") or prescription.set_rep_targets
+                    or program.prescription_source == "selected_week" and prescription.raw_unparsed_text or any(
+            field.source != "config_default" and (field.value is not None or field.raw_text)
+            for field in (prescription.rep_min, prescription.rep_max)
+        ))
+
+    def needs_native_target(exercise: object) -> bool:
+        return bool(not exercise.excluded and exercise_name(exercise) in timed_sources and any(
+            prescription.duration_seconds is None
+            and not prescription.set_duration_targets
+            and not blocks_native_time_fallback(exercise, prescription)
+            for prescription in exercise.prescriptions
+        ))
+
+    def refuse_ambiguous(exercise: object) -> None:
+        if needs_native_target(exercise):
+            source = timed_sources[exercise_name(exercise)]
+            raise WorkbookError(
+                f"Native duration {source} cannot be safely associated with this workout, exercise and set count"
+            )
+
+    template_labels = Counter(cells[template_day.label_cell].value for template_day in schema.days)
+    program_labels = Counter(day.export_name or day.label for day in program.days)
+    rebound_days = []
+    for position, day in enumerate(program.days):
+        if position >= len(schema.days):
+            for exercise in day.exercises:
+                refuse_ambiguous(exercise)
+            rebound_days.append(day)
+            continue
+        template_day = schema.days[position]
+        label = cells[template_day.label_cell].value
+        if (label != (day.export_name or day.label)
+            or template_labels[label] != 1 or program_labels[label] != 1):
+            for exercise in day.exercises:
+                refuse_ambiguous(exercise)
+            rebound_days.append(day)
+            continue
+        native_names: dict[str, list[int]] = {}
+        for row in template_day.rows:
+            name = value(row, schema.exercise_column)
+            if isinstance(name, str):
+                native_names.setdefault(name, []).append(row)
+        program_names = Counter(
+            exercise_name(exercise)
+            for exercise in day.exercises if not exercise.excluded
+        )
+        rebound_exercises = []
+        for exercise in day.exercises:
+            name = exercise_name(exercise)
+            rows = native_names.get(name, [])
+            if exercise.excluded or not name or len(rows) != 1 or program_names[name] != 1:
+                refuse_ambiguous(exercise)
+                rebound_exercises.append(exercise)
+                continue
+            row = rows[0]
+            active = [group for group in schema.sets if value(row, group.set_type) is not None]
+            if active != list(schema.sets[:len(active)]):
+                raise WorkbookError("Template has noncontiguous active sets for a duration source")
+            if any(value(row, group.duration) is not None for group in schema.sets[len(active):]):
+                raise WorkbookError("Template has duration outside active sets")
+            durations = tuple(value(row, group.duration) for group in active)
+            if not any(duration is not None for duration in durations):
+                rebound_exercises.append(exercise)
+                continue
+            if any(value(row, group.rep_range) is not None for group in active):
+                refuse_ambiguous(exercise)
+                rebound_exercises.append(exercise)
+                continue
+            rebound_rx = []
+            for prescription in exercise.prescriptions:
+                if (prescription.duration_seconds is not None
+                    or prescription.set_duration_targets
+                    or blocks_native_time_fallback(exercise, prescription)
+                    or prescription.set_count.value != len(active)):
+                    if (prescription.set_count.value != len(active)
+                        and needs_native_target(exercise)):
+                        refuse_ambiguous(exercise)
+                    rebound_rx.append(prescription)
+                    continue
+                rebound_rx.append(replace(
+                    prescription,
+                    rep_min=PrescriptionField(None, "blank_by_policy"),
+                    rep_max=PrescriptionField(None, "blank_by_policy"),
+                    set_duration_targets=tuple(
+                        PrescriptionField(duration, "native_template", make_cell_reference(row, group.duration))
+                        for duration, group in zip(durations, active, strict=True)
+                    ),
+                ))
+            rebound_exercises.append(replace(exercise, prescriptions=tuple(rebound_rx)))
+        rebound_days.append(replace(day, exercises=tuple(rebound_exercises)))
+    return replace(program, days=tuple(rebound_days))
 
 
 def prepare_program_schema(
@@ -454,6 +603,7 @@ def prepare_program_schema(
         schema.day_column, schema.exercise_column, schema.skipped_column, schema.notes_column,
         *(column for group in schema.sets for column in (
             group.set_type, group.rep_range, group.rir, group.rest,
+            *((group.duration,) if group.duration is not None else ()),
         )),
     }
     for reference, cell in snapshot.cells.items():
@@ -487,6 +637,8 @@ def _prescription_signature(prescription: CyclePrescription) -> tuple[object, ..
         prescription.notes,
         tuple(field.value for field in prescription.set_types),
         tuple((target.minimum.value, target.maximum.value) for target in prescription.set_rep_targets),
+        prescription.duration_seconds.value if prescription.duration_seconds else None,
+        tuple(field.value for field in prescription.set_duration_targets),
     )
 
 
@@ -567,6 +719,36 @@ def template_generation_issues(
                 rep_max = prescription.rep_max.value
                 rir = prescription.rir.value
                 rest_seconds = prescription.rest_seconds.value
+                duration = (prescription.duration_seconds.value
+                            if prescription.duration_seconds else None)
+                set_durations = tuple(field.value for field in prescription.set_duration_targets)
+                if duration is not None or set_durations:
+                    if not all(group.duration is not None for group in schema.sets):
+                        block("duration_template_required",
+                              "A direct Export Program template with Set N Duration columns is required",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                    if duration is not None and (type(duration) is not int or duration < 1):
+                        block("unsupported_template_duration", "Movement duration must be a positive integer in seconds",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                    if set_durations and (len(set_durations) != set_count or
+                                          any(value is not None and (type(value) is not int or value < 1)
+                                              for value in set_durations)):
+                        block("unsupported_template_duration_sequence",
+                              "Per-set durations must match the set count and contain positive seconds or blanks",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                    if duration is not None and set_durations:
+                        block("conflicting_template_duration",
+                              "A duration cannot be both common and per-set",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
+                    if rep_min is not None or rep_max is not None or prescription.set_rep_targets:
+                        block("conflicting_reps_and_duration",
+                              "Timed movement targets cannot also prescribe repetitions",
+                              day=day.label, exercise=exercise.coach_name)
+                        break
                 if prescription.set_rep_targets:
                     if (len(prescription.set_rep_targets) != set_count or any(
                             type(target.minimum.value) is not int or type(target.maximum.value) is not int
@@ -627,8 +809,9 @@ def template_generation_issues(
                     break
                 if (
                     not (rep_min is None and rep_max is None
-                         and prescription.rep_min.source == "blank_by_policy"
-                         and prescription.rep_max.source == "blank_by_policy")
+                         and ((prescription.rep_min.source == "blank_by_policy"
+                               and prescription.rep_max.source == "blank_by_policy")
+                              or duration is not None or bool(set_durations)))
                     and (type(rep_min) is not int
                          or type(rep_max) is not int
                          or rep_min < 1
@@ -730,6 +913,13 @@ def _program_changes(
                 changes[make_cell_reference(row, group.rest)] = (
                     prescription.rest_seconds.value if populated else None
                 )
+                if group.duration is not None:
+                    duration = None
+                    if populated:
+                        duration = (prescription.set_duration_targets[group.number - 1].value
+                                    if prescription.set_duration_targets else
+                                    prescription.duration_seconds.value if prescription.duration_seconds else None)
+                    changes[make_cell_reference(row, group.duration)] = duration
     return changes
 
 

@@ -37,6 +37,23 @@ class EmptyDayMarker:
 
 
 @dataclass(frozen=True)
+class LoggedSetExpectation:
+    set_type: str
+    weight: Decimal | None
+    reps: Decimal
+
+
+@dataclass(frozen=True)
+class ResultCorrection:
+    workout_date: date
+    workout: str
+    exercise: str
+    expected_sets: tuple[LoggedSetExpectation, ...]
+    value: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class BridgeConfig:
     exercise_header_labels: tuple[str, ...]
     week_header_pattern: str
@@ -44,6 +61,7 @@ class BridgeConfig:
     empty_day_marker: EmptyDayMarker | None = None
     program: ProgramConfig = field(default_factory=ProgramConfig)
     source_path: str | None = field(default=None, compare=False, repr=False)
+    result_corrections: tuple[ResultCorrection, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -138,9 +156,6 @@ class BridgeReport:
     occupied_cells: list[dict[str, Any]] = field(default_factory=list)
     exercise_notes: list[dict[str, Any]] = field(default_factory=list)
     empty_day_markers: list[dict[str, Any]] = field(default_factory=list)
-    rep_count_sets: list[dict[str, Any]] = field(default_factory=list)
-    rep_counts_path: str | None = None
-    preview_rep_counts_hash: str | None = None
     preview_source_hash: str | None = None
     preview_export_hash: str | None = None
     preview_config_fingerprint: str | None = None
@@ -152,6 +167,10 @@ class BridgeReport:
     output_file: str | None = None
     output_hash: str | None = None
     validation: dict[str, Any] = field(default_factory=dict)
+    result_corrections: list[dict[str, Any]] = field(default_factory=list)
+    rep_count_sets: list[dict[str, Any]] = field(default_factory=list)
+    rep_counts_path: str | None = None
+    preview_rep_counts_hash: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -1054,6 +1054,7 @@ class BridgeWindow(QMainWindow):
                 report.occupied_cells,
                 report.skipped_rows,
                 report.exercise_notes,
+                report.result_corrections,
                 report.empty_day_markers,
             )
         )

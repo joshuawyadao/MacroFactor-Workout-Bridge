@@ -91,6 +91,97 @@ def wait_for_file(path: Path, timeout_seconds: float = 5.0) -> None:
 
 
 class BuildDependencyTests(unittest.TestCase):
+    def test_ci_runs_after_main_push_and_only_for_eligible_events(self) -> None:
+        workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
+        triggers = workflow.split("\non:\n", 1)[1].split("\nconcurrency:\n", 1)[0]
+        self.assertRegex(triggers, r"(?m)^  push:\n    branches: \[main\]$")
+
+        cases = (
+            ("push", "refs/heads/main", False, True),
+            ("push", "refs/heads/feature", False, False),
+            ("pull_request", "refs/pull/1/merge", False, True),
+            ("pull_request", "refs/pull/1/merge", True, False),
+            ("workflow_dispatch", "refs/heads/feature", False, True),
+            ("schedule", "refs/heads/main", False, False),
+        )
+        for job in ("portable", "packaged_app", "verify"):
+            with self.subTest(job=job):
+                body = re.split(
+                    r"\n  (?=\S)", workflow.split(f"\n  {job}:\n", 1)[1], maxsplit=1
+                )[0]
+                condition = re.search(r"(?m)^    if: (.+)$", body)
+                self.assertIsNotNone(condition)
+                expression = condition.group(1)
+                tokens = re.findall(
+                    r"github\.event\.pull_request\.draft|github\.event_name|github\.ref|"
+                    r"always\(\)|'[^']*'|false|true|==|&&|\|\||[()]",
+                    expression,
+                )
+                self.assertEqual("".join(tokens), expression.replace(" ", ""))
+                python_expression = (
+                    expression.replace("github.event.pull_request.draft", "draft")
+                    .replace("github.event_name", "event_name")
+                    .replace("github.ref", "ref")
+                    .replace("always()", "True")
+                    .replace("false", "False")
+                    .replace("true", "True")
+                    .replace("&&", " and ")
+                    .replace("||", " or ")
+                )
+                for event_name, ref, draft, expected in cases:
+                    with self.subTest(job=job, event_name=event_name, ref=ref, draft=draft):
+                        actual = eval(
+                            python_expression,
+                            {"__builtins__": {}},
+                            {"event_name": event_name, "ref": ref, "draft": draft},
+                        )
+                        self.assertEqual(actual, expected)
+
+    def test_required_ci_gate_rejects_unsuccessful_platform_jobs(self) -> None:
+        script = PROJECT_ROOT / "scripts/check_ci_results.sh"
+        for job in ("PORTABLE", "PACKAGED_APP"):
+            for result in ("failure", "cancelled", "skipped", "timed_out", ""):
+                with self.subTest(job=job, result=result):
+                    environment = dict(os.environ, PORTABLE_RESULT="success", PACKAGED_APP_RESULT="success")
+                    environment[f"{job}_RESULT"] = result
+                    completed = subprocess.run([str(script)], env=environment, capture_output=True, text=True)
+                    self.assertNotEqual(completed.returncode, 0)
+                    self.assertIn(f"{job} check result: {result or 'missing'}", completed.stderr)
+
+        environment = dict(os.environ, PORTABLE_RESULT="success", PACKAGED_APP_RESULT="success")
+        self.assertEqual(subprocess.run([str(script)], env=environment).returncode, 0)
+
+    def test_ci_requires_packaged_arm64_build_and_embedded_smoke(self) -> None:
+        workflow = (PROJECT_ROOT / ".github/workflows/ci-verify.yml").read_text()
+        self.assertIn("needs: [portable, packaged_app]", workflow)
+        self.assertIn('python-version: "3.11.17"', workflow)
+        packaged = workflow.split("\n  packaged_app:\n", 1)[1].split("\n  verify:\n", 1)[0]
+        self.assertIn("runs-on: macos-15", packaged)
+        self.assertIn("test \"$(uname -m)\" = arm64", packaged)
+        self.assertNotIn("astral-sh/setup-uv", packaged)
+        self.assertIn("https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-apple-darwin.tar.gz", packaged)
+        self.assertIn("--fail --location --retry 3", packaged)
+        self.assertIn("81b811b57e4624df7ed3aac148e0359100d9962f3d9dce00aec533dc2e086731", packaged)
+        self.assertIn("shasum -a 256 --check", packaged)
+        self.assertIn("tar -xzf", packaged)
+        self.assertLess(packaged.index("shasum -a 256 --check"), packaged.index("tar -xzf"))
+        self.assertIn('"$uv_dir/uv" --version', packaged)
+        self.assertIn('printf \'%s\\n\' "$uv_dir" >> "$GITHUB_PATH"', packaged)
+        self.assertIn('build_python="$(./scripts/setup_python.sh)"', packaged)
+        self.assertIn('printf \'PYTHON_BIN=%s\\n\' "$build_python" >> "$GITHUB_ENV"', packaged)
+        self.assertNotIn("PYTHON_BIN: python", packaged)
+        self.assertIn("run: ./scripts/build_macos_app.sh", workflow)
+        self.assertIn("QT_QPA_PLATFORM: offscreen", workflow)
+        self.assertIn("--smoke-test", workflow)
+        self.assertIn("PORTABLE_RESULT: ${{ needs.portable.result }}", workflow)
+        self.assertIn("PACKAGED_APP_RESULT: ${{ needs.packaged_app.result }}", workflow)
+        self.assertIn("run: ./scripts/check_ci_results.sh", workflow)
+        aggregate = workflow.split("\n  verify:\n", 1)[1]
+        checkout = aggregate.index("uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1")
+        gate = aggregate.index("run: ./scripts/check_ci_results.sh")
+        self.assertLess(checkout, gate)
+        self.assertIn("persist-credentials: false", aggregate[:gate])
+
     def test_optional_dependencies_match_the_reviewed_app_build_lock(self) -> None:
         project = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
         locked = read_locked_requirements("requirements/app-build.lock")

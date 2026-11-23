@@ -31,11 +31,7 @@ def _reps(record: SetRecord) -> str:
             or full < 0 or partial < 0 or full + partial == 0
         ):
             raise ValueError(f"Invalid full/partial rep counts (source row {record.source_row})")
-        if partial:
-            return f"{full} full + {partial} {'partial' if partial == 1 else 'partials'}"
-        return str(full)
-    if record.reps != record.reps.to_integral_value():
-        raise ValueError(f"Fractional reps require confirmation (source row {record.source_row})")
+        return f"{full}+{partial}p" if partial else str(full)
     return _number(record.reps)
 
 
@@ -54,6 +50,9 @@ def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
     _validate_numbers(records, rule)
     output: list[str] = []
     current_weight: str | None = None
+    # A mini/drop set can change the load within one displayed series. Track its
+    # final load separately before grouping the next completed set.
+    tail_weight: str | None = None
     current_index: int | None = None
     current_kind: str | None = None
     for record in records:
@@ -67,10 +66,11 @@ def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
                 output.append(f"{weight} x {reps}")
                 current_index = len(output) - 1
                 current_weight = weight
-            elif current_kind in {"myo", "mini"} and weight == current_weight:
+            elif current_kind in {"myo", "mini"} and weight == tail_weight:
                 output[current_index] += f"+{reps}"
             else:
                 output[current_index] += f"+{weight} x {reps}"
+            tail_weight = weight
             current_kind = "mini"
             continue
         if "drop" in kind:
@@ -79,21 +79,34 @@ def format_sets(records: list[SetRecord], rule: ExerciseRule) -> str:
                 current_index = len(output) - 1
             else:
                 output[current_index] += f"→{weight} x {reps}"
-            current_weight = weight
+            tail_weight = weight
             current_kind = "drop"
             continue
         if "myo" in kind:
-            output.append(f"{weight} x {reps}")
-            current_index = len(output) - 1
+            if (
+                current_index is not None
+                and current_kind != "drop"
+                and weight == current_weight == tail_weight
+            ):
+                output[current_index] += f", {reps}"
+            else:
+                output.append(f"{weight} x {reps}")
+                current_index = len(output) - 1
             current_weight = weight
+            tail_weight = weight
             current_kind = "myo"
             continue
-        if current_index is not None and current_kind == "standard" and weight == current_weight:
+        if (
+            current_index is not None
+            and current_kind != "drop"
+            and weight == current_weight == tail_weight
+        ):
             output[current_index] += f", {reps}"
         else:
             output.append(f"{weight} x {reps}")
             current_index = len(output) - 1
             current_weight = weight
+        tail_weight = weight
         current_kind = "standard"
     return "; ".join(output)
 

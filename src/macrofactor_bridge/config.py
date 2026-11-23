@@ -4,10 +4,11 @@ import hashlib
 import json
 import re
 import unicodedata
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from .models import BridgeConfig, EmptyDayMarker, ExerciseRule
+from .models import BridgeConfig, EmptyDayMarker, ExerciseRule, LoggedSetExpectation, ResultCorrection
 from .program_models import (
     BasePrescriptionOverride, ProgramConfig, ProgramDefaults, ProgramExpansion, ProgramExpansionExercise,
     VERIFIED_PROGRAM_COLORS, VERIFIED_PROGRAM_ICONS,
@@ -21,6 +22,65 @@ class ConfigError(ValueError):
 def normalize_name(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value)
     return re.sub(r"\s+", " ", normalized).strip().casefold()
+
+
+def _correction_number(value: object, label: str, *, nullable: bool = False) -> Decimal | None:
+    if value is None and nullable:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+        raise ConfigError(f"{label} must be a finite number")
+    try:
+        number = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise ConfigError(f"{label} must be a finite number") from exc
+    if not number.is_finite():
+        raise ConfigError(f"{label} must be a finite number")
+    return number
+
+
+def _load_result_corrections(payload: object, rules: list[ExerciseRule]) -> tuple[ResultCorrection, ...]:
+    if not isinstance(payload, list):
+        raise ConfigError("result_corrections must be a list")
+    aliases = {normalize_name(alias) for rule in rules for alias in rule.source_aliases}
+    corrections = []
+    seen = set()
+    fields = {"date", "workout", "exercise", "expected_sets", "value", "reason"}
+    for raw in payload:
+        if not isinstance(raw, dict) or set(raw) != fields:
+            raise ConfigError("Each result_corrections entry needs date, workout, exercise, expected_sets, value and reason")
+        if any(not isinstance(raw[key], str) or not raw[key].strip()
+               for key in ("date", "workout", "exercise", "value", "reason")):
+            raise ConfigError("Result correction date, workout, exercise, value and reason must be non-empty strings")
+        try:
+            day = date.fromisoformat(raw["date"])
+        except ValueError as exc:
+            raise ConfigError("Result correction date must use YYYY-MM-DD") from exc
+        if day.isoformat() != raw["date"]:
+            raise ConfigError("Result correction date must use YYYY-MM-DD")
+        key = (day, normalize_name(raw["workout"]), normalize_name(raw["exercise"]))
+        if key in seen:
+            raise ConfigError("Duplicate result correction for the same date, workout and exercise")
+        if key[2] not in aliases:
+            raise ConfigError("Result correction exercise needs an exact configured source alias")
+        seen.add(key)
+        raw_sets = raw["expected_sets"]
+        if not isinstance(raw_sets, list) or not raw_sets:
+            raise ConfigError("Result correction expected_sets must be a non-empty list")
+        expected = []
+        for item in raw_sets:
+            if (not isinstance(item, dict) or set(item) != {"set_type", "weight", "reps"}
+                    or not isinstance(item["set_type"], str) or not item["set_type"].strip()):
+                raise ConfigError("Each expected set needs set_type, weight and reps")
+            weight = _correction_number(item["weight"], "Expected weight", nullable=True)
+            reps = _correction_number(item["reps"], "Expected reps")
+            if reps is None or reps <= 0:
+                raise ConfigError("Expected reps must be positive")
+            expected.append(LoggedSetExpectation(item["set_type"].strip(), weight, reps))
+        corrections.append(ResultCorrection(
+            day, raw["workout"].strip(), raw["exercise"].strip(), tuple(expected),
+            raw["value"].strip(), raw["reason"].strip(),
+        ))
+    return tuple(corrections)
 
 
 def _string_list(
@@ -121,6 +181,7 @@ def _load_program_config(
         ("week_header_coverage_policy", ("intersection", "aligned_union_base_only"), "intersection"),
         ("notes_mode", ("full", "concise"), "full"),
         ("note_text_policy", ("verbatim", "conservative"), "verbatim"),
+        ("notes_source", ("left_table_row", "reviewed"), "left_table_row"),
         ("minimum_rep_policy", ("block", "notes_only"), "block"),
         ("color", (None, *VERIFIED_PROGRAM_COLORS), None),
         ("icon", (None, *VERIFIED_PROGRAM_ICONS), None),
@@ -140,6 +201,11 @@ def _load_program_config(
             raise ConfigError(f"program.{key} must be a boolean")
         policy_values[key] = value
     base_cycle_count = payload.get("base_cycle_count")
+    references = payload.get("exercise_name_references", [])
+    if not isinstance(references, list) or any(
+        not isinstance(value, str) or not value.strip() for value in references
+    ):
+        raise ConfigError("program.exercise_name_references must be a list of nonempty paths")
     if base_cycle_count is not None and (
         type(base_cycle_count) is not int or not 1 <= base_cycle_count <= 52
     ):
@@ -214,6 +280,7 @@ def _load_program_config(
             payload, "variation_header_labels", ProgramConfig.variation_header_labels, "program"
         ),
         base_cycle_count=base_cycle_count,
+        exercise_name_references=tuple(references),
         **policy_values,
     )
 
@@ -417,6 +484,7 @@ def load_config(path: str | Path) -> BridgeConfig:
         empty_day_marker=empty_day_marker,
         program=program_config,
         source_path=str(Path(path).absolute()),
+        result_corrections=_load_result_corrections(payload.get("result_corrections", []), rules),
     )
 
 
@@ -427,6 +495,20 @@ def part_one_config_fingerprint(config: BridgeConfig) -> str:
         "exercise_header_labels": config.exercise_header_labels,
         "week_header_pattern": config.week_header_pattern,
         "empty_day_marker": (marker.text, marker.fill_color) if marker else None,
+        "result_corrections": [
+            {
+                "date": correction.workout_date.isoformat(),
+                "workout": correction.workout,
+                "exercise": correction.exercise,
+                "expected_sets": [
+                    (item.set_type, str(item.weight) if item.weight is not None else None, str(item.reps))
+                    for item in correction.expected_sets
+                ],
+                "value": correction.value,
+                "reason": correction.reason,
+            }
+            for correction in config.result_corrections
+        ],
         "rules": [
             {
                 "canonical": rule.canonical,

@@ -99,3 +99,39 @@ def prepare_program_notes(notes: Iterable[str], policy: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(
         cleaned for note in notes if (cleaned := clean_program_note(note))
     ))
+
+
+def left_table_row_notes(
+    raw: dict[str, str], canonical: str | None, *, mode: str,
+    retain_rep_guidance: bool = False,
+) -> tuple[str, ...]:
+    """Format only literal cells from one exercise row, never rule/week context.
+
+    Concise mode removes plain structured targets. Qualifiers, time units and
+    unilateral wording stay verbatim so the display cannot discard their intent.
+    """
+    if mode == "full":
+        return tuple(f"Coach {key}: {value}" for key, value in raw.items() if value)
+    notes: list[str] = []
+    generic_styles = {
+        "standard", "standard set", "standard sets", "straight set", "straight sets",
+        "myo", "myo set", "myo sets", "superset", "super set", "warmup", "warm up",
+    }
+    for key in ("style", "variation"):
+        value = raw.get(key, "")
+        if value and value.casefold() != (canonical or "").casefold() and (
+            key != "style" or value.casefold() not in generic_styles
+        ):
+            notes.append(value)
+    plain_reps = r"\d+(?:\s*(?:-|–|to)\s*\d+)?(?:\s+reps?(?:\s+range)?)?"
+    for key, plain in (
+        ("sets", r"\d+"), ("reps", plain_reps),
+        ("rest", r"\d+(?:\s*(?:-|–|to)\s*\d+)?\s*(?:s|sec(?:ond)?s?|m|min(?:ute)?s?)"),
+    ):
+        value = raw.get(key, "")
+        if value and (key == "reps" and retain_rep_guidance or not re.fullmatch(plain, value, re.I)):
+            label = "Duration" if key == "reps" and re.fullmatch(
+                r"\d+\s*(?:s|sec(?:ond)?s?|m|min(?:ute)?s?)(?:\s*(?:ea\.?|each)(?:\s*(?:leg|side))?)?", value, re.I
+            ) else key.capitalize()
+            notes.append(f"{label}: {value}")
+    return tuple(dict.fromkeys(notes))

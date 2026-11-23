@@ -46,6 +46,8 @@ class ProgramConfig:
     exclude_empty_days: bool = False
     notes_mode: str = "full"
     note_text_policy: str = "verbatim"
+    notes_source: str = "left_table_row"
+    exercise_name_references: tuple[str, ...] = ()
     use_day_designations: bool = False
     minimum_rep_policy: str = "block"
     color: str | None = None
@@ -129,6 +131,8 @@ class CyclePrescription:
     raw_unparsed_text: str | None
     set_types: tuple[PrescriptionField, ...] = ()
     set_rep_targets: tuple[RepTarget, ...] = ()
+    duration_seconds: PrescriptionField | None = None
+    set_duration_targets: tuple[PrescriptionField, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -221,6 +225,8 @@ class ProgramPreviewReport:
     output_file: str | None = None
     output_hash: str | None = None
     validation: dict[str, Any] = field(default_factory=dict)
+    exercise_name_verification: dict[str, Any] = field(default_factory=dict)
+    exercise_name_reference_hashes: dict[str, str] = field(default_factory=dict)
 
     @property
     def blocking_issues(self) -> tuple[ProgramIssue, ...]:

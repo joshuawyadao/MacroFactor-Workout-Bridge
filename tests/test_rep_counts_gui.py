@@ -13,6 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 HAS_QT = importlib.util.find_spec("PySide6") is not None
 
 if HAS_QT:
+    from PySide6.QtCore import QDate
     from PySide6.QtWidgets import QApplication, QDialog, QPushButton
     from tests.gui_support import dispose_widget
     from macrofactor_bridge.desktop import BridgeWindow
@@ -108,6 +109,44 @@ class RepCountsGuiTests(unittest.TestCase):
     def test_saved_count_outside_spinbox_range_is_rejected_without_clamping(self) -> None:
         with self.assertRaisesRegex(ValueError, "saved rep count exceeds"):
             RepCountsDialog([_entry(2, "9.33", full=2_147_483_648, partial=1)])
+
+    def test_saved_split_updates_the_coach_preview_with_compact_notation(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        repo = Path(__file__).resolve().parents[1]
+        export = root / "log.csv"
+        export.write_text(
+            "Date,Workout,Exercise,Set Type,Weight (lbs),Reps\n"
+            "2026-08-04,Day One,Tempo Back Squat,Standard Set,200,6.33\n",
+            encoding="utf-8",
+        )
+        window = BridgeWindow(workspace_root=root)
+        self.addCleanup(dispose_widget, window)
+        window.export_path.setText(str(export))
+        window.workbook_path.setText(str(repo / "tests/fixtures/coach-template.xlsx"))
+        window.config_path.setText(str(repo / "config/exercises.example.json"))
+        window.sheet_combo.addItem("Training Block")
+        window.week_combo.addItem("Week 1")
+        window.from_date.setDate(QDate(2026, 8, 3))
+        window.to_date.setDate(QDate(2026, 8, 9))
+
+        def confirm(dialog):
+            _, checkbox, full, partial = dialog.rows[0]
+            checkbox.setChecked(True)
+            full.setValue(5)
+            partial.setValue(4)
+            return QDialog.DialogCode.Accepted
+
+        with patch.object(window, "_show_error") as errors:
+            window._preview()
+            self.assertTrue(window.rep_counts_button.isEnabled())
+            self.assertFalse(window.create_button.isEnabled())
+            with patch.object(RepCountsDialog, "exec", confirm):
+                window._open_rep_counts_editor()
+            errors.assert_not_called()
+        self.assertTrue(window.create_button.isEnabled())
+        self.assertEqual(window.preview_table.item(0, 1).text(), "200 x 5+4p")
 
     def test_save_refresh_cancel_and_failed_refresh_invalidate_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

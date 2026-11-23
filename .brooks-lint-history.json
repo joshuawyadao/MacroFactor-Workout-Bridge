@@ -173,7 +173,7 @@
       "warning": 0,
       "suggestion": 0
     },
-    "scope": "PR #28 vs origin/main f373920; sampled 18 cohesive feature files across confirmation storage, transfer, desktop/CLI, docs and corresponding failure-path tests; no actionable findings"
+    "scope": "PR #26 vs origin/main f373920; sampled highest-risk preview read reuse, archive verification freshness, ZIP streaming and resource regressions after the log-only note-scan fix; unchanged dependency locks excluded"
   },
   {
     "date": "2026-10-26",
@@ -184,29 +184,7 @@
       "warning": 0,
       "suggestion": 0
     },
-    "scope": "PR #26 vs origin/main f373920; sampled highest-risk preview read reuse, archive verification freshness, ZIP streaming and resource regressions after the log-only note-scan fix; unchanged dependency locks excluded"
-  },
-  {
-    "date": "2026-10-28",
-    "mode": "PR Review",
-    "score": 100,
-    "findings": {
-      "critical": 0,
-      "warning": 0,
-      "suggestion": 0
-    },
-    "scope": "PR #28 integration of merged PR #27 (main 37b5b50); reviewed shared plan/history conflict resolution, confirmed exact upstream dependency lock and Development guide preservation, and verified feature source and tests unchanged"
-  },
-  {
-    "date": "2026-10-28",
-    "mode": "PR Review",
-    "score": 100,
-    "findings": {
-      "critical": 0,
-      "warning": 0,
-      "suggestion": 0
-    },
-    "scope": "PR #28 approved msgpack 1.2.3 audit-only follow-up since 5d13143; reviewed canonical guidance and plan, separately verified both wheel hashes and full platform closures; application and test logic unchanged"
+    "scope": "PR #28 vs origin/main f373920; sampled 18 cohesive feature files across confirmation storage, transfer, desktop/CLI, docs and corresponding failure-path tests; no actionable findings"
   },
   {
     "date": "2026-10-28",
@@ -239,6 +217,79 @@
       "warning": 0,
       "suggestion": 0
     },
+    "scope": "PR #28 integration of merged PR #27 (main 37b5b50); reviewed shared plan/history conflict resolution, confirmed exact upstream dependency lock and Development guide preservation, and verified feature source and tests unchanged"
+  },
+  {
+    "date": "2026-10-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #28 approved msgpack 1.2.3 audit-only follow-up since 5d13143; reviewed canonical guidance and plan, separately verified both wheel hashes and full platform closures; application and test logic unchanged"
+  },
+  {
+    "date": "2026-10-28",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
     "scope": "PR #28 incremental integration of main 62db9dc (PR #26): reviewed service confirmation/snapshot composition and plan/history/doc conflict resolution; canonical 540-test suite and independent workbook-safety review clean"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 vs origin/main 62db9dc; sampled high-risk native name verification, duration binding/write/read-back, row-only notes, reference hashes and batch publication, plus corresponding synthetic regressions"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 incremental fixes since63d11ff: native-duration precedence over defaults and suppressed/unparsed rep guidance, selected-week note audit context, reviewed-mode duration audit and synthetic regression coverage"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 follow-up since85cc1a5: weekly rep representation under row-only notes, exact native-time missing-rep reconciliation, strict per-set duration completeness and focused regression coverage"
+  },
+  {
+    "date": "2026-10-30",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": {
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0
+    },
+    "scope": "PR #29 incremental fix since6d56612: post-binding strict native-time invariant shared with parser-issue reconciliation, independent source-audit agreement and defaults/no-defaults regression matrix"
+  },
+  {
+    "date": "2026-11-09",
+    "mode": "PR Review",
+    "score": 100,
+    "findings": { "critical": 0, "warning": 0, "suggestion": 0 },
+    "scope": "Reproducible Python setup script, eight failure/reuse tests and development/first-run documentation vs origin/main; final review after validation failure coverage added"
   }
 ]

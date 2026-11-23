@@ -18,6 +18,7 @@ from macrofactor_bridge.program_batch import run_program_batch, consolidate_revi
 from macrofactor_bridge.program_output_audit import OutputAudit, inspect_import_contract
 from macrofactor_bridge.program_service import generate_program
 from tests.test_program_preview import exercise_row
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
 
 
@@ -76,6 +77,8 @@ class ProgramBatchTests(unittest.TestCase):
                           {"canonical": "Synthetic Beta", "coach_aliases": ["Coach Beta"]}],
         }
         self.config.write_text(json.dumps(self.payload))
+        add_program_name_evidence(self.config)
+        self.payload = json.loads(self.config.read_text())
         self.sheets = []
         for name in ("Newest", "Middle", "Oldest"):
             cells = {}
@@ -165,6 +168,7 @@ class ProgramBatchTests(unittest.TestCase):
     def test_shared_block_specific_policy_is_rejected_before_writes(self):
         self.payload["exercises"][0]["program_notes"] = ["Block-specific cue"]
         self.config.write_text(json.dumps(self.payload))
+        add_program_name_evidence(self.config)
         with self.assertRaisesRegex(ConfigError, "Shared batch"):
             self.run_batch()
         self.assertFalse(self.output.exists())
@@ -201,6 +205,19 @@ class ProgramBatchTests(unittest.TestCase):
             report = self.run_batch()
         self.assertFalse(report.inputs_unchanged)
         self.assertEqual([r["status"] for r in report.results[1:]], ["not_run_input_changed"] * 2)
+        self.assertFalse(list(self.output.glob("*.xlsx")))
+        self.assertFalse(report.manual_import_plan["selected"])
+
+    def test_native_name_reference_drift_invalidates_the_entire_batch(self):
+        reference = Path(self.payload["program"]["exercise_name_references"][0])
+        def mutate(report, template, output):
+            result = generate_program(report, template, output)
+            reference.write_bytes(reference.read_bytes() + b" ")
+            return result
+        with patch("macrofactor_bridge.program_batch.generate_program", side_effect=mutate):
+            report = self.run_batch()
+        self.assertIn(str(reference.resolve()), report.input_hashes_before)
+        self.assertFalse(report.inputs_unchanged)
         self.assertFalse(list(self.output.glob("*.xlsx")))
         self.assertFalse(report.manual_import_plan["selected"])
 
@@ -261,6 +278,7 @@ class ProgramBatchTests(unittest.TestCase):
         scoped = json.loads(json.dumps(self.payload))
         scoped["exercises"][0].update(canonical="Custom Synthetic Movement", macrofactor_custom=True)
         (self.root / "custom.json").write_text(json.dumps(scoped))
+        add_program_name_evidence(self.root / "custom.json")
         report = self.run_batch(manifest={"block_configs": [{"sheet": "Oldest", "block": "block-1", "config": "custom.json"}]})
         self.assertEqual([r["status"] for r in report.results], ["generated"] * 3)
         self.assertEqual({s["item"] for s in report.manual_import_plan["selected"]}, {"block-001", "block-003"})
@@ -275,6 +293,7 @@ class ProgramBatchTests(unittest.TestCase):
         scoped = json.loads(json.dumps(self.payload))
         scoped["exercises"][0]["canonical"] = "Scoped Synthetic Movement"
         (self.root / "scoped.json").write_text(json.dumps(scoped))
+        add_program_name_evidence(self.root / "scoped.json")
         report = self.run_batch(manifest={
             "block_configs": [{"sheet": "Oldest", "block": "block-1", "config": "scoped.json"}],
             "manual_import_evidence": [{"output": str(previous), "sha256": file_sha256(previous), "confirmed": True}],

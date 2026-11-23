@@ -29,7 +29,8 @@ class ProgramSourceAuditTests(unittest.TestCase):
         self.payload = {
             "program": {"prescription_source": "base", "week_pair_layout": "plan_then_result",
                         "allow_blank_targets": True, "preserve_coach_notes": True,
-                        "notes_mode": "concise", "set_count_range_policy": "upper",
+                        "notes_mode": "concise", "notes_source": "reviewed",
+                        "set_count_range_policy": "upper",
                         "rest_range_policy": "upper", "defaults": {"set_type": "standard"}},
             "exercises": [{"canonical": "Alpha", "coach_aliases": ["Alpha Move"],
                            "program_notes": ["Pause one count"]},

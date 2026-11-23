@@ -70,12 +70,17 @@ class DesktopModelTests(unittest.TestCase):
         report.unmatched_exercises.append({"exercise": "Unknown"})
         report.zero_rep_rows.append({"row": 4, "reps": "0"})
         report.exercise_notes.append({"exercise": "Example", "note": "Use the blue rack"})
+        report.result_corrections.append({
+            "status": "applied", "cell": "J6", "reason": "Reviewed partial reps",
+        })
         report.empty_day_markers.append({"day": "Day 3.5", "cell": "J35"})
         sections = review_sections(report)
-        self.assertEqual([section.count for section in sections], [1, 0, 1, 0, 0, 1, 1])
+        self.assertEqual([section.count for section in sections], [1, 0, 1, 0, 0, 1, 1, 1])
         text = review_text(report)
         self.assertIn("Unmatched exercises: 1", text)
         self.assertIn("MacroFactor exercise notes: 1", text)
+        self.assertIn("Reviewed result corrections: 1", text)
+        self.assertIn("Reviewed partial reps", text)
         self.assertIn("highlighted marker indicates a programmed day", text)
 
 

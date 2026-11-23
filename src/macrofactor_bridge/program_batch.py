@@ -19,7 +19,7 @@ from .ooxml import WorkbookError, XlsxPackage, file_sha256, make_cell_reference,
 from .program_audit import audit_coach_program
 from .program_models import ProgramIssue, ProgramBlockOption
 from .program_output_audit import audit_program_output, inspect_import_contract
-from .program_service import build_program_preview, generate_program
+from .program_service import build_program_preview, generate_program, program_name_reference_paths
 from .program_template import inspect_program_template
 
 
@@ -290,6 +290,14 @@ def run_program_batch(
     manifest = _manifest(manifest_file)
     protected = list(dict.fromkeys([*initial_paths, *manifest["block_configs"].values(),
                                    *[e["output"] for e in manifest["evidence"]]]))
+    reference_paths = list(program_name_reference_paths(config))
+    for path in manifest["block_configs"].values():
+        try:
+            reference_paths.extend(program_name_reference_paths(load_config(path)))
+        except (ConfigError, ValueError, OSError):
+            # Invalid block profiles remain isolated and visible below.
+            continue
+    protected = list(dict.fromkeys([*protected, *(Path(path) for path in reference_paths)]))
     before = _hashes(protected)
     if any(before[key] != value for key, value in initial_hashes.items()):
         raise WorkbookError("Batch inputs changed during setup")

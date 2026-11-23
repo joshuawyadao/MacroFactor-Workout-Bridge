@@ -20,6 +20,7 @@ from macrofactor_bridge.program_template import inspect_program_template, templa
 from macrofactor_bridge.program_text import clean_program_note, prepare_program_notes
 from tests.test_program_preview import exercise_row
 from tests.test_program_generation import rewrite_zip_member
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_program_workbook, write_macrofactor_program_template
 
 
@@ -36,7 +37,7 @@ class ProgramCorrectionTests(unittest.TestCase):
             "program": {"week_pair_layout": "plan_then_result", "prescription_source": "base",
                         "use_day_designations": True, "allow_blank_targets": True,
                         "preserve_coach_notes": True, "notes_mode": "concise",
-                        "note_text_policy": "verbatim",
+                        "note_text_policy": "verbatim", "notes_source": "reviewed",
                         "exclude_warmups": True, "exclude_cardio": True,
                         "defaults": {"set_type": "standard"}},
             "exercises": [{"canonical": "Synthetic Alpha", "coach_aliases": ["Coach Alpha"]},
@@ -54,6 +55,7 @@ class ProgramCorrectionTests(unittest.TestCase):
 
     def config(self):
         self.config_path.write_text(json.dumps(self.payload))
+        add_program_name_evidence(self.config_path)
         return load_config(self.config_path)
 
     def preview(self, weeks=("Week 1", "Week 2")):

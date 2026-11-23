@@ -102,6 +102,7 @@ def review_sections(report: BridgeReport) -> tuple[ReviewSection, ...]:
         ("Occupied cells", report.occupied_cells),
         ("Other skipped data", report.skipped_rows),
         ("MacroFactor exercise notes", report.exercise_notes),
+        ("Reviewed result corrections", report.result_corrections),
         ("Empty-day review markers", report.empty_day_markers),
     )
     sections: list[ReviewSection] = []

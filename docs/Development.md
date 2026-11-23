@@ -21,7 +21,36 @@ export PYTHON_BIN=python3.11
 "$PYTHON_BIN" -c 'import ssl; print(ssl.OPENSSL_VERSION)'
 ```
 
-Set `PYTHON_BIN` to an absolute interpreter path when needed. Use a maintained distributor for Python 3.11 security releases: python.org no longer supplies 3.11 binary installers. Keep an isolated interpreter under ignored `.venv/` if you want to preserve the system installation. The build preflight rejects unsupported or prerelease interpreters before recreating `.app-build-venv`. CI uses Python 3.11.17. Updating the interpreter does not update an existing app: rebuild and launch the new bundle explicitly.
+Set `PYTHON_BIN` to an absolute interpreter path when needed. Use a maintained distributor for Python 3.11 security releases: python.org no longer supplies 3.11 binary installers. Keep an isolated interpreter under ignored `.venv/` if you want to preserve the system installation. The build preflight rejects unsupported or prerelease interpreters before recreating `.app-build-venv`. The macOS ARM CI job provisions Python 3.11.17 with the same pinned uv helper below because `actions/setup-python` did not offer that exact ARM build on the macOS 15 runner. It verifies the runner and interpreter architecture before building. CI downloads uv 0.13.7 directly from its [official ARM release](https://github.com/astral-sh/uv/releases/tag/0.13.7), verifies the fixed SHA-256 before extraction, and then uses uv's frozen Python catalog. This inline installation respects the repository's GitHub-owned Actions policy. Ubuntu source tests retain `actions/setup-python`. Updating the interpreter does not update an existing app: rebuild and launch the new bundle explicitly.
+
+### Reproducible local Python
+
+If your selected Python is older than the reviewed baseline, install **uv 0.13.7** using the [official versioned installer](https://docs.astral.sh/uv/getting-started/installation/#installing-specific-versions). Download and inspect the installer before running it:
+
+```sh
+UV_INSTALLER="$(mktemp -t macrofactor-uv.XXXXXX)"
+curl --proto '=https' --tlsv1.2 -LsSf https://astral.sh/uv/0.13.7/install.sh -o "$UV_INSTALLER"
+less "$UV_INSTALLER"
+sh "$UV_INSTALLER"
+# Start a new shell or follow the installer's PATH instructions.
+uv --version
+```
+
+From the repository root, provision the exact reviewed interpreter and select it:
+
+```sh
+PYTHON_BIN="$(./scripts/setup_python.sh)" && export PYTHON_BIN
+"$PYTHON_BIN" --version
+"$PYTHON_BIN" -c 'import ssl; print(ssl.OPENSSL_VERSION)'
+./scripts/test.sh
+./scripts/build_macos_app.sh  # macOS only
+```
+
+The helper requires the pinned uv release and installs **CPython 3.11.17** from uv's bundled [python-build-standalone catalog](https://docs.astral.sh/uv/guides/install-python/). The verified uv 0.13.7 ARM archive reports `uv 0.13.7 (316c827e0 2026-11-03 aarch64-apple-darwin)`; the helper accepts that release provenance suffix and rejects other versions or malformed suffixes. This pins the installer catalog and interpreter version; it is not a byte-for-byte app-build guarantee. Downloads need network access on first use. Python and uv's cache stay under this checkout's ignored `.venv/python/` and `.venv/uv-cache/`; uv does not add Python commands to your user bin directory. Repeated runs reuse the managed installation. The helper ignores uv config files, checks the build preflight and exact version, and checks that `ssl`, `venv` and `ensurepip` are available before printing only the absolute interpreter path. Errors go to stderr and return nonzero. The `&&` above prevents exporting a failed result; stop if setup fails.
+
+Existing test/audit environments and system Python remain in place. Each linked worktree provisions its own interpreter, and the existing test runner keys its shared environment by the resolved interpreter path. Re-run setup and export `PYTHON_BIN` in a new shell. To use a different maintained 3.11.17+ interpreter instead, set `PYTHON_BIN` to its absolute path; keep the managed installation until dependent environments and any app build have been replaced. Changing Python does not update an installed app. Review future Python/uv pin changes together with CI and the hash-locked wheel closures.
+
+For the dependency audit below, create its environment using `"$PYTHON_BIN" -m venv .venv/audit` after selecting this interpreter. Install the audit lock and run the documented audit command; setup itself installs no application or audit packages.
 
 ## Verification
 
@@ -116,6 +145,6 @@ The build script checks the selected Python runtime, recreates its isolated `.ap
 
 ## Pull requests and documentation
 
-[CI Verify](../.github/workflows/ci-verify.yml) runs the dependency audit, complete tests, compilation, and diff check for non-draft pull requests and manual dispatches. Draft pull requests do not reserve a runner; marking one ready for review starts verification. New commits cancel superseded runs; merging does not repeat the suite on `main`. Use manual dispatch for a hosted rerun when needed. Record the completed local unittest result and exit status in the PR, plus any native macOS checks relevant to a UI or packaging change.
+[CI Verify](../.github/workflows/ci-verify.yml) requires two successful platform jobs for non-draft pull requests, pushes to `main` after merge, and manual dispatches: Ubuntu audits the locked dependencies, runs the complete Python and offscreen Qt suite, compiles sources, and checks the diff for pull requests; Apple-silicon macOS builds the packaged app with the reviewed Python 3.11.17 and locked app dependencies, ad-hoc signs and verifies it, then runs its embedded Qt `--smoke-test` offscreen against no personal data. The aggregate `CI Verify` check fails if either platform job fails, is cancelled, or is skipped. Draft pull requests do not reserve a runner; marking one ready for review starts verification. New commits cancel superseded runs. Use manual dispatch for a hosted rerun when needed. Record any manual native UI or real-data checks separately in the PR.
 
 Keep the [documentation index](README.md) and affected topic page current when changing commands, file formats, user flows, safety checks, or module boundaries. Prefer one canonical explanation with links from overview pages. Use relative Markdown links and concise Mermaid diagrams with a prose equivalent. Examples must be synthetic; no personal workbooks, exports, generated reports, local manifests, credentials, or unredacted local paths belong in documentation or screenshots. See [Contributing](../CONTRIBUTING.md) and the [Security Policy](../SECURITY.md) for broader rules.

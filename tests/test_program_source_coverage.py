@@ -13,6 +13,7 @@ from macrofactor_bridge.ooxml import MAIN_NS, WorkbookError, file_sha256
 from macrofactor_bridge.program_service import build_program_preview, generate_program
 from tests.test_program_generation import rewrite_zip_member
 from tests.test_program_preview import exercise_row
+from tests.xlsx_factory import add_program_name_evidence
 from tests.xlsx_factory import add_day_header, write_macrofactor_program_template, write_program_workbook
 
 
@@ -40,6 +41,7 @@ class StandaloneSourceCoverageTests(unittest.TestCase):
             "exercises": [{"canonical": "Alpha", "coach_aliases": ["Alpha Move"]},
                           {"canonical": "Beta", "coach_aliases": ["Beta Move"]}],
         }))
+        add_program_name_evidence(self.config_path)
         config = load_config(self.config_path)
         write_program_workbook(self.coach, sheet_name="Synthetic", cells=self.cells, merges=self.merges)
         block = discover_program_blocks(self.coach, config)[0]
