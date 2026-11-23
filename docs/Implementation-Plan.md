@@ -1,5 +1,28 @@
 # Plan
 
+Format confirmed partial reps as `+Np` in coach-workbook results and integrate the rep review editor with the current transfer logic.
+
+## Scope
+
+- In: Part 1 rep confirmations, compact workbook notation, desktop and CLI previews, dated correction compatibility, tests and documentation.
+- Out: Source workbooks, numeric history, installed app bundles, and private workout data.
+
+## Action items
+
+- [x] Compare the reviewed tracker with prior export values and review transfer documentation, tests, and the existing rep-confirmation branch.
+- [ ] Checkpoint this plan on `codex/separate-full-partial-reps` and integrate the current `origin/main`.
+- [ ] Render confirmed full and partial counts as `8+3p` for regular sets, myo sets, drop sets, and eligible supersets. Keep source reps numeric and support explicit splits on exported integers.
+- [ ] Compose rep review with dated result corrections, current load grouping, and stale-input protection. Preserve raw decimal transfer when rep review is disabled.
+- [ ] Update the formatter, transfer, and desktop regressions. Cover an integer and a fractional export, unchanged myo mini-set notation, and precedence for a valid dated correction.
+- [ ] Update Architecture, Configuration, CLI Reference, and Desktop Guide. Verify the selected-date review and private confirmation storage described in Local File Workflow.
+- [ ] Run focused transfer and desktop tests, the full offscreen suite, compilation, and diff checks. Save and push the branch.
+
+## Open questions
+
+- None.
+
+## Earlier rep-confirmation work
+
 Display confirmed full and partial rep counts separately in coach-workbook imports while preserving MacroFactor's original numeric reps for history and source verification.
 
 ## Scope
